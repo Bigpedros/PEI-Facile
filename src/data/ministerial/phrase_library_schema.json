@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0",
+  "description": "Schema for teacher-selectable recurring phrases/cases. No real student data. Seed entries must be generic, anonymized and reviewed by teachers.",
+  "entryExample": {
+    "id": "EXAMPLE_ONLY",
+    "schoolOrders": [
+      "A1",
+      "A2",
+      "A3",
+      "A4"
+    ],
+    "section": "4",
+    "dimension": "Relazione / Interazione / Socializzazione",
+    "fieldType": "observation",
+    "tags": [
+      "generic"
+    ],
+    "text": "TESTO DI ESEMPIO - NON CONTENUTO MINISTERIALE",
+    "sourceType": "teacher_curated",
+    "status": "draft",
+    "requiresTeacherReview": true
+  },
+  "entries": []
+}

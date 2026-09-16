@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import type { ScreenId, SchoolOrder, ThemeType, PeiDocument, PeiSectionDefinition } from './types/pei';
+import type { ScreenId, SchoolOrder, ThemeType, PeiDocument, AppSettings } from './types/pei';
 import {
   MASTER_PEI_SECTIONS,
   DEMO_PEI_DOCUMENT,
@@ -25,30 +25,90 @@ import { PdfIntakeModal } from './components/modals/PdfIntakeModal';
 import { SettingsModal } from './components/modals/SettingsModal';
 import { HelpModal } from './components/modals/HelpModal';
 
+const DEFAULT_SETTINGS: AppSettings = {
+  schoolName: 'I.C. Statale Alessandro Manzoni',
+  schoolCode: '',
+  address: '',
+  cap: '',
+  city: '',
+  province: '',
+  building: '',
+  teacherName: '',
+  teacherSurname: '',
+  teacherRole: 'Docente di Sostegno',
+  defaultSchoolOrder: 'A2',
+  theme: 'navy',
+};
+
 export default function App() {
-  // 1. Stato di Navigazione
+  // 1. Stato Impostazioni (pei_facile_settings_v1)
+  const [settings, setSettings] = useState<AppSettings>(() => {
+    try {
+      const saved = localStorage.getItem('pei_facile_settings_v1');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {
+      // ignore
+    }
+    return DEFAULT_SETTINGS;
+  });
+
+  const handleSaveSettings = (newSettings: AppSettings) => {
+    setSettings(newSettings);
+    try {
+      localStorage.setItem('pei_facile_settings_v1', JSON.stringify(newSettings));
+    } catch {
+      // ignore
+    }
+    setCurrentTheme(newSettings.theme);
+    showToast('Impostazioni salvate con successo nella memoria locale.');
+  };
+
+  // 2. Stato di Navigazione
   const [currentScreen, setCurrentScreen] = useState<ScreenId>('SCR-001');
 
-  // 2. Stato del Tema (Sabbia, Blu Navy 35%, Antracite)
-  const [currentTheme, setCurrentTheme] = useState<ThemeType>('navy');
+  // 3. Stato del Tema
+  const [currentTheme, setCurrentTheme] = useState<ThemeType>(settings.theme || 'navy');
 
-  // 3. Documento PEI Corrente
-  const [document, setDocument] = useState<PeiDocument>(DEMO_PEI_DOCUMENT);
-  const [hasOpenDocument, setHasOpenDocument] = useState<boolean>(true);
+  // 4. Documento PEI Corrente (Inizialmente senza documento aperto, o caricato da salvataggio locale)
+  const [document, setDocument] = useState<PeiDocument>(() => {
+    try {
+      const savedDoc = localStorage.getItem('pei_facile_saved_doc');
+      if (savedDoc) {
+        return JSON.parse(savedDoc);
+      }
+    } catch {
+      // ignore
+    }
+    return createEmptyPeiDocument(settings.defaultSchoolOrder || 'A2', '', settings.schoolName, settings.building);
+  });
+  const [hasOpenDocument, setHasOpenDocument] = useState<boolean>(() => {
+    return !!localStorage.getItem('pei_facile_saved_doc');
+  });
 
-  // 4. Sezione Attiva nella compilazione
+  const savedDocument = (() => {
+    try {
+      const s = localStorage.getItem('pei_facile_saved_doc');
+      return s ? JSON.parse(s) : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  // 5. Sezione Attiva nella compilazione
   const [activeSectionId, setActiveSectionId] = useState<string>('sec1_quadro_informativo');
 
-  // 5. Livello di Zoom
+  // 6. Livello di Zoom
   const [zoomScale, setZoomScale] = useState<number>(1.0);
 
-  // 6. Stati Modali
+  // 7. Stati Modali
   const [isNewPeiModalOpen, setIsNewPeiModalOpen] = useState(false);
   const [isPdfIntakeModalOpen, setIsPdfIntakeModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
 
-  // 7. Notifiche Toast
+  // 8. Notifiche Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -79,7 +139,7 @@ export default function App() {
         value !== '' &&
         (!Array.isArray(value) || value.length > 0);
 
-      return {
+      const updated = {
         ...prev,
         updatedAt: new Date().toISOString(),
         values: {
@@ -91,16 +151,30 @@ export default function App() {
           [fieldId]: isFilled ? 'compilato' : 'vuoto',
         },
       };
+      try {
+        localStorage.setItem('pei_facile_saved_doc', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
     });
   };
 
   // Cambio ordine di scuola (A1 - A4)
   const handleChangeSchoolOrder = (newOrder: SchoolOrder) => {
-    setDocument((prev) => ({
-      ...prev,
-      schoolOrder: newOrder,
-      updatedAt: new Date().toISOString(),
-    }));
+    setDocument((prev) => {
+      const updated = {
+        ...prev,
+        schoolOrder: newOrder,
+        updatedAt: new Date().toISOString(),
+      };
+      try {
+        localStorage.setItem('pei_facile_saved_doc', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
     const newSections = filterSectionsForSchoolOrder(MASTER_PEI_SECTIONS, newOrder);
     if (!newSections.some((s) => s.id === activeSectionId)) {
       setActiveSectionId(newSections[0].id);
@@ -108,7 +182,7 @@ export default function App() {
     showToast(`Modello ministeriale aggiornato ad ${newOrder} (${SCHOOL_ORDERS_METADATA[newOrder].officialAllegato})`);
   };
 
-  // Creazione nuovo PEI vuoto
+  // Creazione nuovo PEI
   const handleConfirmCreateNewPei = (
     order: SchoolOrder,
     studentCode: string,
@@ -118,43 +192,45 @@ export default function App() {
     const newDoc = createEmptyPeiDocument(order, studentCode, schoolName, classSec);
     setDocument(newDoc);
     setHasOpenDocument(true);
+    try {
+      localStorage.setItem('pei_facile_saved_doc', JSON.stringify(newDoc));
+    } catch {
+      // ignore
+    }
     const orderSections = filterSectionsForSchoolOrder(MASTER_PEI_SECTIONS, order);
     setActiveSectionId(orderSections[0].id);
     setCurrentScreen('SCR-002');
     showToast(`Nuovo PEI ${order} creato con successo.`);
   };
 
-  // Apertura PEI Demo
-  const handleOpenSamplePei = () => {
-    setDocument(DEMO_PEI_DOCUMENT);
-    setHasOpenDocument(true);
-    setActiveSectionId('sec1_quadro_informativo');
-    setCurrentScreen('SCR-002');
-    showToast('PEI di Esempio caricato con dati fittizi realistici.');
-  };
-
-  // Selezione documento recente dalla home
-  const handleSelectRecent = (order: SchoolOrder) => {
-    setDocument((prev) => ({
-      ...prev,
-      schoolOrder: order,
-      studentCode: `ALUNNO_${order}_DEMO`,
-    }));
-    setHasOpenDocument(true);
-    const orderSections = filterSectionsForSchoolOrder(MASTER_PEI_SECTIONS, order);
-    setActiveSectionId(orderSections[0].id);
-    setCurrentScreen('SCR-002');
-    showToast(`Aperto documento ${order} dall'archivio recente.`);
-  };
-
-  // Salvataggio simulato
-  const handleSaveDemo = () => {
+  // Apertura PEI Esistente / Salvato
+  const handleOpenSavedPei = () => {
     try {
-      localStorage.setItem('pei_facile_saved_doc', JSON.stringify(document));
+      const s = localStorage.getItem('pei_facile_saved_doc');
+      if (s) {
+        const doc = JSON.parse(s);
+        setDocument(doc);
+        setHasOpenDocument(true);
+        const orderSections = filterSectionsForSchoolOrder(MASTER_PEI_SECTIONS, doc.schoolOrder);
+        setActiveSectionId(orderSections[0]?.id || 'sec1_quadro_informativo');
+        setCurrentScreen('SCR-002');
+        showToast('PEI esistente aperto dalla memoria locale.');
+        return;
+      }
     } catch {
       // ignore
     }
-    showToast('Bozza PEI salvata localmente in memoria.');
+    showToast('Nessun PEI esistente salvato in memoria locale. Creane uno nuovo.');
+  };
+
+  // Salvataggio manuale
+  const handleSaveDocument = () => {
+    try {
+      localStorage.setItem('pei_facile_saved_doc', JSON.stringify(document));
+      showToast('PEI salvato con successo nella memoria locale.');
+    } catch {
+      showToast('Errore durante il salvataggio locale.');
+    }
   };
 
   // Chiusura PEI
@@ -169,22 +245,28 @@ export default function App() {
     extractedValues: Record<string, string>;
     logs: string[];
   }) => {
-    if (imported.schoolOrder) {
-      handleChangeSchoolOrder(imported.schoolOrder);
-    }
+    let order = imported.schoolOrder || document.schoolOrder;
     setDocument((prev) => {
       const mergedValues = { ...prev.values, ...imported.extractedValues };
       const mergedStatuses = { ...prev.fieldStatuses };
       Object.keys(imported.extractedValues).forEach((fId) => {
         mergedStatuses[fId] = 'compilato';
       });
-      return {
+      const updated = {
         ...prev,
+        schoolOrder: order,
         values: mergedValues,
         fieldStatuses: mergedStatuses,
         updatedAt: new Date().toISOString(),
       };
+      try {
+        localStorage.setItem('pei_facile_saved_doc', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
     });
+    setHasOpenDocument(true);
     setCurrentScreen('SCR-002');
     showToast('Dati estratti dal PDF applicati con successo alle sezioni!');
   };
@@ -201,15 +283,18 @@ export default function App() {
         schoolOrder={document.schoolOrder}
         onChangeSchoolOrder={handleChangeSchoolOrder}
         currentTheme={currentTheme}
-        onChangeTheme={setCurrentTheme}
+        onChangeTheme={(th) => {
+          setCurrentTheme(th);
+          handleSaveSettings({ ...settings, theme: th });
+        }}
         zoomScale={zoomScale}
         onChangeZoom={setZoomScale}
         activeSectionTitle={currentSection?.shortTitle}
         hasOpenDocument={hasOpenDocument}
         onNewPei={() => setIsNewPeiModalOpen(true)}
-        onOpenSamplePei={handleOpenSamplePei}
+        onOpenSamplePei={handleOpenSavedPei}
         onOpenPdfIntake={() => setIsPdfIntakeModalOpen(true)}
-        onSaveDemo={handleSaveDemo}
+        onSaveDemo={handleSaveDocument}
         onClosePei={handleClosePei}
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
         onOpenHelpModal={() => setIsHelpModalOpen(true)}
@@ -217,7 +302,7 @@ export default function App() {
 
       {/* Contenuto Principale: Visualizzazione Schermata Corrente */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* SCR-001: Schermata Home con Albero Attenuato come da Pagebook R04 */}
+        {/* SCR-001: Schermata Home con Albero Attenuato */}
         {currentScreen === 'SCR-001' && (
           <div className="flex-1 flex overflow-hidden">
             <aside className="w-72 shrink-0 h-full hidden lg:block opacity-40 pointer-events-none select-none border-r border-[var(--border)]">
@@ -231,9 +316,10 @@ export default function App() {
 
             <HomeScreen
               onNewPei={() => setIsNewPeiModalOpen(true)}
-              onOpenSamplePei={handleOpenSamplePei}
               onOpenPdfIntake={() => setIsPdfIntakeModalOpen(true)}
-              onSelectRecentDocument={handleSelectRecent}
+              onOpenSavedPei={handleOpenSavedPei}
+              savedDocument={savedDocument}
+              onSelectSavedDocument={handleOpenSavedPei}
               onOpenHelpModal={() => setIsHelpModalOpen(true)}
             />
           </div>
@@ -248,7 +334,7 @@ export default function App() {
             onSelectSection={setActiveSectionId}
             onFieldValueChange={handleFieldValueChange}
             zoomScale={zoomScale}
-            onSave={handleSaveDemo}
+            onSave={handleSaveDocument}
             onGoToPreview={() => setCurrentScreen('SCR-003')}
           />
         )}
@@ -277,6 +363,7 @@ export default function App() {
       <NewPeiModal
         isOpen={isNewPeiModalOpen}
         onClose={() => setIsNewPeiModalOpen(false)}
+        settings={settings}
         onConfirmCreate={handleConfirmCreateNewPei}
       />
 
@@ -289,10 +376,18 @@ export default function App() {
       <SettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
+        settings={settings}
+        onSaveSettings={handleSaveSettings}
         currentTheme={currentTheme}
-        onChangeTheme={setCurrentTheme}
-        defaultSchoolOrder={document.schoolOrder}
-        onChangeDefaultSchoolOrder={handleChangeSchoolOrder}
+        onChangeTheme={(th) => {
+          setCurrentTheme(th);
+          handleSaveSettings({ ...settings, theme: th });
+        }}
+        defaultSchoolOrder={settings.defaultSchoolOrder}
+        onChangeDefaultSchoolOrder={(ord) => {
+          handleSaveSettings({ ...settings, defaultSchoolOrder: ord });
+          handleChangeSchoolOrder(ord);
+        }}
       />
 
       <HelpModal
@@ -302,3 +397,4 @@ export default function App() {
     </div>
   );
 }
+

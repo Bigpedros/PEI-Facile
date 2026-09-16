@@ -44,7 +44,7 @@ export const Cmp07NumericField: React.FC<Cmp07NumericFieldProps> = ({
           max={field.max}
           step={field.step || 1}
           placeholder="0"
-          className="w-32 px-3 py-2 text-sm text-stone-900 bg-white border border-stone-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-800 focus:border-amber-800 disabled:bg-stone-100 disabled:text-stone-400 font-mono text-right"
+          className="w-32 px-3 py-2 text-sm text-stone-900 bg-white border border-stone-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-800 focus:border-amber-800 disabled:bg-stone-100 disabled:text-stone-400 placeholder:text-stone-400 font-mono text-right"
         />
         {field.unit && (
           <span className="text-xs font-medium text-stone-600 bg-stone-100 px-2.5 py-2 rounded border border-stone-200">

@@ -155,7 +155,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                     className="w-full text-left px-3 py-1.5 hover:bg-amber-50 flex items-center gap-2 disabled:opacity-40"
                   >
                     <Save className="w-3.5 h-3.5 text-stone-500" />
-                    <span>Salva modifiche (Demo)</span>
+                    <span>Salva modifiche</span>
                   </button>
                   <div className="border-t border-stone-200 my-1" />
                   <button
@@ -354,12 +354,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             >
               Antracite
             </button>
-          </div>
-
-          {/* Badge Indicatore Modalità Demo */}
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100/80 text-amber-950 border border-amber-300">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
-            <span>MODALITÀ DEMO</span>
           </div>
         </div>
       </div>

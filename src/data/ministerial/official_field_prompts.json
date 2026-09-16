@@ -1,0 +1,134 @@
+{
+  "version": "R01",
+  "purpose": "Contextual help and indexing taxonomy. These are ministerial prompts/field purposes, not pre-written student answers.",
+  "rules": [
+    "Do not present guidance text as a completed PEI answer.",
+    "Do not auto-insert content without teacher confirmation.",
+    "Keep teacher-authored case phrases in a separate library.",
+    "No real student personal data in seed content."
+  ],
+  "commonSections": [
+    {
+      "id": "1",
+      "title": "Quadro informativo",
+      "libraryUse": [
+        "guided_prompt",
+        "context_help"
+      ]
+    },
+    {
+      "id": "2",
+      "title": "Elementi generali desunti dal Profilo di Funzionamento",
+      "libraryUse": [
+        "guided_prompt",
+        "context_help"
+      ]
+    },
+    {
+      "id": "3",
+      "title": "Raccordo con il Progetto Individuale di cui all’art. 14 della Legge 328/2000",
+      "libraryUse": [
+        "guided_prompt",
+        "context_help"
+      ]
+    },
+    {
+      "id": "4",
+      "title": "Osservazioni per progettare gli interventi di sostegno didattico",
+      "libraryUse": [
+        "guided_prompt",
+        "case_phrase_taxonomy"
+      ],
+      "dimensions": [
+        "Relazione / Interazione / Socializzazione",
+        "Comunicazione / Linguaggio",
+        "Autonomia / Orientamento",
+        "Cognitiva, Neuropsicologica e dell’Apprendimento"
+      ]
+    },
+    {
+      "id": "5",
+      "title": "Interventi: obiettivi, strumenti, strategie e modalità",
+      "libraryUse": [
+        "guided_prompt",
+        "case_phrase_taxonomy"
+      ],
+      "dimensions": [
+        "Relazione / Interazione / Socializzazione",
+        "Comunicazione / Linguaggio",
+        "Autonomia / Orientamento",
+        "Cognitiva, Neuropsicologica e dell’Apprendimento"
+      ]
+    },
+    {
+      "id": "6",
+      "title": "Osservazioni sul contesto: barriere e facilitatori",
+      "libraryUse": [
+        "guided_prompt",
+        "case_phrase_taxonomy"
+      ]
+    },
+    {
+      "id": "7",
+      "title": "Interventi sul contesto per realizzare un ambiente di apprendimento inclusivo",
+      "libraryUse": [
+        "guided_prompt",
+        "case_phrase_taxonomy"
+      ]
+    },
+    {
+      "id": "8",
+      "title": "Interventi sul percorso curricolare",
+      "libraryUse": [
+        "guided_prompt",
+        "case_phrase_taxonomy"
+      ]
+    },
+    {
+      "id": "9",
+      "title": "Organizzazione generale del progetto di inclusione e utilizzo delle risorse",
+      "libraryUse": [
+        "guided_prompt",
+        "context_help"
+      ]
+    },
+    {
+      "id": "10",
+      "title": "Certificazione delle competenze",
+      "libraryUse": [
+        "context_help"
+      ],
+      "availability": "school-order dependent"
+    },
+    {
+      "id": "11",
+      "title": "Verifica finale / Proposte per risorse professionali e servizi di supporto",
+      "libraryUse": [
+        "guided_prompt",
+        "case_phrase_taxonomy"
+      ]
+    },
+    {
+      "id": "12",
+      "title": "PEI provvisorio per l'anno scolastico successivo",
+      "libraryUse": [
+        "guided_prompt",
+        "case_phrase_taxonomy"
+      ]
+    }
+  ],
+  "schoolSpecificNotes": {
+    "A1": [
+      "Il modello Infanzia presenta differenze/omissioni rispetto agli altri modelli."
+    ],
+    "A2": [
+      "La progettazione disciplinare è riferita alla scuola primaria."
+    ],
+    "A3": [
+      "La progettazione disciplinare e le verifiche sono riferite alla secondaria di I grado."
+    ],
+    "A4": [
+      "Include PCTO e distinzione tra percorso ordinario, personalizzato/equipollente e differenziato."
+    ]
+  }
+}

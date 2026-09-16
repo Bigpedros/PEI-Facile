@@ -1,33 +1,29 @@
 import React from 'react';
-import type { SchoolOrder } from '../../types/pei';
-import { SCHOOL_ORDERS_METADATA } from '../../data/masterPeiStructure';
+import type { SchoolOrder, PeiDocument } from '../../types/pei';
 import {
   FilePlus,
   FolderOpen,
   Upload,
-  BookOpen,
-  Sparkles,
   ShieldCheck,
   Clock,
   ArrowRight,
-  HelpCircle,
-  FileCheck,
 } from 'lucide-react';
 
 interface HomeScreenProps {
   onNewPei: () => void;
-  onOpenSamplePei: () => void;
   onOpenPdfIntake: () => void;
-  onSelectRecentDocument: (order: SchoolOrder) => void;
+  onOpenSavedPei: () => void;
+  savedDocument: PeiDocument | null;
+  onSelectSavedDocument: () => void;
   onOpenHelpModal: () => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   onNewPei,
-  onOpenSamplePei,
   onOpenPdfIntake,
-  onSelectRecentDocument,
-  onOpenHelpModal,
+  onOpenSavedPei,
+  savedDocument,
+  onSelectSavedDocument,
 }) => {
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-6 md:p-12 overflow-y-auto">
@@ -59,8 +55,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </span>
           </div>
 
-          {/* 4 Azioni Principali */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* 3 Azioni Principali (NUOVO PEI, APRI PEI ESISTENTE, IMPORTA PDF) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* 1. Nuovo PEI */}
             <div
               onClick={onNewPei}
@@ -74,7 +70,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   Nuovo PEI
                 </h3>
                 <p className="text-xs text-stone-600 leading-relaxed">
-                  Crea un nuovo documento vuoto selezionando l&apos;ordine di scuola (Infanzia A1, Primaria A2, Secondaria I Grado A3 o Secondaria II Grado A4).
+                  Crea un nuovo documento pulito selezionando l&apos;ordine di scuola configurato (Infanzia A1, Primaria A2, Secondaria I Grado A3 o II Grado A4).
                 </p>
               </div>
               <div className="pt-3 flex items-center gap-1 text-xs font-semibold text-amber-800 group-hover:translate-x-1 transition-transform">
@@ -83,29 +79,29 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               </div>
             </div>
 
-            {/* 2. Carica PEI di Esempio */}
+            {/* 2. Apri PEI Esistente */}
             <div
-              onClick={onOpenSamplePei}
+              onClick={onOpenSavedPei}
               className="p-4 rounded-lg border-2 border-stone-200 hover:border-amber-800 bg-stone-50/50 hover:bg-amber-50/30 transition-all cursor-pointer group flex flex-col justify-between"
             >
               <div className="space-y-2">
-                <div className="w-10 h-10 rounded-md bg-emerald-100 text-emerald-900 flex items-center justify-center group-hover:scale-105 transition-transform">
-                  <Sparkles className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-md bg-stone-200 text-stone-800 flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <FolderOpen className="w-5 h-5" />
                 </div>
                 <h3 className="font-bold text-stone-900 text-sm group-hover:text-amber-900">
-                  Carica PEI di Esempio (Demo)
+                  Apri PEI Esistente
                 </h3>
                 <p className="text-xs text-stone-600 leading-relaxed">
-                  Esplora un documento precompilato con dati fittizi realistici nelle 12 sezioni, testando la navigazione e i 10 componenti dell&apos;editor.
+                  Riapri l&apos;ultimo piano educativo salvato in memoria locale o carica un documento di lavoro esistente.
                 </p>
               </div>
-              <div className="pt-3 flex items-center gap-1 text-xs font-semibold text-emerald-800 group-hover:translate-x-1 transition-transform">
-                <span>Esplora subito la demo</span>
+              <div className="pt-3 flex items-center gap-1 text-xs font-semibold text-stone-800 group-hover:translate-x-1 transition-transform">
+                <span>Apri file salvato</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </div>
             </div>
 
-            {/* 3. Importa PDF (OCR R3 Intake) */}
+            {/* 3. Importa PDF */}
             <div
               onClick={onOpenPdfIntake}
               className="p-4 rounded-lg border-2 border-stone-200 hover:border-amber-800 bg-stone-50/50 hover:bg-amber-50/30 transition-all cursor-pointer group flex flex-col justify-between"
@@ -115,10 +111,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   <Upload className="w-5 h-5" />
                 </div>
                 <h3 className="font-bold text-stone-900 text-sm group-hover:text-amber-900">
-                  Importa PDF con R3 Core
+                  Importa PDF
                 </h3>
                 <p className="text-xs text-stone-600 leading-relaxed">
-                  Carica un file PDF scannerizzato o compilato: il motore integrato estrae testo ed elementi con Tesseract OCR in lingua italiana.
+                  Carica un file PDF scannerizzato o compilato: il motore OCR integrato estrae testo ed elementi per popolare le sezioni.
                 </p>
               </div>
               <div className="pt-3 flex items-center gap-1 text-xs font-semibold text-blue-800 group-hover:translate-x-1 transition-transform">
@@ -126,91 +122,67 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 <ArrowRight className="w-3.5 h-3.5" />
               </div>
             </div>
-
-            {/* 4. Apri Documento Esistente */}
-            <div
-              onClick={onOpenSamplePei}
-              className="p-4 rounded-lg border-2 border-stone-200 hover:border-amber-800 bg-stone-50/50 hover:bg-amber-50/30 transition-all cursor-pointer group flex flex-col justify-between"
-            >
-              <div className="space-y-2">
-                <div className="w-10 h-10 rounded-md bg-stone-200 text-stone-800 flex items-center justify-center group-hover:scale-105 transition-transform">
-                  <FolderOpen className="w-5 h-5" />
-                </div>
-                <h3 className="font-bold text-stone-900 text-sm group-hover:text-amber-900">
-                  Apri PEI Recente
-                </h3>
-                <p className="text-xs text-stone-600 leading-relaxed">
-                  Riapri l&apos;ultimo piano educativo salvato in memoria locale o continua la bozza di lavoro dell&apos;anno scolastico corrente.
-                </p>
-              </div>
-              <div className="pt-3 flex items-center gap-1 text-xs font-semibold text-stone-800 group-hover:translate-x-1 transition-transform">
-                <span>Apri ultimo salvataggio</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* Elenco Documenti Recenti */}
+        {/* Elenco Documenti Recenti (Reale o Nessun PEI recente) */}
         <div className="bg-white border border-stone-300/80 rounded-lg p-5 shadow-sm space-y-3">
           <div className="flex items-center justify-between text-xs border-b border-stone-200 pb-2">
             <span className="font-bold text-stone-800 flex items-center gap-1.5 uppercase tracking-wider">
               <Clock className="w-4 h-4 text-amber-800" />
-              Documenti Recenti di Esempio
+              Documenti Recenti
             </span>
-            <span className="text-stone-400">Archivio dimostrativo locale</span>
+            <span className="text-stone-400">Memoria locale protetta</span>
           </div>
 
-          <div className="divide-y divide-stone-100 text-xs">
-            {(['A2', 'A3', 'A1', 'A4'] as SchoolOrder[]).map((order) => {
-              const meta = SCHOOL_ORDERS_METADATA[order];
-              return (
-                <div
-                  key={order}
-                  onClick={() => onSelectRecentDocument(order)}
-                  className="py-2.5 px-2 flex items-center justify-between hover:bg-amber-50/40 rounded cursor-pointer transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-amber-100 text-amber-950 border border-amber-200">
-                      {order}
-                    </span>
-                    <div>
-                      <div className="font-semibold text-stone-900">
-                        {meta.officialAllegato} — {meta.name}
-                      </div>
-                      <div className="text-[11px] text-stone-500">
-                        Alunno fittizio: ALUNNO_{order}_DEMO • Modello {meta.pageCount} pagine
-                      </div>
+          {savedDocument ? (
+            <div className="divide-y divide-stone-100 text-xs">
+              <div
+                onClick={onSelectSavedDocument}
+                className="py-2.5 px-2 flex items-center justify-between hover:bg-amber-50/40 rounded cursor-pointer transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-amber-100 text-amber-950 border border-amber-300">
+                    {savedDocument.schoolOrder}
+                  </span>
+                  <div>
+                    <div className="font-semibold text-stone-900">
+                      {savedDocument.schoolName} — Alunno: {savedDocument.studentCode}
+                    </div>
+                    <div className="text-[11px] text-stone-500">
+                      Classe {savedDocument.classOrSection} • Ultima modifica: {new Date(savedDocument.lastModifiedDate).toLocaleDateString()}
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-3">
-                    <span className="text-[11px] text-stone-500 hidden sm:inline">
-                      Ultima modifica oggi
-                    </span>
-                    <button
-                      type="button"
-                      className="px-2.5 py-1 text-xs font-medium bg-stone-100 hover:bg-amber-100 text-stone-800 hover:text-amber-900 rounded border border-stone-200 transition-colors"
-                    >
-                      Apri
-                    </button>
-                  </div>
                 </div>
-              );
-            })}
-          </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    className="px-2.5 py-1 text-xs font-medium bg-amber-800 hover:bg-amber-900 text-white rounded transition-colors"
+                  >
+                    Continua Modifica
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="py-8 text-center text-stone-500 text-xs italic">
+              Nessun PEI recente
+            </div>
+          )}
         </div>
 
         {/* Avviso Privacy e Footer Informativo */}
         <div className="text-center text-xs text-stone-500 space-y-1">
           <p>
-            PEI FACILE v0.2.1 • Riservatezza garantita: nessun dato reale inviato a server esterni.
+            PEI FACILE • Riservatezza garantita: nessun dato reale inviato a server esterni.
           </p>
           <p className="text-[11px] text-stone-400">
-            Tutti i modelli PDF ministeriali integrati sono tratti dal portale ufficiale istruzione.it.
+            Modelli ministeriali conformi al D.I. 182/2020 e D.I. 153/2023.
           </p>
         </div>
       </div>
     </div>
   );
 };
+

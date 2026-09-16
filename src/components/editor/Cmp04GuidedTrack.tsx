@@ -65,7 +65,7 @@ export const Cmp04GuidedTrack: React.FC<Cmp04GuidedTrackProps> = ({
           onFocus={onFocus}
           disabled={disabled}
           placeholder={field.placeholder || 'Scrivi direttamente o avvia la traccia guidata passo-passo...'}
-          className="w-full px-3 py-2 text-sm text-stone-900 bg-white border border-stone-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-800 focus:border-amber-800 disabled:bg-stone-100 disabled:text-stone-400 transition-colors leading-relaxed"
+          className="w-full px-3 py-2 text-sm text-stone-900 bg-white border border-stone-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-800 focus:border-amber-800 disabled:bg-stone-100 disabled:text-stone-400 placeholder:text-stone-400 transition-colors leading-relaxed"
         />
         {questions.length > 0 && !disabled && (
           <button
@@ -123,7 +123,7 @@ export const Cmp04GuidedTrack: React.FC<Cmp04GuidedTrackProps> = ({
                   placeholder="Oppure scrivi risposta personalizzata..."
                   value={answers[questions[activeStep].id] || ''}
                   onChange={(e) => handleSelectOption(questions[activeStep].id, e.target.value)}
-                  className="w-full px-2 py-1 border border-stone-300 rounded bg-white text-xs"
+                  className="w-full px-2 py-1 border border-stone-300 rounded bg-white text-stone-950 placeholder:text-stone-400 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-700 disabled:bg-stone-100 disabled:text-stone-500"
                 />
               </div>
             </div>

@@ -1,0 +1,66 @@
+ALLEGATO “C 1”
+Tabella Fabbisogno Risorse professionali per il sostegno didattico e l’assistenza
+Fabbisogno di risorse professionali per il sostegno didattico, tenuto conto dell’entità della potenziale restrizione della partecipazione.
+SCUOLA DELL’INFANZIA
+Entità delle difficoltà nello svolgimento delle attività comprese in ciascun dominio/dimensione tenendo conto dei fattori ambientali implicati | Assente
+ | Lieve
+ | Media
+ | Elevata
+ | Molto elevata
+
+Max 25 ore | 0-6 | 7 – 12 | 13 – 18 | 19 - 25
+SCUOLA PRIMARIA
+Entità delle difficoltà nello svolgimento delle attività comprese in ciascun dominio/dimensione tenendo conto dei fattori ambientali implicati | Assente
+ | Lieve
+ | Media
+ | Elevata
+ | Molto elevata
+
+Max 22 ore | 0-5 | 6 – 11 | 12 – 16 | 17 - 22
+SCUOLA SECONDARIA DI PRIMO GRADO
+Entità delle difficoltà nello svolgimento delle attività comprese in ciascun dominio/dimensione tenendo conto dei fattori ambientali implicati | Assente
+ | Lieve
+ | Media
+ | Elevata
+ | Molto elevata
+
+Max 18 ore | 0-4 | 5 – 9 | 10 – 14 | 15 - 18
+SCUOLA SECONDARIA DI SECONDO GRADO
+Entità delle difficoltà nello svolgimento delle attività comprese in ciascun dominio/dimensione tenendo conto dei fattori ambientali implicati | Assente
+ | Lieve
+ | Media
+ | Elevata
+ | Molto elevata
+
+Max 18 ore | 0-4 | 5 – 9 | 10 – 14 | 15 - 18
+Fabbisogno di risorse professionali per l’assistenza, tenuto conto dell’entità della potenziale restrizione della partecipazione
+COMUNICAZIONE
+Entità delle difficoltà nello svolgimento delle attività comprese in ciascun dominio/dimensione tenendo conto dei fattori ambientali implicati | Assente
+ | Lieve
+ | Media
+ | Elevata
+ | Molto elevata
+
+Assistenza specialistica alla comunicazione (per azioni riconducibili ad interventi educativi):
+Comunicazione:
+assistenza ad alunni/e, studenti/esse con disabilità visiva ◻
+assistenza ad alunni/e studenti/esse con disabilità uditiva ◻
+assistenza ad alunni/e con disabilità intellettive e disturbi del neurosviluppo ◻
+Altro:
+AUTONOMIA
+Entità delle difficoltà nello svolgimento delle attività comprese in ciascun dominio/dimensione tenendo conto dei fattori ambientali implicati | Assente
+ | Lieve
+ | Media
+ | Elevata
+ | Molto elevata
+
+Assistenza specialistica all’autonomia
+Educazione e sviluppo dell'autonomia, nella:
+cura di sé ◻
+mensa ◻
+altro ◻ (specificare )
+(*) Le risorse professionali da destinare all'assistenza, all'autonomia e alla comunicazione sono attribuite dagli Enti preposti, tenuto conto del principio di accomodamento ragionevole e sulla base delle richieste complessive formulate dai Dirigenti scolastici, secondo le modalità attuative e gli standard qualitativi previsti nell'accordo di cui all'articolo 3, comma 5-bis del DLgs 66/2017.
+igienica ◻
+spostamenti ◻
+mensa ◻
+altro ◻ (specificare )

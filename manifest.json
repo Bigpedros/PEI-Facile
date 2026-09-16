@@ -1,0 +1,72 @@
+{
+  "package": "PEI-FACILE-MINISTERIAL-CORPUS-R01",
+  "date": "2026-09-16",
+  "purpose": "Physical ministerial source integration + contextual guidance/library scaffold for PEI FACILE",
+  "containsOfficialPdfModels": true,
+  "containsAllFourA1A4": true,
+  "containsRealStudentData": false,
+  "officialPdfModels": [
+    {
+      "id": "A1",
+      "schoolOrder": "Scuola dell'Infanzia",
+      "runtimePath": "/models/ALLEGATO_A1_PEI_INFANZIA.pdf",
+      "repositoryPath": "public/models/ALLEGATO_A1_PEI_INFANZIA.pdf",
+      "pages": 12,
+      "bytes": 494120,
+      "sha256": "affc8680aab976fd422f9f64ed6c1b0481ca51c3c332e00f92fbf44301cb468c",
+      "authoritativeAsset": true,
+      "mutable": false
+    },
+    {
+      "id": "A2",
+      "schoolOrder": "Scuola Primaria",
+      "runtimePath": "/models/ALLEGATO_A2_PEI_PRIMARIA.pdf",
+      "repositoryPath": "public/models/ALLEGATO_A2_PEI_PRIMARIA.pdf",
+      "pages": 13,
+      "bytes": 508346,
+      "sha256": "3eb708f7ae405308858505bf160d8d1dbdb3cf9d291c1bbaf072835ac8521a1f",
+      "authoritativeAsset": true,
+      "mutable": false
+    },
+    {
+      "id": "A3",
+      "schoolOrder": "Scuola Secondaria di I grado",
+      "runtimePath": "/models/ALLEGATO_A3_PEI_SEC_1_GRADO.pdf",
+      "repositoryPath": "public/models/ALLEGATO_A3_PEI_SEC_1_GRADO.pdf",
+      "pages": 12,
+      "bytes": 477799,
+      "sha256": "8975f4ffb763c9faa914d6b1f8c34c30b68c5fb167e9d8751befcdc0cb695728",
+      "authoritativeAsset": true,
+      "mutable": false
+    },
+    {
+      "id": "A4",
+      "schoolOrder": "Scuola Secondaria di II grado",
+      "runtimePath": "/models/ALLEGATO_A4_PEI_SEC_2_GRADO.pdf",
+      "repositoryPath": "public/models/ALLEGATO_A4_PEI_SEC_2_GRADO.pdf",
+      "pages": 14,
+      "bytes": 541404,
+      "sha256": "9fef25e6eafc03f7a63f6812cd9a7dab9490a056f37ac6b5f384c30be5e73b47",
+      "authoritativeAsset": true,
+      "mutable": false
+    }
+  ],
+  "supportingOfficialDocuments": [
+    {
+      "id": "B",
+      "path": "public/reference/ministerial/2023/ALLEGATO_B_Linee_Guida.pdf"
+    },
+    {
+      "id": "C",
+      "path": "public/reference/ministerial/2023/ALLEGATO_C_Supporti_al_funzionamento.pdf"
+    },
+    {
+      "id": "C1",
+      "path": "public/reference/ministerial/2023/ALLEGATO_C1_Tabella_Fabbisogni.pdf"
+    },
+    {
+      "id": "DI153",
+      "path": "public/reference/ministerial/2023/DI_153_2023.pdf"
+    }
+  ]
+}

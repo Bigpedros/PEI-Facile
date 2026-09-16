@@ -43,7 +43,7 @@ export const Cmp03AssistedText: React.FC<Cmp03AssistedTextProps> = ({
           onFocus={onFocus}
           disabled={disabled}
           placeholder={field.placeholder || 'Inserisci osservazioni o attingi dalla libreria contestuale...'}
-          className="w-full px-3 py-2 text-sm text-stone-900 bg-white border border-stone-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-800 focus:border-amber-800 disabled:bg-stone-100 disabled:text-stone-400 transition-colors leading-relaxed"
+          className="w-full px-3 py-2 text-sm text-stone-900 bg-white border border-stone-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-800 focus:border-amber-800 disabled:bg-stone-100 disabled:text-stone-400 placeholder:text-stone-400 transition-colors leading-relaxed"
         />
         {phrases.length > 0 && !disabled && (
           <button

@@ -127,3 +127,19 @@ export interface SchoolOrderMetadata {
   pageCount: number;
   specialRules?: string;
 }
+
+export interface AppSettings {
+  schoolName: string;
+  schoolCode: string;
+  address: string;
+  cap: string;
+  city: string;
+  province: string;
+  building: string;
+  teacherName: string;
+  teacherSurname: string;
+  teacherRole: string;
+  defaultSchoolOrder: SchoolOrder;
+  theme: ThemeType;
+}
+

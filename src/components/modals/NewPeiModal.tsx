@@ -1,23 +1,34 @@
-import React, { useState } from 'react';
-import type { SchoolOrder } from '../../types/pei';
+import React, { useState, useEffect } from 'react';
+import type { SchoolOrder, AppSettings } from '../../types/pei';
 import { SCHOOL_ORDERS_METADATA } from '../../data/masterPeiStructure';
 import { X, Check, ShieldCheck, FileText } from 'lucide-react';
 
 interface NewPeiModalProps {
   isOpen: boolean;
   onClose: () => void;
+  settings: AppSettings;
   onConfirmCreate: (order: SchoolOrder, studentCode: string, schoolName: string, classSec: string) => void;
 }
 
 export const NewPeiModal: React.FC<NewPeiModalProps> = ({
   isOpen,
   onClose,
+  settings,
   onConfirmCreate,
 }) => {
-  const [selectedOrder, setSelectedOrder] = useState<SchoolOrder>('A2');
-  const [studentCode, setStudentCode] = useState('STUDENTE_PROVA_01');
-  const [schoolName, setSchoolName] = useState('I.C. Statale Alessandro Manzoni');
-  const [classSec, setClassSec] = useState('3^ B');
+  const [selectedOrder, setSelectedOrder] = useState<SchoolOrder>(settings.defaultSchoolOrder || 'A2');
+  const [studentCode, setStudentCode] = useState('');
+  const [schoolName, setSchoolName] = useState(settings.schoolName || '');
+  const [classSec, setClassSec] = useState(settings.building || '');
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedOrder(settings.defaultSchoolOrder || 'A2');
+      setSchoolName(settings.schoolName || '');
+      setClassSec(settings.building || '');
+      setStudentCode('');
+    }
+  }, [isOpen, settings]);
 
   if (!isOpen) return null;
 
@@ -25,7 +36,7 @@ export const NewPeiModal: React.FC<NewPeiModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onConfirmCreate(selectedOrder, studentCode, schoolName, classSec);
+    onConfirmCreate(selectedOrder, studentCode || 'ALUNNO_NON_SPECIFICATO', schoolName, classSec);
     onClose();
   };
 
@@ -54,7 +65,7 @@ export const NewPeiModal: React.FC<NewPeiModalProps> = ({
           {/* Selettore Ordine di Scuola */}
           <div className="space-y-2">
             <label className="font-bold text-stone-800 text-xs block">
-              1. Seleziona il Modello Ministeriale Ufficiale:
+              1. Seleziona il Modello Ministeriale Ufficiale (da Impostazioni o scelta rapida):
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {orders.map((ord) => {
@@ -84,21 +95,21 @@ export const NewPeiModal: React.FC<NewPeiModalProps> = ({
             </div>
           </div>
 
-          {/* Dati Generali Intestazione */}
+          {/* Dati Generali Intestazione (Prelevati da Impostazioni, nessun dato alunno inventato) */}
           <div className="space-y-3 pt-3 border-t border-stone-200">
             <label className="font-bold text-stone-800 text-xs block">
-              2. Dati fittizi per l’intestazione della testata:
+              2. Intestazione Documento (Dati istituzionali da Impostazioni):
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-stone-600 mb-1 text-[11px]">Identificativo Alunno/a:</label>
+                <label className="block text-stone-600 mb-1 text-[11px]">Identificativo Alunno/a (Pseudonimo):</label>
                 <input
                   type="text"
                   required
                   value={studentCode}
                   onChange={(e) => setStudentCode(e.target.value)}
-                  placeholder="Es. ALUNNO_A1_01"
-                  className="w-full px-2.5 py-1.5 border border-stone-300 rounded bg-white"
+                  placeholder="Es. ALU-2026-01"
+                  className="w-full px-2.5 py-1.5 border border-stone-300 rounded bg-white text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-amber-800 disabled:bg-stone-100 disabled:text-stone-500"
                 />
               </div>
               <div>
@@ -109,18 +120,18 @@ export const NewPeiModal: React.FC<NewPeiModalProps> = ({
                   value={schoolName}
                   onChange={(e) => setSchoolName(e.target.value)}
                   placeholder="Es. I.C. Statale..."
-                  className="w-full px-2.5 py-1.5 border border-stone-300 rounded bg-white"
+                  className="w-full px-2.5 py-1.5 border border-stone-300 rounded bg-white text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-amber-800 disabled:bg-stone-100 disabled:text-stone-500"
                 />
               </div>
               <div>
-                <label className="block text-stone-600 mb-1 text-[11px]">Classe o Sezione:</label>
+                <label className="block text-stone-600 mb-1 text-[11px]">Classe / Sezione / Plesso:</label>
                 <input
                   type="text"
                   required
                   value={classSec}
                   onChange={(e) => setClassSec(e.target.value)}
-                  placeholder="Es. 2^ A"
-                  className="w-full px-2.5 py-1.5 border border-stone-300 rounded bg-white"
+                  placeholder="Es. 3^ B - Plesso Centrale"
+                  className="w-full px-2.5 py-1.5 border border-stone-300 rounded bg-white text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-amber-800 disabled:bg-stone-100 disabled:text-stone-500"
                 />
               </div>
             </div>
@@ -154,3 +165,4 @@ export const NewPeiModal: React.FC<NewPeiModalProps> = ({
     </div>
   );
 };
+

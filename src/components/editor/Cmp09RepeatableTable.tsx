@@ -97,7 +97,7 @@ export const Cmp09RepeatableTable: React.FC<Cmp09RepeatableTableProps> = ({
                           value={row[col.id] || ''}
                           onChange={(e) => handleCellChange(rIdx, col.id, e.target.value)}
                           disabled={disabled}
-                          className="w-full p-1.5 border border-stone-300 rounded bg-white text-xs focus:ring-1 focus:ring-amber-800"
+                          className="w-full p-1.5 border border-stone-300 rounded bg-white text-stone-900 text-xs focus:outline-none focus:ring-1 focus:ring-amber-800 disabled:bg-stone-100 disabled:text-stone-500"
                         >
                           {col.options.map((opt) => (
                             <option key={opt} value={opt}>
@@ -112,7 +112,7 @@ export const Cmp09RepeatableTable: React.FC<Cmp09RepeatableTableProps> = ({
                           onChange={(e) => handleCellChange(rIdx, col.id, e.target.value)}
                           disabled={disabled}
                           placeholder={`Inserisci ${col.label.toLowerCase()}...`}
-                          className="w-full p-1.5 border border-stone-300 rounded bg-white text-xs focus:ring-1 focus:ring-amber-800 resize-y"
+                          className="w-full p-1.5 border border-stone-300 rounded bg-white text-stone-900 placeholder:text-stone-400 text-xs focus:outline-none focus:ring-1 focus:ring-amber-800 disabled:bg-stone-100 disabled:text-stone-500 resize-y"
                         />
                       )}
                     </td>

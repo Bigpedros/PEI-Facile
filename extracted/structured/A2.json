@@ -1,0 +1,1127 @@
+{
+  "source": "ALLEGATO_A2_PEI_PRIMARIA.docx",
+  "extractionPurpose": "Search/indexing aid only; original DOCX/PDF remains authoritative.",
+  "blocks": [
+    {
+      "type": "paragraph",
+      "index": 1,
+      "text": "[INTESTAZIONE DELLA SCUOLA]",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 2,
+      "text": "PIANO EDUCATIVO INDIVIDUALIZZATO",
+      "style": "Title"
+    },
+    {
+      "type": "paragraph",
+      "index": 3,
+      "text": "(ART. 7, D. LGS. 13 APRILE 2017, N. 66 e s.m.i.)",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 4,
+      "text": "Anno Scolastico _",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 5,
+      "text": "ALUNNO/A",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 6,
+      "text": "codice sostitutivo personale",
+      "style": "Heading 2"
+    },
+    {
+      "type": "paragraph",
+      "index": 7,
+      "text": "Classe Plesso o sede",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 8,
+      "text": "ACCERTAMENTO DELLA CONDIZIONE DI DISABILITÀ IN ETÀ EVOLUTIVA AI FINI DELL'INCLUSIONE",
+      "style": "Heading 2"
+    },
+    {
+      "type": "paragraph",
+      "index": 9,
+      "text": "SCOLASTICA rilasciato in data",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 10,
+      "text": "Data scadenza o rivedibilità: Non indicata",
+      "style": "Heading 2"
+    },
+    {
+      "type": "paragraph",
+      "index": 11,
+      "text": "PROFILO DI FUNZIONAMENTO redatto in data _ Nella fase transitoria:",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 12,
+      "text": " PROFILO DI FUNZIONAMENTO NON DISPONIBILE",
+      "style": "Heading 2"
+    },
+    {
+      "type": "paragraph",
+      "index": 13,
+      "text": "DIAGNOSI FUNZIONALE redatta in data",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 14,
+      "text": "PROFILO DINAMICO FUNZIONALE approvato in data",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 15,
+      "text": "PROGETTO INDIVIDUALE  redatto in data _  da redigere",
+      "style": "Normal"
+    },
+    {
+      "type": "table",
+      "index": 17,
+      "rows": [
+        [
+          "PEI PROVVISORIO",
+          "DATA \n\nVERBALE ALLEGATO N.",
+          "FIRMA DEL DIRIGENTE SCOLASTICO1\n\n……………………… ."
+        ],
+        [
+          "APPROVAZIONE DEL PEI\nE PRIMA SOTTOSCRIZIONE",
+          "DATA \n\n\nVERBALE ALLEGATO N.",
+          "FIRMA DEL DIRIGENTE SCOLASTICO1\n\n……………………… ."
+        ],
+        [
+          "VERIFICA INTERMEDIA",
+          "DATA \n\nVERBALE ALLEGATO N.",
+          "FIRMA DEL DIRIGENTE SCOLASTICO1\n\n……………………… ."
+        ],
+        [
+          "VERIFICA FINALE\nE PROPOSTE PER L’A.S. SUCCESSIVO",
+          "DATA \n\nVERBALE ALLEGATO N.",
+          "FIRMA DEL DIRIGENTE SCOLASTICO1\n\n……………………… ."
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 20,
+      "text": "Composizione del GLO - Gruppo di Lavoro Operativo per l’inclusione",
+      "style": "Heading 1"
+    },
+    {
+      "type": "paragraph",
+      "index": 21,
+      "text": "(1) o suo delegato",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 26,
+      "text": "Art. 15, commi 10 e 11 della L. 104/1992 (come modif. dal D.Lgs 96/2019)",
+      "style": "Normal"
+    },
+    {
+      "type": "table",
+      "index": 28,
+      "rows": [
+        [
+          "Nome e Cognome",
+          "*specificare a quale titolo ciascun componente interviene al GLO",
+          "FIRMA"
+        ],
+        [
+          "1.",
+          "",
+          ""
+        ]
+      ]
+    },
+    {
+      "type": "table",
+      "index": 30,
+      "rows": [
+        [
+          "2.",
+          "",
+          ""
+        ],
+        [
+          "3.",
+          "",
+          ""
+        ],
+        [
+          "4.",
+          "",
+          ""
+        ],
+        [
+          "5.",
+          "",
+          ""
+        ],
+        [
+          "6.",
+          "",
+          ""
+        ],
+        [
+          "7.",
+          "",
+          ""
+        ],
+        [
+          "…",
+          "",
+          ""
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 33,
+      "text": "Eventuali modifiche o integrazioni alla composizione del GLO, successive alla prima convocazione",
+      "style": "Normal"
+    },
+    {
+      "type": "table",
+      "index": 34,
+      "rows": [
+        [
+          "Data",
+          "Nome e Cognome",
+          "*specificare a quale titolo ciascun componente interviene al GLO",
+          "Variazione (nuovo membro,\nsostituzione, decadenza…)"
+        ],
+        [
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "",
+          "",
+          "",
+          ""
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 36,
+      "text": "Quadro informativo",
+      "style": "Heading 1"
+    },
+    {
+      "type": "paragraph",
+      "index": 39,
+      "text": "Elementi generali desunti dal Profilo di Funzionamento",
+      "style": "List Paragraph"
+    },
+    {
+      "type": "paragraph",
+      "index": 41,
+      "text": "o, se non disponibile, dalla Diagnosi Funzionale e dal Profilo dinamico funzionale (ove compilato)",
+      "style": "Heading 1"
+    },
+    {
+      "type": "table",
+      "index": 44,
+      "rows": [
+        [
+          "In base alle indicazioni del Profilo di Funzionamento (o, se non è stato ancora redatto, della Diagnosi Funzionale e del Profilo Dinamico Funzionale) sono individuate le dimensioni rispetto alle quali è necessario definire nel PEI specifici interventi. Le sezioni del PEI non coinvolte vengono omesse."
+        ],
+        [
+          "Dimensione Socializzazione/Interazione/Relazione Sezione 4A/5A  Va definita  Va omessa\nDimensione Comunicazione/Linguaggio Sezione 4B/5B  Va definita  Va omessa\nDimensione Autonomia/Orientamento Sezione 4C/5C  Va definita  Va omessa\nDimensione Cognitiva, Neuropsicologica e dell'Apprendimento Sezione 4D/5D  Va definita  Va omessa"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 46,
+      "text": "Raccordo con il Progetto Individuale di cui all’art. 14 della Legge 328/2000",
+      "style": "List Paragraph"
+    },
+    {
+      "type": "paragraph",
+      "index": 49,
+      "text": "Osservazioni sull’alunno/a per progettare gli interventi di sostegno didattico",
+      "style": "Heading 1"
+    },
+    {
+      "type": "paragraph",
+      "index": 50,
+      "text": "Punti di forza sui quali costruire gli interventi educativi e didattici",
+      "style": "Normal"
+    },
+    {
+      "type": "table",
+      "index": 52,
+      "rows": [
+        [
+          "a. Dimensione della relazione, dell’interazione e della socializzazione:"
+        ],
+        [
+          "b. Dimensione della comunicazione e del linguaggio:"
+        ],
+        [
+          "c. Dimensione dell’autonomia e dell’orientamento:"
+        ],
+        [
+          "d. Dimensione cognitiva, neuropsicologica e dell’apprendimento:"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 53,
+      "text": "Revisione a seguito di Verifica intermedia Data:",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 56,
+      "text": "Interventi per l’alunno/a: obiettivi educativi e didattici, strumenti, strategie e modalità",
+      "style": "Heading 1"
+    },
+    {
+      "type": "paragraph",
+      "index": 57,
+      "text": "Dimensione: RELAZIONE / INTERAZIONE / SOCIALIZZAZIONE → si faccia riferimento alla sfera affettivo relazionale, considerando l’area del sé, il rapporto con gli altri, la motivazione verso la relazione consapevole, anche con il gruppo dei pari, le interazioni con gli adulti di riferimento nel contesto scolastico, la motivazione all’apprendimento",
+      "style": "List Paragraph"
+    },
+    {
+      "type": "paragraph",
+      "index": 58,
+      "text": "OBIETTIVI",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 60,
+      "text": "INTERVENTI EDUCATIVI, DIDATTICI e METODOLOGICI",
+      "style": "Normal"
+    },
+    {
+      "type": "table",
+      "index": 61,
+      "rows": [
+        [
+          "Attività",
+          "Strategie e Strumenti"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 63,
+      "text": "Dimensione: COMUNICAZIONE / LINGUAGGIO → si faccia riferimento alla competenza linguistica, intesa come comprensione del linguaggio orale, produzione verbale e relativo uso comunicativo del linguaggio verbale o di linguaggi alternativi o integrativi; si consideri anche la dimensione comunicazionale, intesa come modalità di interazione, presenza e tipologia di contenuti prevalenti, utilizzo di mezzi privilegiati",
+      "style": "List Paragraph"
+    },
+    {
+      "type": "paragraph",
+      "index": 64,
+      "text": "OBIETTIVI",
+      "style": "Normal"
+    },
+    {
+      "type": "table",
+      "index": 65,
+      "rows": [
+        [
+          "Obiettivi ed esiti attesi"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 66,
+      "text": "INTERVENTI EDUCATIVI, DIDATTICI e METODOLOGICI",
+      "style": "Normal"
+    },
+    {
+      "type": "table",
+      "index": 67,
+      "rows": [
+        [
+          "Attività",
+          "Strategie e Strumenti"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 68,
+      "text": "Dimensione: AUTONOMIA/ORIENTAMENTO → si faccia riferimento all'autonomia della persona e all'autonomia sociale, alle dimensioni motorio-prassica (motricità globale, motricità fine, prassie semplici e complesse) e sensoriale (funzionalità visiva, uditiva, tattile)",
+      "style": "List Paragraph"
+    },
+    {
+      "type": "paragraph",
+      "index": 69,
+      "text": "OBIETTIVI",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 71,
+      "text": "INTERVENTI EDUCATIVI, DIDATTICI e METODOLOGICI",
+      "style": "Normal"
+    },
+    {
+      "type": "table",
+      "index": 72,
+      "rows": [
+        [
+          "Attività",
+          "Strategie e Strumenti"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 73,
+      "text": "Dimensione COGNITIVA, NEUROPSICOLOGICA E DELL'APPRENDIMENTO → capacità mnesiche, intellettive e organizzazione spazio-temporale; livello di sviluppo raggiunto in ordine alle strategie utilizzate per la risoluzione di compiti propri per la fascia d’età, agli stili cognitivi, alla capacità di integrare competenze diverse per la risoluzione di compiti, alle competenze di lettura, scrittura, calcolo, decodifica di testi o messaggi",
+      "style": "List Paragraph"
+    },
+    {
+      "type": "paragraph",
+      "index": 74,
+      "text": "OBIETTIVI",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 76,
+      "text": "INTERVENTI EDUCATIVI, DIDATTICI e METODOLOGICI",
+      "style": "Normal"
+    },
+    {
+      "type": "table",
+      "index": 77,
+      "rows": [
+        [
+          "Attività",
+          "Strategie e Strumenti"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 79,
+      "text": "Revisione a seguito di Verifica intermedia Data:",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 81,
+      "text": "Verifica conclusiva degli esiti Data:",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 83,
+      "text": "Osservazioni sul contesto: barriere e facilitatori",
+      "style": "Heading 1"
+    },
+    {
+      "type": "paragraph",
+      "index": 84,
+      "text": "Osservazioni nel contesto scolastico - fisico, organizzativo, relazionale - con indicazione delle barriere e dei facilitatori a",
+      "style": "Body Text"
+    },
+    {
+      "type": "paragraph",
+      "index": 85,
+      "text": "seguito dell’osservazione sistematica dell’alunno/a e della classe.",
+      "style": "Body Text"
+    },
+    {
+      "type": "paragraph",
+      "index": 87,
+      "text": "Revisione a seguito di Verifica intermedia Data:",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 90,
+      "text": "Interventi sul contesto per realizzare un ambiente di apprendimento inclusivo",
+      "style": "Heading 1"
+    },
+    {
+      "type": "paragraph",
+      "index": 91,
+      "text": "Tenendo conto di quanto definito nelle Sezioni 5 e 6, descrivere gli interventi previsti sul contesto e sull’ambiente di",
+      "style": "Body Text"
+    },
+    {
+      "type": "paragraph",
+      "index": 92,
+      "text": "apprendimento.",
+      "style": "Body Text"
+    },
+    {
+      "type": "paragraph",
+      "index": 94,
+      "text": "Revisione a seguito di Verifica intermedia Data:",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 96,
+      "text": "Verifica conclusiva degli esiti Data:",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 99,
+      "text": "Interventi sul percorso curricolare",
+      "style": "Heading 1"
+    },
+    {
+      "type": "paragraph",
+      "index": 100,
+      "text": "1 Interventi educativo-didattici, strategie, strumenti nelle diverse discipline/aree disciplinari",
+      "style": "List Paragraph"
+    },
+    {
+      "type": "paragraph",
+      "index": 101,
+      "text": "(Anche nel caso in cui le discipline siano aggregate in aree disciplinari, la valutazione degli apprendimenti è sempre espressa per ciascuna disciplina)",
+      "style": "Body Text"
+    },
+    {
+      "type": "paragraph",
+      "index": 104,
+      "text": "Progettazione disciplinare (1)",
+      "style": "List Paragraph"
+    },
+    {
+      "type": "table",
+      "index": 105,
+      "rows": [
+        [
+          "Disciplina/Area disciplinare:",
+          "Rispetto alla progettazione didattica della classe, sono applicate le seguenti personalizzazioni in relazione agli obiettivi di apprendimento (conoscenze, abilità, traguardi di competenze), alle strategie e metodologie didattiche, alle modalità di verifica e ai criteri di valutazione"
+        ],
+        [
+          "Disciplina/Area disciplinare:",
+          "Rispetto alla progettazione didattica della classe, sono applicate le seguenti personalizzazioni in relazione agli obiettivi di apprendimento (conoscenze, abilità, traguardi di competenze), alle strategie e metodologie didattiche, alle modalità di verifica e ai criteri di valutazione"
+        ],
+        [
+          "Disciplina/Area disciplinare:",
+          "Rispetto alla progettazione didattica della classe, sono applicate le seguenti personalizzazioni in relazione agli obiettivi di apprendimento (conoscenze, abilità, traguardi di competenze), alle strategie e metodologie didattiche, alle modalità di verifica e ai criteri di valutazione"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 106,
+      "text": "Compilare soltanto per le discipline/aree disciplinari per le quali è prevista una progettazione personalizzata.",
+      "style": "List Paragraph"
+    },
+    {
+      "type": "paragraph",
+      "index": 108,
+      "text": "8.4 Criteri di valutazione del comportamento ed eventuali obiettivi specifici",
+      "style": "Body Text"
+    },
+    {
+      "type": "table",
+      "index": 109,
+      "rows": [
+        [
+          "Comportamento:",
+          " A - Il comportamento è valutato in base agli stessi criteri adottati per la classe\n B - Il comportamento è valutato in base ai seguenti criteri personalizzati e al\nraggiungimento dei seguenti obiettivi: ………………………….."
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 111,
+      "text": "Revisione a seguito di Verifica intermedia Data:",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 115,
+      "text": "Verifica conclusiva degli esiti Data:",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 118,
+      "text": "Organizzazione generale del progetto di inclusione e utilizzo delle risorse",
+      "style": "Heading 1"
+    },
+    {
+      "type": "paragraph",
+      "index": 119,
+      "text": "Tabella orario settimanale",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 120,
+      "text": "(da adattare - a cura della scuola - in base all'effettivo orario della classe)",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 122,
+      "text": "Per ogni ora specificare:",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 123,
+      "text": "se l’alunno /a è presente a scuola salvo assenze occasionali Pres.  (se è sempre presente non serve specificare)",
+      "style": "List Paragraph"
+    },
+    {
+      "type": "paragraph",
+      "index": 124,
+      "text": "se è presente l'insegnante di sostegno Sost. ",
+      "style": "List Paragraph"
+    },
+    {
+      "type": "paragraph",
+      "index": 125,
+      "text": "se è presente l'assistente all'autonomia o alla comunicazione Ass. ",
+      "style": "List Paragraph"
+    },
+    {
+      "type": "table",
+      "index": 127,
+      "rows": [
+        [
+          "Orario",
+          "Lunedì",
+          "Martedì",
+          "Mercoledì",
+          "Giovedì",
+          "Venerdì",
+          "Sabato"
+        ],
+        [
+          "8.00 - 9.00",
+          "Pres. \nSost.  Ass. ",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "9.00 - 10.00",
+          "Pres. \nSost.  Ass. ",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "10.00 - 11.00",
+          "Pres. \nSost.  Ass. ",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "11.00 - 12.00",
+          "Pres. \nSost.  Ass. ",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "12.00 - 13.00",
+          "Pres. \nSost.  Ass. ",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "…",
+          "…",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ]
+      ]
+    },
+    {
+      "type": "table",
+      "index": 131,
+      "rows": [
+        [
+          "L’alunno/a frequenta con orario ridotto?",
+          " Sì: è presente a scuola per ore settimanali rispetto alle ore della classe, nel periodo (indicare il periodo dell’anno scolastico), su richiesta della famiglia e degli\nspecialisti sanitari, in accordo con la scuola, per le seguenti motivazioni:…….…………………………….\n…………………………………………………………………………………………………………………………………………..\n No, frequenta regolarmente tutte le ore previste per la classe"
+        ],
+        [
+          "L’alunno/a è sempre nel gruppo classe?",
+          " Sì\n\n No, in base all’orario svolge nel periodo (indicare il periodo dell’anno scolastico),\n ore in altri spazi per le seguenti attività _ con un gruppo di compagni ovvero individualmente per le seguenti oggettive, comprovate e particolari circostanze educative e didattiche"
+        ],
+        [
+          "Insegnante per le attività di sostegno",
+          "Numero di ore settimanali"
+        ],
+        [
+          "Risorse destinate agli interventi di assistenza igienica e di base",
+          "Descrizione del servizio svolto dai collaboratori scolastici"
+        ],
+        [
+          "Risorse professionali destinate all'assistenza, all'autonomia e/o alla comunicazione",
+          "Tipologia di assistenza/figura professionale Numero di ore settimanali condivise con l’Ente competente"
+        ]
+      ]
+    },
+    {
+      "type": "table",
+      "index": 133,
+      "rows": [
+        [
+          "Altre risorse professionali presenti nella scuola/classe",
+          "[ ] docenti del team o della scuola in possesso del titolo di specializzazione per le attività di sostegno\n[ ] docenti dell’organico dell’autonomia coinvolti/e in progetti di inclusione o in specifiche attività\nrivolte all’alunno/a e/o alla classe\n[ ] altro"
+        ],
+        [
+          "Uscite didattiche, visite guidate e viaggi di istruzione",
+          "Interventi previsti per consentire all’alunno/a di partecipare alle uscite didattiche, alle visite guidate e ai viaggi di istruzione organizzati per la classe"
+        ],
+        [
+          "Strategie per la\nprevenzione e l’eventuale gestione di situazioni e comportamenti problematici",
+          ""
+        ],
+        [
+          "Attività o progetti\nsull’inclusione rivolti alla\nclasse",
+          ""
+        ],
+        [
+          "Trasporto Scolastico",
+          "Indicare le modalità di svolgimento del servizio"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 135,
+      "text": "Interventi e attività extrascolastiche attive",
+      "style": "Normal"
+    },
+    {
+      "type": "table",
+      "index": 136,
+      "rows": [
+        [
+          "Attività terapeutico- riabilitative",
+          "n° ore",
+          "struttura",
+          "Obiettivi perseguiti ed eventuali raccordi con il PEI",
+          "NOTE\n(altre informazioni utili)"
+        ],
+        [
+          "Attività extrascolastiche di tipo formale, informale e non formale (es: attività ludico/ricreative, motorie, artistiche, etc.)",
+          "",
+          "supporto",
+          "Obiettivi perseguiti ed eventuali raccordi con il PEI",
+          "NOTE\n(altre informazioni utili)"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 137,
+      "text": "Revisione a seguito di Verifica intermedia Data:",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 140,
+      "text": "CERTIFICAZIONE DELLE COMPETENZE con eventuali note esplicative (D.M. 742/2017) [solo per alunni/e in uscita dalle classi quinte]",
+      "style": "List Paragraph"
+    },
+    {
+      "type": "table",
+      "index": 142,
+      "rows": [
+        [
+          "Competenze chiave europee",
+          "Competenze dal Profilo dello studente al termine del primo ciclo di istruzione"
+        ],
+        [
+          "NOTE ESPLICATIVE\n……………………………………………………………………………………………………………………………..\n\n……………………………………………………………………………………………………………………………..\n\n……………………………………………………………………………………………………………………………..",
+          "NOTE ESPLICATIVE\n……………………………………………………………………………………………………………………………..\n\n……………………………………………………………………………………………………………………………..\n\n…………………………………………………………………………………………………………………………….."
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 144,
+      "text": "Verifica finale/Proposte per le risorse professionali e i servizi di supporto necessari",
+      "style": "Heading 1"
+    },
+    {
+      "type": "paragraph",
+      "index": 147,
+      "text": "Aggiornamento delle condizioni di contesto e progettazione per l’a.s. successivo [Sez. 5-6-7]",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 149,
+      "text": "Interventi necessari per garantire il diritto allo studio e la frequenza Assistenza",
+      "style": "Heading 1"
+    },
+    {
+      "type": "table",
+      "index": 151,
+      "rows": [
+        [
+          "Proposta del numero di ore di sostegno per l'anno successivo*",
+          "Partendo dall'organizzazione delle attività di sostegno didattico e dalle osservazioni sistematiche svolte, tenuto conto □ del Verbale di accertamento □ del Profilo di Funzionamento, e del suo eventuale □ aggiornamento, secondo quanto disposto all’art. 18 del Decreto Interministeriale n.\n182/2020, oltre che dei risultati raggiunti, nonché di eventuali difficoltà emerse durante l'anno, si propone - nell’ambito di quanto previsto dal D.Lgs 66/2017 e dal citato DI 182/2020 - il seguente fabbisogno di ore di sostegno.\nOre di sostegno richieste per l'a. s. successivo con la seguente motivazione:"
+        ],
+        [
+          "Proposta delle risorse da destinare agli interventi di assistenza igienica e di base\ne delle risorse professionali da destinare all'assistenza, all'autonomia e/o alla comunicazione, per l'anno successivo*\n\n* (Art.7, lettera d) D.Lgs 66/2017)",
+          "Partendo dalle osservazioni descritte nelle Sezioni 4 e 6 e dagli interventi descritti nelle Sezioni n. 5 e 7, tenuto conto □ del Verbale di accertamento □ del Profilo di Funzionamento, e del suo eventuale □ aggiornamento, e dei risultati raggiunti, nonché di eventuali difficoltà emerse durante\nl'anno:\nsi indica il fabbisogno di risorse da destinare agli interventi di assistenza igienica e di base, nel modo seguente \nsi indica, come segue, il fabbisogno di risorse professionali da destinare all'assistenza, all'autonomia e/o alla comunicazione - nell’ambito di quanto previsto dal Decreto Interministeriale 182/2020 e dall’Accordo di cui all’art. 3, comma 5bis del D.Lgs 66/2017 - per l'a. s. successivo:\ntipologia di assistenza / figura professionale per N. ore (1)."
+        ],
+        [
+          "Eventuali esigenze correlate al trasporto dell’alunno/a\nda e verso la scuola",
+          ""
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 152,
+      "text": "(1) L’indicazione delle ore è finalizzata unicamente a permettere al Dirigente Scolastico di formulare la richiesta complessiva d’Istituto delle misure di sostegno ulteriori",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 153,
+      "text": "rispetto a quelle didattiche, da proporre e condividere con l’Ente Territoriale",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 155,
+      "text": "La verifica finale, con la proposta del numero di ore di sostegno e delle risorse da destinare agli interventi di assistenza igienica e di base, nonché delle tipologie di assistenza/figure professionali da destinare all'assistenza, all'autonomia e/o alla comunicazione, per l'anno scolastico successivo, è stata approvata dal GLO in data",
+      "style": "Body Text"
+    },
+    {
+      "type": "paragraph",
+      "index": 156,
+      "text": "Come risulta da verbale n. allegato",
+      "style": "Body Text"
+    },
+    {
+      "type": "table",
+      "index": 157,
+      "rows": [
+        [
+          "Nome e Cognome",
+          "*specificare a quale titolo ciascun componente interviene al GLO",
+          "FIRMA"
+        ],
+        [
+          "1.",
+          "",
+          ""
+        ],
+        [
+          "2.",
+          "",
+          ""
+        ],
+        [
+          "3.",
+          "",
+          ""
+        ],
+        [
+          "4.",
+          "",
+          ""
+        ],
+        [
+          "5.",
+          "",
+          ""
+        ],
+        [
+          "6.",
+          "",
+          ""
+        ],
+        [
+          "7.",
+          "",
+          ""
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 159,
+      "text": "PEI Provvisorio per l'a. s. successivo",
+      "style": "Heading 1"
+    },
+    {
+      "type": "paragraph",
+      "index": 160,
+      "text": "[da compilare a seguito del primo accertamento della condizione di disabilità in età evolutiva ai fini dell’inclusione scolastica]",
+      "style": "Normal"
+    },
+    {
+      "type": "table",
+      "index": 162,
+      "rows": [
+        [
+          "Proposta del numero di ore di sostegno alla classe per l'anno successivo*\n* (Art. 7, lettera d) D.Lgs\n66/2017)",
+          "Partendo dal Verbale di accertamento e dal Profilo di Funzionamento, si individuano le principali dimensioni interessate [Sezione 4] e le condizioni di contesto [Sezione 6], con la previsione degli interventi educativo-didattici da attuare ed il relativo fabbisogno di risorse professionali per il sostegno e l’assistenza\n……………………………………………………………………………\n…………………………………………………………………………………………………………………………",
+          "Partendo dal Verbale di accertamento e dal Profilo di Funzionamento, si individuano le principali dimensioni interessate [Sezione 4] e le condizioni di contesto [Sezione 6], con la previsione degli interventi educativo-didattici da attuare ed il relativo fabbisogno di risorse professionali per il sostegno e l’assistenza\n……………………………………………………………………………\n…………………………………………………………………………………………………………………………",
+          "Partendo dal Verbale di accertamento e dal Profilo di Funzionamento, si individuano le principali dimensioni interessate [Sezione 4] e le condizioni di contesto [Sezione 6], con la previsione degli interventi educativo-didattici da attuare ed il relativo fabbisogno di risorse professionali per il sostegno e l’assistenza\n……………………………………………………………………………\n…………………………………………………………………………………………………………………………",
+          "Partendo dal Verbale di accertamento e dal Profilo di Funzionamento, si individuano le principali dimensioni interessate [Sezione 4] e le condizioni di contesto [Sezione 6], con la previsione degli interventi educativo-didattici da attuare ed il relativo fabbisogno di risorse professionali per il sostegno e l’assistenza\n……………………………………………………………………………\n…………………………………………………………………………………………………………………………",
+          "Partendo dal Verbale di accertamento e dal Profilo di Funzionamento, si individuano le principali dimensioni interessate [Sezione 4] e le condizioni di contesto [Sezione 6], con la previsione degli interventi educativo-didattici da attuare ed il relativo fabbisogno di risorse professionali per il sostegno e l’assistenza\n……………………………………………………………………………\n…………………………………………………………………………………………………………………………",
+          "Partendo dal Verbale di accertamento e dal Profilo di Funzionamento, si individuano le principali dimensioni interessate [Sezione 4] e le condizioni di contesto [Sezione 6], con la previsione degli interventi educativo-didattici da attuare ed il relativo fabbisogno di risorse professionali per il sostegno e l’assistenza\n……………………………………………………………………………\n…………………………………………………………………………………………………………………………"
+        ],
+        [
+          "Proposta del numero di ore di sostegno alla classe per l'anno successivo*\n* (Art. 7, lettera d) D.Lgs\n66/2017)",
+          "Entità delle difficoltà nello svolgimento delle attività comprese in ciascun dominio/dimensione\ntenendo conto dei fattori",
+          "Assente\n",
+          "Lieve\n",
+          "Media\n",
+          "Elevata\n",
+          "Molto elevata\n"
+        ],
+        [
+          "",
+          "ambientali implicati",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "",
+          "Ore di sostegno richieste per l'a. s. successivo",
+          "Ore di sostegno richieste per l'a. s. successivo",
+          "Ore di sostegno richieste per l'a. s. successivo",
+          "Ore di sostegno richieste per l'a. s. successivo",
+          "Ore di sostegno richieste per l'a. s. successivo",
+          "Ore di sostegno richieste per l'a. s. successivo"
+        ],
+        [
+          "",
+          "con la seguente motivazione:",
+          "con la seguente motivazione:",
+          "con la seguente motivazione:",
+          "con la seguente motivazione:",
+          "con la seguente motivazione:",
+          "con la seguente motivazione:"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 164,
+      "text": "Interventi necessari per garantire il diritto allo studio e la frequenza Assistenza",
+      "style": "Heading 1"
+    },
+    {
+      "type": "table",
+      "index": 166,
+      "rows": [
+        [
+          "Arredi speciali, Ausili didattici, informatici, ecc.",
+          "Arredi speciali, Ausili didattici, informatici, ecc.",
+          "Specificare la tipologia e le modalità di utilizzo ………………………………………………………………………",
+          "Specificare la tipologia e le modalità di utilizzo ………………………………………………………………………"
+        ],
+        [
+          "Proposta delle risorse",
+          "Tenuto conto del Verbale di accertamento e del Profilo di Funzionamento si individuano le",
+          "Tenuto conto del Verbale di accertamento e del Profilo di Funzionamento si individuano le",
+          ""
+        ],
+        [
+          "da destinare agli",
+          "principali dimensioni interessate [Sezione 4] e le condizioni di contesto [Sezione 6], con la",
+          "principali dimensioni interessate [Sezione 4] e le condizioni di contesto [Sezione 6], con la",
+          ""
+        ],
+        [
+          "interventi di assistenza",
+          "previsione del fabbisogno di risorse da destinare agli interventi di assistenza igienica e di base e",
+          "previsione del fabbisogno di risorse da destinare agli interventi di assistenza igienica e di base e",
+          ""
+        ],
+        [
+          "igienica e di base",
+          "delle risorse professionali da destinare all'assistenza, all'autonomia e alla comunicazione, per",
+          "delle risorse professionali da destinare all'assistenza, all'autonomia e alla comunicazione, per",
+          ""
+        ],
+        [
+          "e delle risorse",
+          "l'anno successivo:",
+          "l'anno successivo:",
+          ""
+        ],
+        [
+          "professionali da",
+          "a) Fabbisogno di risorse da destinare agli interventi di assistenza igienica e di base, nel modo",
+          "a) Fabbisogno di risorse da destinare agli interventi di assistenza igienica e di base, nel modo",
+          ""
+        ],
+        [
+          "destinare",
+          "seguente",
+          "seguente",
+          ""
+        ],
+        [
+          "all'assistenza,",
+          "",
+          "",
+          ""
+        ],
+        [
+          "all'autonomia e alla comunicazione, per l'anno successivo*",
+          "b) Fabbisogno di risorse professionali da destinare all'assistenza, all'autonomia e alla comunicazione - nell’ambito di quanto previsto dal Decreto Interministeriale 182/2020 e dall’Accordo di cui all’art. 3, comma 5bis del D.Lgs 66/2017 - per l'a. s. successivo:",
+          "b) Fabbisogno di risorse professionali da destinare all'assistenza, all'autonomia e alla comunicazione - nell’ambito di quanto previsto dal Decreto Interministeriale 182/2020 e dall’Accordo di cui all’art. 3, comma 5bis del D.Lgs 66/2017 - per l'a. s. successivo:",
+          ""
+        ],
+        [
+          "",
+          "tipologia di assistenza / figura professionale",
+          "tipologia di assistenza / figura professionale",
+          ""
+        ],
+        [
+          "* (Art. 7, lettera d) D.Lgs\n66/2017)",
+          "per N. ore (1).",
+          "per N. ore (1).",
+          ""
+        ],
+        [
+          "Eventuali esigenze correlate al trasporto dell’alunno/a\nda e verso la scuola",
+          "",
+          "",
+          ""
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 168,
+      "text": "(1) L’indicazione delle ore è finalizzata unicamente a permettere al Dirigente Scolastico di formulare la richiesta complessiva d’Istituto delle misure di sostegno ulteriori",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 169,
+      "text": "rispetto a quelle didattiche, da proporre e condividere con l’Ente Territoriale",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 172,
+      "text": "Il PEI provvisorio con la proposta del numero di ore di sostegno e delle risorse da destinare agli interventi di assistenza igienica e di base, nonché delle tipologie di assistenza/figure professionali e relativo fabbisogno da destinare all'assistenza, all'autonomia e/o alla comunicazione, per l'anno scolastico successivo, è stato approvato dal GLO",
+      "style": "Body Text"
+    },
+    {
+      "type": "paragraph",
+      "index": 173,
+      "text": "in data",
+      "style": "Body Text"
+    },
+    {
+      "type": "paragraph",
+      "index": 174,
+      "text": "come risulta da verbale n. allegato",
+      "style": "Body Text"
+    },
+    {
+      "type": "table",
+      "index": 177,
+      "rows": [
+        [
+          "Nome e Cognome",
+          "*specificare a quale titolo ciascun componente interviene al GLO",
+          "FIRMA"
+        ],
+        [
+          "1.",
+          "",
+          ""
+        ],
+        [
+          "2.",
+          "",
+          ""
+        ],
+        [
+          "3.",
+          "",
+          ""
+        ],
+        [
+          "4.",
+          "",
+          ""
+        ],
+        [
+          "5.",
+          "",
+          ""
+        ],
+        [
+          "6.",
+          "",
+          ""
+        ],
+        [
+          "7.",
+          "",
+          ""
+        ]
+      ]
+    }
+  ]
+}

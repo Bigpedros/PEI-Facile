@@ -27,7 +27,7 @@ export const Cmp02LongText: React.FC<Cmp02LongTextProps> = ({
         onFocus={onFocus}
         disabled={disabled}
         placeholder={field.placeholder || 'Inserisci osservazioni o descrizione articolata...'}
-        className="w-full px-3 py-2 text-sm text-stone-900 bg-white border border-stone-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-800 focus:border-amber-800 disabled:bg-stone-100 disabled:text-stone-400 transition-colors resize-y leading-relaxed"
+        className="w-full px-3 py-2 text-sm text-stone-900 bg-white border border-stone-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-800 focus:border-amber-800 disabled:bg-stone-100 disabled:text-stone-400 placeholder:text-stone-400 transition-colors resize-y leading-relaxed"
       />
       <div className="flex justify-between items-center text-[11px] text-stone-500 mt-0.5 px-0.5">
         <span>Gestione automatica capoversi e interlinea</span>

@@ -1,0 +1,278 @@
+{
+  "source": "ALLEGATO_C1_Tabella_Fabbisogni.docx",
+  "extractionPurpose": "Search/indexing aid only; original DOCX/PDF remains authoritative.",
+  "blocks": [
+    {
+      "type": "paragraph",
+      "index": 0,
+      "text": "ALLEGATO “C 1”",
+      "style": "Heading 1"
+    },
+    {
+      "type": "paragraph",
+      "index": 2,
+      "text": "Tabella Fabbisogno Risorse professionali per il sostegno didattico e l’assistenza",
+      "style": "Heading 2"
+    },
+    {
+      "type": "paragraph",
+      "index": 5,
+      "text": "Fabbisogno di risorse professionali per il sostegno didattico, tenuto conto dell’entità della potenziale restrizione della partecipazione.",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 7,
+      "text": "SCUOLA DELL’INFANZIA",
+      "style": "Normal"
+    },
+    {
+      "type": "table",
+      "index": 9,
+      "rows": [
+        [
+          "Entità delle difficoltà nello svolgimento delle attività comprese in ciascun dominio/dimensione tenendo conto dei fattori ambientali implicati",
+          "Assente\n",
+          "Lieve\n",
+          "Media\n",
+          "Elevata\n",
+          "Molto elevata\n"
+        ],
+        [
+          "Max 25 ore",
+          "",
+          "0-6",
+          "7 – 12",
+          "13 – 18",
+          "19 - 25"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 11,
+      "text": "SCUOLA PRIMARIA",
+      "style": "Normal"
+    },
+    {
+      "type": "table",
+      "index": 13,
+      "rows": [
+        [
+          "Entità delle difficoltà nello svolgimento delle attività comprese in ciascun dominio/dimensione tenendo conto dei fattori ambientali implicati",
+          "Assente\n",
+          "Lieve\n",
+          "Media\n",
+          "Elevata\n",
+          "Molto elevata\n"
+        ],
+        [
+          "Max 22 ore",
+          "",
+          "0-5",
+          "6 – 11",
+          "12 – 16",
+          "17 - 22"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 15,
+      "text": "SCUOLA SECONDARIA DI PRIMO GRADO",
+      "style": "Normal"
+    },
+    {
+      "type": "table",
+      "index": 17,
+      "rows": [
+        [
+          "Entità delle difficoltà nello svolgimento delle attività comprese in ciascun dominio/dimensione tenendo conto dei fattori ambientali implicati",
+          "Assente\n",
+          "Lieve\n",
+          "Media\n",
+          "Elevata\n",
+          "Molto elevata\n"
+        ],
+        [
+          "Max 18 ore",
+          "",
+          "0-4",
+          "5 – 9",
+          "10 – 14",
+          "15 - 18"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 19,
+      "text": "SCUOLA SECONDARIA DI SECONDO GRADO",
+      "style": "Normal"
+    },
+    {
+      "type": "table",
+      "index": 21,
+      "rows": [
+        [
+          "Entità delle difficoltà nello svolgimento delle attività comprese in ciascun dominio/dimensione tenendo conto dei fattori ambientali implicati",
+          "Assente\n",
+          "Lieve\n",
+          "Media\n",
+          "Elevata\n",
+          "Molto elevata\n"
+        ],
+        [
+          "Max 18 ore",
+          "",
+          "0-4",
+          "5 – 9",
+          "10 – 14",
+          "15 - 18"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 25,
+      "text": "Fabbisogno di risorse professionali per l’assistenza, tenuto conto dell’entità della potenziale restrizione della partecipazione",
+      "style": "Heading 2"
+    },
+    {
+      "type": "paragraph",
+      "index": 28,
+      "text": "COMUNICAZIONE",
+      "style": "Normal"
+    },
+    {
+      "type": "table",
+      "index": 30,
+      "rows": [
+        [
+          "Entità delle difficoltà nello svolgimento delle attività comprese in ciascun dominio/dimensione tenendo conto dei fattori ambientali implicati",
+          "Assente\n",
+          "Lieve\n",
+          "Media\n",
+          "Elevata\n",
+          "Molto elevata\n"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 33,
+      "text": "Assistenza specialistica alla comunicazione (per azioni riconducibili ad interventi educativi):",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 34,
+      "text": "Comunicazione:",
+      "style": "Body Text"
+    },
+    {
+      "type": "paragraph",
+      "index": 36,
+      "text": "assistenza ad alunni/e, studenti/esse con disabilità visiva ◻",
+      "style": "List Paragraph"
+    },
+    {
+      "type": "paragraph",
+      "index": 38,
+      "text": "assistenza ad alunni/e studenti/esse con disabilità uditiva ◻",
+      "style": "List Paragraph"
+    },
+    {
+      "type": "paragraph",
+      "index": 40,
+      "text": "assistenza ad alunni/e con disabilità intellettive e disturbi del neurosviluppo ◻",
+      "style": "List Paragraph"
+    },
+    {
+      "type": "paragraph",
+      "index": 42,
+      "text": "Altro:",
+      "style": "List Paragraph"
+    },
+    {
+      "type": "paragraph",
+      "index": 51,
+      "text": "AUTONOMIA",
+      "style": "Normal"
+    },
+    {
+      "type": "table",
+      "index": 53,
+      "rows": [
+        [
+          "Entità delle difficoltà nello svolgimento delle attività comprese in ciascun dominio/dimensione tenendo conto dei fattori ambientali implicati",
+          "Assente\n",
+          "Lieve\n",
+          "Media\n",
+          "Elevata\n",
+          "Molto elevata\n"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "index": 55,
+      "text": "Assistenza specialistica all’autonomia",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 56,
+      "text": "Educazione e sviluppo dell'autonomia, nella:",
+      "style": "Body Text"
+    },
+    {
+      "type": "paragraph",
+      "index": 58,
+      "text": "cura di sé ◻",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 60,
+      "text": "mensa ◻",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 62,
+      "text": "altro ◻ (specificare )",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 63,
+      "text": "(*) Le risorse professionali da destinare all'assistenza, all'autonomia e alla comunicazione sono attribuite dagli Enti preposti, tenuto conto del principio di accomodamento ragionevole e sulla base delle richieste complessive formulate dai Dirigenti scolastici, secondo le modalità attuative e gli standard qualitativi previsti nell'accordo di cui all'articolo 3, comma 5-bis del DLgs 66/2017.",
+      "style": "Body Text"
+    },
+    {
+      "type": "paragraph",
+      "index": 68,
+      "text": "igienica ◻",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 69,
+      "text": "spostamenti ◻",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 70,
+      "text": "mensa ◻",
+      "style": "Normal"
+    },
+    {
+      "type": "paragraph",
+      "index": 71,
+      "text": "altro ◻ (specificare )",
+      "style": "Normal"
+    }
+  ]
+}

@@ -53,7 +53,7 @@ export const Cmp08DateOrPeriod: React.FC<Cmp08DateOrPeriodProps> = ({
             onFocus={onFocus}
             disabled={disabled}
             placeholder="GG/MM/AAAA"
-            className="w-full pl-9 pr-3 py-2 text-sm font-mono text-stone-900 bg-white border border-stone-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-800 focus:border-amber-800 disabled:bg-stone-100 disabled:text-stone-400"
+            className="w-full pl-9 pr-3 py-2 text-sm font-mono text-stone-900 bg-white border border-stone-300 rounded focus:outline-none focus:ring-1 focus:ring-amber-800 focus:border-amber-800 disabled:bg-stone-100 disabled:text-stone-400 placeholder:text-stone-400"
           />
           <Calendar className="w-4 h-4 text-stone-400 absolute left-2.5 top-2.5 pointer-events-none" />
         </div>
@@ -64,7 +64,7 @@ export const Cmp08DateOrPeriod: React.FC<Cmp08DateOrPeriodProps> = ({
           onChange={handleDateChange}
           disabled={disabled}
           title="Scegli da calendario"
-          className="p-1.5 border border-stone-300 rounded bg-white hover:bg-stone-50 text-stone-700 cursor-pointer disabled:opacity-50"
+          className="p-1.5 border border-stone-300 rounded bg-white text-stone-900 hover:bg-stone-50 cursor-pointer disabled:opacity-50"
         />
       </div>
       <div className="text-[11px] text-stone-500">
