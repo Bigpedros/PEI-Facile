@@ -1,0 +1,21 @@
+{
+  "name": "PayFacile",
+  "short_name": "PayFacile",
+  "icons": [
+    {
+      "src": "payfacile-icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "payfacile-icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "theme_color": "#7ec9ff",
+  "background_color": "#f48ad1",
+  "display": "standalone"
+}

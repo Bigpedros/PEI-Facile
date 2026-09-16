@@ -1,0 +1,87 @@
+[
+  {
+    "file": "payfacile-icon-16x16.png",
+    "size": "16x16",
+    "purpose": "any"
+  },
+  {
+    "file": "payfacile-icon-32x32.png",
+    "size": "32x32",
+    "purpose": "any"
+  },
+  {
+    "file": "payfacile-icon-48x48.png",
+    "size": "48x48",
+    "purpose": "any"
+  },
+  {
+    "file": "payfacile-icon-64x64.png",
+    "size": "64x64",
+    "purpose": "any"
+  },
+  {
+    "file": "payfacile-icon-72x72.png",
+    "size": "72x72",
+    "purpose": "any"
+  },
+  {
+    "file": "payfacile-icon-96x96.png",
+    "size": "96x96",
+    "purpose": "any"
+  },
+  {
+    "file": "payfacile-icon-120x120.png",
+    "size": "120x120",
+    "purpose": "any"
+  },
+  {
+    "file": "payfacile-icon-128x128.png",
+    "size": "128x128",
+    "purpose": "any"
+  },
+  {
+    "file": "payfacile-icon-144x144.png",
+    "size": "144x144",
+    "purpose": "any"
+  },
+  {
+    "file": "payfacile-icon-152x152.png",
+    "size": "152x152",
+    "purpose": "any"
+  },
+  {
+    "file": "payfacile-icon-167x167.png",
+    "size": "167x167",
+    "purpose": "any"
+  },
+  {
+    "file": "payfacile-icon-180x180.png",
+    "size": "180x180",
+    "purpose": "any"
+  },
+  {
+    "file": "payfacile-icon-192x192.png",
+    "size": "192x192",
+    "purpose": "any"
+  },
+  {
+    "file": "payfacile-icon-256x256.png",
+    "size": "256x256",
+    "purpose": "any"
+  },
+  {
+    "file": "payfacile-icon-384x384.png",
+    "size": "384x384",
+    "purpose": "any"
+  },
+  {
+    "file": "payfacile-icon-512x512.png",
+    "size": "512x512",
+    "purpose": "any"
+  },
+  {
+    "file": "payfacile-icon-1024x1024.png",
+    "size": "1024x1024",
+    "purpose": "any"
+  }
+]

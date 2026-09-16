@@ -1,0 +1,252 @@
+import { createWorker } from 'tesseract.js';
+import {
+  computeFileHash,
+  createReceiptImageVariants,
+  evaluateReceiptOcrQuality,
+  type OcrQualityEvaluation,
+  type ReceiptVariantName,
+} from './utils/imagePreprocessing';
+import { receiptParserService } from './services/ocrParser/receiptParserService';
+import { runRegionalSecondPassShadow } from './services/ocrParser/regional/shadowOrchestrator';
+import { regionalEvidenceStore } from './services/ocrParser/regional/regionalEvidenceStore';
+import { generateGeometricPriceProposals } from './services/ocrParser/geometricPriceAlignment';
+import { buildGeometryCalibrationReport, type GeometryCalibrationReport } from './services/ocrParser/geometryCalibration';
+import {
+  applyStrictVariantEvidenceFusion,
+  applyVariantDateConflictGuard,
+  applyVariantTotalConsensus,
+  collectVariantPriceEvidence,
+  collectVariantTotalConsensus,
+  selectVariantWinnerIndex,
+  type VariantPreviewCandidate,
+} from './services/ocrParser/variantEvidenceFusion';
+import type { OcrWordGeometry, ParsedReceiptDraft } from './services/ocrParser/types';
+
+export interface OcrVariantResult {
+  variant: ReceiptVariantName;
+  label: string;
+  confidence: number;
+  evaluation: OcrQualityEvaluation;
+  rawText: string;
+  snippet: string;
+  durationMs: number;
+}
+
+export interface ReceiptOcrResult {
+  schema: 'GESTIONE_CASA_OCR_LAB_V1';
+  input: {
+    fileName: string;
+    mimeType: string;
+    sizeBytes: number;
+    sha256: string;
+    rotationDegrees: number;
+  };
+  selectedVariant: ReceiptVariantName;
+  confidence: number;
+  rawText: string;
+  variants: OcrVariantResult[];
+  parsed: ParsedReceiptDraft;
+  geometryCalibration: GeometryCalibrationReport;
+  durationMs: number;
+}
+
+export type EngineProgress = (message: string, percentage: number) => void;
+
+export interface AnalyzeReceiptOptions {
+  rotationDegrees?: number;
+  onProgress?: EngineProgress;
+}
+
+export function parseReceiptText(
+  rawText: string,
+  confidence = 85,
+  ocrWords?: readonly OcrWordGeometry[]
+): ParsedReceiptDraft {
+  return receiptParserService.parseText(rawText, {
+    overallOcrConfidence: confidence,
+    ocrWords,
+  });
+}
+
+export async function analyzeReceipt(
+  file: File,
+  options: AnalyzeReceiptOptions = {},
+): Promise<ReceiptOcrResult> {
+  const startedAt = performance.now();
+  const rotationDegrees = options.rotationDegrees ?? 0;
+  const onProgress = options.onProgress ?? (() => undefined);
+  const inputHash = await computeFileHash(file);
+
+  onProgress('Generazione varianti immagine', 5);
+  const variants = await createReceiptImageVariants(file, {
+    rotationDegrees,
+    maxDimension: 2400,
+  });
+
+  if (variants.length === 0) {
+    throw new Error('Nessuna variante immagine generata');
+  }
+
+  onProgress('Inizializzazione Tesseract italiano', 10);
+  const worker = await createWorker('ita', 1, {
+    langPath: '/tessdata',
+    gzip: false,
+    logger: (message) => {
+      if (message.status === 'recognizing text') {
+        onProgress('Riconoscimento OCR', 10 + Math.round((message.progress ?? 0) * 75));
+      }
+    },
+  });
+
+  try {
+    await worker.setParameters({
+      preserve_interword_spaces: '1',
+      user_defined_dpi: '300',
+      tessedit_pageseg_mode: '4' as never,
+    });
+
+    const candidates: Array<OcrVariantResult & {
+      dataUrl: string;
+      ocrWords: OcrWordGeometry[];
+      preview: ParsedReceiptDraft;
+    }> = [];
+
+    for (let index = 0; index < variants.length; index += 1) {
+      const variant = variants[index];
+      const variantStartedAt = performance.now();
+      onProgress(`Analisi variante ${variant.label}`, 10 + Math.round((index / variants.length) * 75));
+      const recognition = await worker.recognize(
+        variant.dataUrl,
+        {},
+        { blocks: true }
+      );
+      const rawText = recognition.data.text || '';
+      const confidence = Math.round(recognition.data.confidence || 0);
+      const evaluation = evaluateReceiptOcrQuality(rawText, confidence);
+
+      const ocrWords: OcrWordGeometry[] = [];
+      for (const block of recognition.data.blocks ?? []) {
+        for (const paragraph of block.paragraphs ?? []) {
+          for (const line of paragraph.lines ?? []) {
+            for (const word of line.words ?? []) {
+              if (
+                word.text?.trim() &&
+                word.bbox &&
+                word.bbox.x1 > word.bbox.x0 &&
+                word.bbox.y1 > word.bbox.y0
+              ) {
+                ocrWords.push({
+                  text: word.text,
+                  confidence: Number.isFinite(word.confidence) ? word.confidence : 0,
+                  bbox: {
+                    x0: word.bbox.x0,
+                    y0: word.bbox.y0,
+                    x1: word.bbox.x1,
+                    y1: word.bbox.y1,
+                  },
+                });
+              }
+            }
+          }
+        }
+      }
+
+      regionalEvidenceStore.clear();
+      const preview = parseReceiptText(rawText, confidence, ocrWords);
+
+      candidates.push({
+        variant: variant.name,
+        label: variant.label,
+        confidence,
+        evaluation,
+        rawText,
+        snippet: rawText.slice(0, 160).replace(/\n+/g, ' '),
+        durationMs: Math.round(performance.now() - variantStartedAt),
+        dataUrl: variant.dataUrl,
+        ocrWords,
+        preview,
+      });
+
+      const hasAmountEvidence =
+        /\b(?:TOTALE|IMPORTO|IMP\.?|EUR|EURO|€)\b/i.test(rawText) &&
+        /\b\d+[.,]\d{2}\b/.test(rawText);
+      if (evaluation.overallScore >= 88 && confidence >= 75 && hasAmountEvidence) {
+        break;
+      }
+    }
+
+    if (candidates.length === 0) {
+      throw new Error('Tesseract non ha prodotto alcun candidato OCR');
+    }
+
+    const previewCandidates: VariantPreviewCandidate[] = candidates.map((candidate) => ({
+      variant: candidate.variant,
+      evaluationScore: candidate.evaluation.overallScore,
+      draft: candidate.preview,
+    }));
+    const winnerIndex = selectVariantWinnerIndex(previewCandidates);
+    const winner = candidates[winnerIndex];
+    const variantPriceEvidence = collectVariantPriceEvidence(previewCandidates, winner.variant);
+    const variantTotalConsensus = collectVariantTotalConsensus(previewCandidates);
+
+    // OCR-04: baseline diagnostica reale prima di qualsiasi recovery geometrico, regionale
+    // o fusione fra varianti. Lo store viene pulito per evitare contaminazioni fra run.
+    regionalEvidenceStore.clear();
+    const baselineParsed = parseReceiptText(winner.rawText, winner.confidence);
+    const geometricProposals = generateGeometricPriceProposals(
+      baselineParsed.lines,
+      winner.ocrWords,
+      baselineParsed.total.value
+    );
+
+    onProgress('Secondo passaggio regionale controllato', 90);
+    await runRegionalSecondPassShadow({
+      worker,
+      imageSource: winner.dataUrl,
+      combinedRawText: winner.rawText,
+      overallConfidence: winner.confidence,
+      shadowEnabled: true,
+      variantUsed: winner.variant,
+      sourceCount: 1,
+      restoreParameters: {
+        preserve_interword_spaces: '1',
+        user_defined_dpi: '300',
+        tessedit_pageseg_mode: '4',
+      },
+    });
+
+    onProgress('Parsing strutturato', 96);
+    const parsedBeforeVariantFusion = parseReceiptText(winner.rawText, winner.confidence, winner.ocrWords);
+    const parsedWithTotalConsensus = applyVariantTotalConsensus(parsedBeforeVariantFusion, variantTotalConsensus);
+    const parsedAfterVariantFusion = applyStrictVariantEvidenceFusion(parsedWithTotalConsensus, variantPriceEvidence);
+    const parsed = applyVariantDateConflictGuard(parsedAfterVariantFusion, previewCandidates);
+    const geometryCalibration = buildGeometryCalibrationReport(
+      file.name,
+      baselineParsed,
+      parsed,
+      winner.ocrWords,
+      geometricProposals
+    );
+
+    onProgress('Completato', 100);
+    return {
+      schema: 'GESTIONE_CASA_OCR_LAB_V1',
+      input: {
+        fileName: file.name,
+        mimeType: file.type,
+        sizeBytes: file.size,
+        sha256: inputHash,
+        rotationDegrees,
+      },
+      selectedVariant: winner.variant,
+      confidence: winner.confidence,
+      rawText: winner.rawText,
+      variants: candidates.map(({ dataUrl: _dataUrl, ocrWords: _ocrWords, preview: _preview, ...candidate }) => candidate),
+      parsed,
+      geometryCalibration,
+      durationMs: Math.round(performance.now() - startedAt),
+    };
+  } finally {
+    await worker.terminate();
+  }
+}

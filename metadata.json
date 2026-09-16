@@ -1,0 +1,6 @@
+{
+  "name": "PEI FACILE",
+  "description": "Applicazione local-first per la redazione e gestione del Piano Educativo Individualizzato (PEI)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+:root {
+  --app-bg: #C3CEDD;
+  --chrome-bg: #FFFFFF;
+  --surface: #FFFFFF;
+  --input-bg: #F6F8FA;
+  --border: #CDD5DF;
+  --text: #1F2A3A;
+  --text-secondary: #5A6A80;
+  --hover-bg: #E8EEF5;
+  --active-bg: #D5E1F0;
+  --active-fg: #0E1724;
+}
+
+:root[data-theme='sabbia'] {
+  --app-bg: #F3EBD9;
+  --chrome-bg: #FAF5E9;
+  --surface: #FFFDF7;
+  --input-bg: #F8F1E3;
+  --border: #D6C6A8;
+  --text: #292721;
+  --text-secondary: #6B655A;
+  --hover-bg: #EAE1CD;
+  --active-bg: #D4C3A3;
+  --active-fg: #1F1D18;
+}
+
+:root[data-theme='navy'] {
+  --app-bg: #C3CEDD;
+  --chrome-bg: #FFFFFF;
+  --surface: #FFFFFF;
+  --input-bg: #F6F8FA;
+  --border: #CDD5DF;
+  --text: #1F2A3A;
+  --text-secondary: #5A6A80;
+  --hover-bg: #E8EEF5;
+  --active-bg: #D5E1F0;
+  --active-fg: #0E1724;
+}
+
+:root[data-theme='antracite'] {
+  --app-bg: #222528;
+  --chrome-bg: #1C1F22;
+  --surface: #393D41;
+  --input-bg: #41464B;
+  --border: #8D897F;
+  --text: #F2EDE2;
+  --text-secondary: #CAC4B8;
+  --hover-bg: #2D3238;
+  --active-bg: #484E55;
+  --active-fg: #FFFFFF;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--app-bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Foglio A4 print and layout rules */
+.sheet-a4 {
+  width: 210mm;
+  min-height: 297mm;
+  background-color: #FFFFFF !important;
+  color: #111827;
+  box-sizing: border-box;
+}
+
+@media print {
+  body {
+    background-color: #FFFFFF !important;
+    color: #000000 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .sheet-a4 {
+    width: 100% !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    page-break-after: always;
+  }
+}
