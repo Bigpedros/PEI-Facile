@@ -4,52 +4,129 @@
   --app-bg: #C3CEDD;
   --chrome-bg: #FFFFFF;
   --surface: #FFFFFF;
-  --input-bg: #F6F8FA;
-  --border: #CDD5DF;
-  --text: #1F2A3A;
-  --text-secondary: #5A6A80;
+  --card-bg: #FFFFFF;
+  --card-sub-bg: #F0F4F9;
+  --input-bg: #F0F4F9;
+  --border: #A8B8CC;
+  --border-subtle: #C5D2E0;
+  --text: #1F2C3A;
+  --text-secondary: #4F6074;
+  --text-tertiary: #6A7A8E;
+  --text-title: #182330;
+  --text-disabled: #78889C;
+  --badge-bg: #E2EAF3;
+  --badge-text: #1F2C3A;
   --hover-bg: #E8EEF5;
   --active-bg: #D5E1F0;
-  --active-fg: #0E1724;
+  --active-fg: #182330;
+  --accent: #B45309;
 }
 
 :root[data-theme='sabbia'] {
   --app-bg: #F3EBD9;
   --chrome-bg: #FAF5E9;
   --surface: #FFFDF7;
+  --card-bg: #FFFDF7;
+  --card-sub-bg: #F4ECE0;
   --input-bg: #F8F1E3;
-  --border: #D6C6A8;
+  --border: #C8B796;
+  --border-subtle: #DCD0B7;
   --text: #292721;
-  --text-secondary: #6B655A;
+  --text-secondary: #5E584D;
+  --text-tertiary: #7A7265;
+  --text-title: #1F1D19;
+  --text-disabled: #8C8477;
+  --badge-bg: #E8DECA;
+  --badge-text: #292721;
   --hover-bg: #EAE1CD;
   --active-bg: #D4C3A3;
-  --active-fg: #1F1D18;
+  --active-fg: #1F1D19;
+  --accent: #8A4B1A;
 }
 
 :root[data-theme='navy'] {
   --app-bg: #C3CEDD;
   --chrome-bg: #FFFFFF;
   --surface: #FFFFFF;
-  --input-bg: #F6F8FA;
-  --border: #CDD5DF;
-  --text: #1F2A3A;
-  --text-secondary: #5A6A80;
+  --card-bg: #FFFFFF;
+  --card-sub-bg: #F0F4F9;
+  --input-bg: #F0F4F9;
+  --border: #A8B8CC;
+  --border-subtle: #C5D2E0;
+  --text: #1F2C3A;
+  --text-secondary: #4F6074;
+  --text-tertiary: #6A7A8E;
+  --text-title: #182330;
+  --text-disabled: #78889C;
+  --badge-bg: #E2EAF3;
+  --badge-text: #1F2C3A;
   --hover-bg: #E8EEF5;
   --active-bg: #D5E1F0;
-  --active-fg: #0E1724;
+  --active-fg: #182330;
+  --accent: #B45309;
 }
 
 :root[data-theme='antracite'] {
   --app-bg: #222528;
-  --chrome-bg: #1C1F22;
-  --surface: #393D41;
-  --input-bg: #41464B;
-  --border: #8D897F;
-  --text: #F2EDE2;
-  --text-secondary: #CAC4B8;
-  --hover-bg: #2D3238;
-  --active-bg: #484E55;
-  --active-fg: #FFFFFF;
+  --chrome-bg: #1B1E21;
+  --surface: #292D32;
+  --card-bg: #292D32;
+  --card-sub-bg: #202427;
+  --input-bg: #353B42;
+  --border: #525862;
+  --border-subtle: #414750;
+  --text: #F7F3E8;
+  --text-secondary: #E0DBD0;
+  --text-tertiary: #CAC4B7;
+  --text-title: #FFFDF7;
+  --text-disabled: #A8B2BF;
+  --accent-paglierino: #E8D89A;
+  --badge-bg: #3A4048;
+  --badge-text: #FFFDF7;
+  --hover-bg: #373D44;
+  --active-bg: #464E57;
+  --active-fg: #FFFDF7;
+  --accent: #E8D89A;
+}
+
+/* Common contrast helpers */
+.text-theme-title {
+  color: var(--text-title);
+}
+.text-theme-primary {
+  color: var(--text);
+}
+.text-theme-secondary {
+  color: var(--text-secondary);
+}
+.text-theme-tertiary {
+  color: var(--text-tertiary);
+}
+.text-theme-disabled {
+  color: var(--text-disabled);
+}
+.bg-theme-card {
+  background-color: var(--card-bg);
+}
+.bg-theme-card-sub {
+  background-color: var(--card-sub-bg);
+}
+.bg-theme-surface {
+  background-color: var(--surface);
+}
+.border-theme {
+  border-color: var(--border);
+}
+.badge-theme {
+  background-color: var(--badge-bg);
+  color: var(--badge-text);
+  border: 1px solid var(--border);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #6B7280;
+  opacity: 1;
 }
 
 body {
@@ -62,12 +139,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Foglio A4 print and layout rules */
+/* Foglio A4 print and layout rules: sempre bianco, testo sempre scuro */
 .sheet-a4 {
   width: 210mm;
   min-height: 297mm;
   background-color: #FFFFFF !important;
-  color: #111827;
+  color: #111827 !important;
   box-sizing: border-box;
 }
 

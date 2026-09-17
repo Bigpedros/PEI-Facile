@@ -101,6 +101,29 @@ export interface PeiSectionDefinition {
   fields: PeiFieldDefinition[];
 }
 
+export type ModelOriginType = 'MINISTERIAL' | 'TERRITORIAL' | 'INSTITUTION' | 'OTHER';
+
+export interface PeiModelDefinition {
+  id: string;
+  name: string;
+  schoolOrder: SchoolOrder;
+  originType: ModelOriginType;
+  originName: string;
+  version: string;
+  format: 'PDF' | 'DOCX';
+  status: 'attivo' | 'archiviato';
+  isDefault: boolean;
+  isMinisterial: boolean;
+  sourceHash: string;
+  description?: string;
+  acquisitionDate?: string;
+  usedCount?: number;
+  // Conferma di idoneità per modelli custom
+  confirmationState?: 'confirmed' | 'pending';
+  confirmationDate?: string;
+  confirmationText?: string;
+}
+
 export interface PeiDocument {
   id: string;
   schoolOrder: SchoolOrder;
@@ -114,6 +137,15 @@ export interface PeiDocument {
   values: Record<string, any>;
   fieldStatuses: Record<string, FieldStatus>;
   notes: Record<string, string>;
+  // Associazione vincolata al modello (Ministeriale o Territoriale/Istituto)
+  modelId?: string;
+  modelVersion?: string;
+  modelOrigin?: ModelOriginType | string;
+  modelName?: string;
+  // Retrocompatibilità
+  customModelId?: string;
+  customModelName?: string;
+  customModelOrigin?: 'ministeriale' | 'territoriale' | 'istituto' | 'altro';
 }
 
 export interface SchoolOrderMetadata {
@@ -140,6 +172,7 @@ export interface AppSettings {
   teacherSurname: string;
   teacherRole: string;
   defaultSchoolOrder: SchoolOrder;
+  defaultModelId?: string;
   theme: ThemeType;
 }
 

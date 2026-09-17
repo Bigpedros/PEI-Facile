@@ -1,6 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import type { ThemeType, SchoolOrder, AppSettings } from '../../types/pei';
-import { X, Palette, Shield, Building2, UserCheck, Check, School } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import type { ThemeType, SchoolOrder, AppSettings, PeiModelDefinition } from '../../types/pei';
+import { X, Palette, Shield, Building2, UserCheck, Check, School, FileText, Scale } from 'lucide-react';
+import { CustomModelManager } from './CustomModelManager';
+import {
+  getAllRegistryModels,
+  getGroupedActiveModels,
+  resolveDefaultModel,
+  getModelOriginDisplayLabel,
+} from '../../data/peiModelRegistry';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -11,6 +18,10 @@ interface SettingsModalProps {
   onChangeTheme: (theme: ThemeType) => void;
   defaultSchoolOrder: SchoolOrder;
   onChangeDefaultSchoolOrder: (order: SchoolOrder) => void;
+  customModels: PeiModelDefinition[];
+  onAddCustomModel: (model: PeiModelDefinition) => void;
+  onUpdateModelStatus: (id: string, status: 'attivo' | 'archiviato') => void;
+  showToast: (msg: string) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -22,12 +33,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onChangeTheme,
   defaultSchoolOrder,
   onChangeDefaultSchoolOrder,
+  customModels,
+  onAddCustomModel,
+  onUpdateModelStatus,
+  showToast,
 }) => {
   const [form, setForm] = useState<AppSettings>(settings);
 
   useEffect(() => {
     setForm(settings);
   }, [settings, isOpen]);
+
+  // Catalogo unificato dei modelli attivi
+  const allModels = useMemo(() => getAllRegistryModels(customModels), [customModels]);
+  const { ministerial: ministerialModels, other: otherModels } = useMemo(
+    () => getGroupedActiveModels(customModels),
+    [customModels]
+  );
+
+  // Modello predefinito correntemente risolto
+  const currentResolvedDefault = useMemo(
+    () => resolveDefaultModel(allModels, form.defaultSchoolOrder, form.defaultModelId),
+    [allModels, form.defaultSchoolOrder, form.defaultModelId]
+  );
 
   if (!isOpen) return null;
 
@@ -41,23 +69,36 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  const handleSelectDefaultModel = (modelId: string) => {
+    const selected = allModels.find((m) => m.id === modelId);
+    if (selected) {
+      setForm((prev) => ({
+        ...prev,
+        defaultModelId: selected.id,
+        defaultSchoolOrder: selected.schoolOrder,
+      }));
+      onChangeDefaultSchoolOrder(selected.schoolOrder);
+      showToast(`Modello predefinito impostato a: ${selected.name}`);
+    }
+  };
+
   const handleSaveAndClose = () => {
     onSaveSettings(form);
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-2xs flex items-center justify-center p-4 z-50 text-xs">
-      <div className="bg-white rounded-lg border border-stone-300 shadow-2xl max-w-2xl w-full overflow-hidden max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-2xs flex items-center justify-center p-4 z-50 text-xs">
+      <div className="bg-[var(--card-bg)] rounded-lg border border-[var(--border)] shadow-2xl max-w-3xl w-full overflow-hidden max-h-[90vh] flex flex-col">
         <div className="bg-[var(--chrome-bg)] p-4 border-b border-[var(--border)] flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2 font-bold text-stone-900 text-sm">
-            <School className="w-4 h-4 text-amber-800" />
-            <span>Impostazioni Istituzionali e di Profilo (PEI Facile)</span>
+          <div className="flex items-center gap-2 font-bold text-[var(--text-title)] text-sm">
+            <School className="w-4 h-4 text-amber-800 dark:text-[var(--accent-paglierino)]" />
+            <span>Impostazioni Istituzionali e Modelli PEI (PEI Facile)</span>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 hover:bg-stone-200/50 rounded text-stone-500"
+            className="p-1 hover:bg-[var(--hover-bg)] rounded text-[var(--text-secondary)] hover:text-[var(--text)] cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -66,162 +107,111 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="p-6 space-y-6 overflow-y-auto flex-1">
           {/* DATI SCUOLA */}
           <div className="space-y-3">
-            <div className="flex items-center gap-2 border-b border-stone-200 pb-2">
-              <Building2 className="w-4 h-4 text-amber-800" />
-              <h3 className="font-bold text-stone-900 text-sm">Dati Scuola</h3>
+            <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
+              <Building2 className="w-4 h-4 text-amber-800 dark:text-[var(--accent-paglierino)]" />
+              <h3 className="font-bold text-[var(--text-title)] text-sm">1. Istituto e Docente</h3>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="sm:col-span-2">
-                <label className="block text-stone-700 mb-1 font-medium">Denominazione istituzione scolastica *</label>
+                <label className="block text-[var(--text-secondary)] mb-1 font-semibold">Denominazione istituzione scolastica *</label>
                 <input
                   type="text"
                   value={form.schoolName}
                   onChange={(e) => handleChange('schoolName', e.target.value)}
                   placeholder="Es. I.C. Statale Alessandro Manzoni"
-                  className="w-full p-2 border border-stone-300 rounded bg-white text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-amber-800 disabled:bg-stone-100 disabled:text-stone-500"
+                  className="w-full p-2 border border-[var(--border)] rounded bg-[var(--input-bg)] text-[var(--text)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-1 focus:ring-amber-800 font-medium"
                 />
               </div>
 
               <div>
-                <label className="block text-stone-700 mb-1 font-medium">Codice meccanografico (facoltativo)</label>
+                <label className="block text-[var(--text-secondary)] mb-1 font-semibold">Codice meccanografico</label>
                 <input
                   type="text"
                   value={form.schoolCode}
                   onChange={(e) => handleChange('schoolCode', e.target.value)}
                   placeholder="Es. MIIC8XX00Q"
-                  className="w-full p-2 border border-stone-300 rounded bg-white text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-amber-800 disabled:bg-stone-100 disabled:text-stone-500"
+                  className="w-full p-2 border border-[var(--border)] rounded bg-[var(--input-bg)] text-[var(--text)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-1 focus:ring-amber-800 font-medium"
                 />
               </div>
 
               <div>
-                <label className="block text-stone-700 mb-1 font-medium">Plesso / Sede (facoltativo)</label>
+                <label className="block text-[var(--text-secondary)] mb-1 font-semibold">Plesso / Sede</label>
                 <input
                   type="text"
                   value={form.building}
                   onChange={(e) => handleChange('building', e.target.value)}
                   placeholder="Es. Plesso Centrale / Via Roma"
-                  className="w-full p-2 border border-stone-300 rounded bg-white text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-amber-800 disabled:bg-stone-100 disabled:text-stone-500"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block text-stone-700 mb-1 font-medium">Indirizzo</label>
-                <input
-                  type="text"
-                  value={form.address}
-                  onChange={(e) => handleChange('address', e.target.value)}
-                  placeholder="Es. Via Dante Alighieri 12"
-                  className="w-full p-2 border border-stone-300 rounded bg-white text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-amber-800 disabled:bg-stone-100 disabled:text-stone-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-stone-700 mb-1 font-medium">CAP</label>
-                <input
-                  type="text"
-                  value={form.cap}
-                  onChange={(e) => handleChange('cap', e.target.value)}
-                  placeholder="Es. 20121"
-                  className="w-full p-2 border border-stone-300 rounded bg-white text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-amber-800 disabled:bg-stone-100 disabled:text-stone-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-stone-700 mb-1 font-medium">Comune</label>
-                <input
-                  type="text"
-                  value={form.city}
-                  onChange={(e) => handleChange('city', e.target.value)}
-                  placeholder="Es. Milano"
-                  className="w-full p-2 border border-stone-300 rounded bg-white text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-amber-800 disabled:bg-stone-100 disabled:text-stone-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-stone-700 mb-1 font-medium">Provincia</label>
-                <input
-                  type="text"
-                  value={form.province}
-                  onChange={(e) => handleChange('province', e.target.value)}
-                  placeholder="Es. MI"
-                  className="w-full p-2 border border-stone-300 rounded bg-white text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-amber-800 disabled:bg-stone-100 disabled:text-stone-500"
+                  className="w-full p-2 border border-[var(--border)] rounded bg-[var(--input-bg)] text-[var(--text)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-1 focus:ring-amber-800 font-medium"
                 />
               </div>
             </div>
           </div>
 
-          {/* DATI DOCENTE */}
-          <div className="space-y-3 pt-3 border-t border-stone-200">
-            <div className="flex items-center gap-2 border-b border-stone-200 pb-2">
-              <UserCheck className="w-4 h-4 text-amber-800" />
-              <h3 className="font-bold text-stone-900 text-sm">Dati Docente (Riferimento GLO)</h3>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-stone-700 mb-1 font-medium">Nome</label>
-                <input
-                  type="text"
-                  value={form.teacherName}
-                  onChange={(e) => handleChange('teacherName', e.target.value)}
-                  placeholder="Es. Anna"
-                  className="w-full p-2 border border-stone-300 rounded bg-white text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-amber-800 disabled:bg-stone-100 disabled:text-stone-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-stone-700 mb-1 font-medium">Cognome</label>
-                <input
-                  type="text"
-                  value={form.teacherSurname}
-                  onChange={(e) => handleChange('teacherSurname', e.target.value)}
-                  placeholder="Es. Rossi"
-                  className="w-full p-2 border border-stone-300 rounded bg-white text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-amber-800 disabled:bg-stone-100 disabled:text-stone-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-stone-700 mb-1 font-medium">Ruolo / Funzione (facoltativo)</label>
-                <input
-                  type="text"
-                  value={form.teacherRole}
-                  onChange={(e) => handleChange('teacherRole', e.target.value)}
-                  placeholder="Es. Docente di Sostegno / Coordinatore"
-                  className="w-full p-2 border border-stone-300 rounded bg-white text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-amber-800 disabled:bg-stone-100 disabled:text-stone-500"
-                />
-              </div>
-            </div>
-            <p className="text-[11px] text-stone-500">
-              * Il docente configurato è disponibile come metadato predefinito e non viene inserito automaticamente nel GLO senza conferma esplicita.
-            </p>
-          </div>
-
-          {/* PREFERENZE */}
-          <div className="space-y-3 pt-3 border-t border-stone-200">
-            <div className="flex items-center gap-2 border-b border-stone-200 pb-2">
-              <Palette className="w-4 h-4 text-amber-800" />
-              <h3 className="font-bold text-stone-900 text-sm">Preferenze di Lavoro</h3>
+          {/* SEZIONE 2: MODELLI PEI (Catalogo Unico: Ministeriali A1-A4 + Territoriali/Istituto) */}
+          <div className="space-y-4 pt-3 border-t border-[var(--border)]">
+            <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
+              <FileText className="w-4 h-4 text-amber-800 dark:text-[var(--accent-paglierino)]" />
+              <h3 className="font-bold text-[var(--text-title)] text-sm">2. Modelli PEI e Ordine Scolastico Predefinito</h3>
             </div>
 
             <div className="space-y-2">
-              <label className="font-bold text-stone-800 block">
-                Modello ministeriale predefinito
+              <label className="font-bold text-[var(--text-title)] block">
+                Modello PEI predefinito per nuovi documenti
               </label>
               <select
-                value={form.defaultSchoolOrder}
-                onChange={(e) => handleChange('defaultSchoolOrder', e.target.value as SchoolOrder)}
-                className="w-full p-2 border border-stone-300 rounded bg-white text-stone-900 focus:outline-none focus:ring-1 focus:ring-amber-800 disabled:bg-stone-100 disabled:text-stone-500"
+                value={form.defaultModelId || `MINISTERIAL_${form.defaultSchoolOrder}`}
+                onChange={(e) => handleSelectDefaultModel(e.target.value)}
+                className="w-full p-2 border border-[var(--border)] rounded bg-[var(--input-bg)] text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-amber-800 font-bold"
               >
-                <option value="A1">A1 — Scuola dell’Infanzia (Allegato A1)</option>
-                <option value="A2">A2 — Scuola Primaria (Allegato A2)</option>
-                <option value="A3">A3 — Scuola Secondaria di I Grado (Allegato A3)</option>
-                <option value="A4">A4 — Scuola Secondaria di II Grado (Allegato A4)</option>
+                <optgroup label="Modelli Ministeriali Ufficiali (D.I. 182/2020 e D.I. 153/2023)">
+                  {ministerialModels.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.schoolOrder} — {m.name} ({getModelOriginDisplayLabel(m)})
+                    </option>
+                  ))}
+                </optgroup>
+                {otherModels.length > 0 && (
+                  <optgroup label="Altri Modelli Disponibili (Territoriali / Istituto / Utente)">
+                    {otherModels.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.schoolOrder} — {m.name} ({getModelOriginDisplayLabel(m)})
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
+              <div className="flex items-center justify-between text-[11px] text-[var(--text-secondary)] font-medium">
+                <span>
+                  Modello attualmente attivo per default:{' '}
+                  <strong className="text-[var(--text)]">{currentResolvedDefault.name}</strong> ({currentResolvedDefault.schoolOrder})
+                </span>
+                <span className="italic">Non altera retroattivamente i PEI già compilati</span>
+              </div>
             </div>
 
-            <div className="space-y-2 pt-2">
-              <label className="font-bold text-stone-800 block">
+            {/* Gestore Modelli Personalizzati (Territoriali / Istituto) */}
+            <div className="pt-2">
+              <CustomModelManager
+                customModels={customModels}
+                onAddCustomModel={onAddCustomModel}
+                onUpdateModelStatus={onUpdateModelStatus}
+                onSetDefaultModel={handleSelectDefaultModel}
+                defaultModelId={form.defaultModelId || currentResolvedDefault.id}
+                showToast={showToast}
+              />
+            </div>
+          </div>
+
+          {/* PREFERENZE DI ASPETTO */}
+          <div className="space-y-3 pt-3 border-t border-[var(--border)]">
+            <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
+              <Palette className="w-4 h-4 text-amber-800 dark:text-[var(--accent-paglierino)]" />
+              <h3 className="font-bold text-[var(--text-title)] text-sm">3. Aspetto e Temi Visivi</h3>
+            </div>
+
+            <div className="space-y-2">
+              <label className="font-bold text-[var(--text-title)] block">
                 Tema Visivo Interfaccia
               </label>
               <div className="grid grid-cols-3 gap-2">
@@ -234,10 +224,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     key={th.id}
                     type="button"
                     onClick={() => handleChange('theme', th.id as ThemeType)}
-                    className={`p-2.5 rounded-lg border-2 text-left transition-all ${
+                    className={`p-2.5 rounded-lg border-2 text-left transition-all cursor-pointer ${
                       form.theme === th.id
-                        ? 'border-amber-800 ring-1 ring-amber-800 shadow-xs'
-                        : 'border-stone-200 hover:border-stone-300'
+                        ? 'border-amber-800 ring-2 ring-amber-800/50 shadow-xs'
+                        : 'border-[var(--border)] hover:border-amber-800/50'
                     }`}
                     style={{ backgroundColor: th.bg, color: th.text }}
                   >
@@ -245,22 +235,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <span>{th.label}</span>
                       {form.theme === th.id && <Check className="w-3.5 h-3.5" />}
                     </div>
-                    <div className="text-[10px] opacity-80 mt-1">{th.desc}</div>
+                    <div className="text-[10px] opacity-80 mt-1 font-medium">{th.desc}</div>
                   </button>
                 ))}
               </div>
             </div>
           </div>
 
-          {/* Privacy */}
-          <div className="p-3 bg-stone-50 border border-stone-200 rounded space-y-1">
-            <div className="font-bold text-stone-800 flex items-center gap-1.5">
-              <Shield className="w-4 h-4 text-emerald-700" />
-              <span>Persistenza Locale (pei_facile_settings_v1)</span>
+          {/* Privacy e Responsabilità */}
+          <div className="space-y-2.5">
+            <div className="p-3 bg-[var(--card-sub-bg)] border border-[var(--border)] rounded space-y-1">
+              <div className="font-bold text-[var(--text-title)] flex items-center gap-1.5 text-xs">
+                <Shield className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+                <span>Separazione Dati e Privacy (Local-First)</span>
+              </div>
+              <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed font-medium">
+                I modelli vuoti acquisiti e le impostazioni istituzionali sono rigorosamente separati dai dati dei PEI compilati. Nessun dato identificativo di alunni viene memorizzato nelle impostazioni generali.
+              </p>
             </div>
-            <p className="text-[11px] text-stone-600 leading-relaxed">
-              Le impostazioni e i dati inseriti sono salvati esclusivamente nella memoria locale del browser (localStorage). Nessun dato viene inviato a server esterni.
-            </p>
+
+            {/* Responsabilità nella scelta del modello */}
+            <div className="p-3 bg-[var(--card-sub-bg)] border border-[var(--border)] rounded space-y-1.5">
+              <div className="font-bold text-[var(--text-title)] flex items-center gap-1.5 text-xs">
+                <Scale className="w-4 h-4 text-amber-800 dark:text-[var(--accent-paglierino)]" />
+                <span>Responsabilità nella scelta del modello</span>
+              </div>
+              <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed font-medium">
+                PEI FACILE non determina quale modello PEI debba essere utilizzato.
+                La scelta e la verifica dell&apos;idoneità del modello rispetto alle disposizioni
+                dell&apos;istituzione o dell&apos;ente competente restano responsabilità
+                dell&apos;utilizzatore e degli organi scolastici competenti.
+                PEI FACILE garantisce il trattamento tecnico del modello importato,
+                ma non ne certifica la validità normativa o amministrativa.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -268,14 +276,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded border border-stone-300"
+            className="px-4 py-1.5 bg-[var(--badge-bg)] hover:bg-[var(--hover-bg)] text-[var(--text)] rounded border border-[var(--border)] font-semibold cursor-pointer"
           >
             Annulla
           </button>
           <button
             type="button"
             onClick={handleSaveAndClose}
-            className="px-4 py-1.5 bg-amber-800 hover:bg-amber-900 text-white rounded font-bold cursor-pointer"
+            className="px-4 py-1.5 bg-amber-800 hover:bg-amber-900 text-white rounded font-bold cursor-pointer shadow-xs"
           >
             Salva e Chiudi
           </button>
@@ -284,4 +292,3 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     </div>
   );
 };
-

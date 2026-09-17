@@ -160,17 +160,17 @@ export const PdfIntakeModal: React.FC<PdfIntakeModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-2xs flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg border border-stone-300 shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden text-xs">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-2xs flex items-center justify-center p-4 z-50">
+      <div className="bg-[var(--card-bg)] rounded-lg border border-[var(--border)] shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden text-xs">
         {/* Header */}
         <div className="bg-[var(--chrome-bg)] p-4 border-b border-[var(--border)] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
-            <Upload className="w-5 h-5 text-amber-800" />
+            <Upload className="w-5 h-5 text-amber-800 dark:text-[var(--accent-paglierino)]" />
             <div>
-              <h2 className="text-base font-bold font-serif text-stone-900">
+              <h2 className="text-base font-bold font-serif text-[var(--text-title)]">
                 Modulo PDF Intake & OCR R3
               </h2>
-              <p className="text-[11px] text-stone-500">
+              <p className="text-[11px] text-[var(--text-secondary)] font-medium">
                 Ingestione documentale locale basata su PDF.js e Tesseract.js (ita.traineddata)
               </p>
             </div>
@@ -178,7 +178,7 @@ export const PdfIntakeModal: React.FC<PdfIntakeModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 hover:bg-stone-200/50 rounded text-stone-500"
+            className="p-1 hover:bg-[var(--hover-bg)] rounded text-[var(--text-secondary)] hover:text-[var(--text)] cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -190,25 +190,25 @@ export const PdfIntakeModal: React.FC<PdfIntakeModalProps> = ({
           <div
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
-            className="border-2 border-dashed border-stone-300 hover:border-amber-800 bg-stone-50/50 rounded-lg p-6 text-center space-y-2 cursor-pointer transition-colors"
+            className="border-2 border-dashed border-[var(--border)] hover:border-amber-800 bg-[var(--card-sub-bg)] rounded-lg p-6 text-center space-y-2 cursor-pointer transition-colors"
           >
-            <FileSearch className="w-8 h-8 text-stone-400 mx-auto" />
-            <div className="font-semibold text-stone-800">
+            <FileSearch className="w-8 h-8 text-[var(--text-secondary)] mx-auto" />
+            <div className="font-bold text-[var(--text)]">
               {file ? (
-                <span className="text-emerald-800 font-bold">{file.name}</span>
+                <span className="text-emerald-700 dark:text-emerald-300 font-bold">{file.name}</span>
               ) : selectedOfficialModel ? (
-                <span className="text-amber-800 font-bold">
+                <span className="text-amber-800 dark:text-amber-200 font-bold">
                   Selezionato: {selectedOfficialModel.split('/').pop()}
                 </span>
               ) : (
                 'Trascina qui il tuo file PDF del PEI o sfoglia i file locali'
               )}
             </div>
-            <p className="text-stone-500 text-[11px]">
+            <p className="text-[var(--text-secondary)] text-[11px] font-medium">
               Supporta scansioni PDF raster o documenti con text layer nativo
             </p>
             <div>
-              <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-stone-300 rounded font-medium text-stone-700 hover:bg-stone-50 cursor-pointer shadow-2xs">
+              <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[var(--card-bg)] border border-[var(--border)] rounded font-semibold text-[var(--text)] hover:bg-[var(--hover-bg)] cursor-pointer shadow-2xs">
                 <span>Sfoglia file...</span>
                 <input
                   type="file"
@@ -220,11 +220,11 @@ export const PdfIntakeModal: React.FC<PdfIntakeModalProps> = ({
             </div>
           </div>
 
-          {/* Test Rapido con Modelli Ufficiali Certificati */}
-          <div className="p-3 bg-amber-50/50 border border-amber-200 rounded-lg space-y-2">
-            <div className="font-bold text-amber-950 flex items-center justify-between">
-              <span>Oppure testa subito con un modello ministeriale certificato:</span>
-              <span className="text-[10px] text-amber-700 uppercase">Cartella /models/</span>
+          {/* Test Rapido con Modelli Ufficiali */}
+          <div className="p-3 bg-[var(--card-sub-bg)] border border-[var(--border)] rounded-lg space-y-2">
+            <div className="font-bold text-[var(--text-title)] flex items-center justify-between">
+              <span>Oppure testa subito con un modello ministeriale ufficiale:</span>
+              <span className="text-[10px] text-amber-800 dark:text-[var(--accent-paglierino)] uppercase font-bold">Cartella /models/</span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
               {[
@@ -237,14 +237,14 @@ export const PdfIntakeModal: React.FC<PdfIntakeModalProps> = ({
                   key={m.path}
                   type="button"
                   onClick={() => handleSelectOfficialPdf(m.path)}
-                  className={`p-2 rounded border text-center transition-all ${
+                  className={`p-2 rounded border text-center transition-all cursor-pointer ${
                     selectedOfficialModel === m.path
-                      ? 'bg-amber-800 text-white border-amber-900 font-semibold shadow-2xs'
-                      : 'bg-white border-stone-200 hover:border-amber-300 text-stone-800'
+                      ? 'bg-amber-800 text-white border-amber-900 font-bold shadow-2xs'
+                      : 'bg-[var(--card-bg)] border-[var(--border)] hover:border-amber-800 text-[var(--text)]'
                   }`}
                 >
                   <div className="font-bold text-[11px]">{m.label}</div>
-                  <div className="text-[9px] opacity-80 truncate">PDF Ufficiale</div>
+                  <div className="text-[9px] opacity-85 truncate font-medium">PDF Ufficiale</div>
                 </button>
               ))}
             </div>
@@ -252,38 +252,38 @@ export const PdfIntakeModal: React.FC<PdfIntakeModalProps> = ({
 
           {/* Messaggi di Errore */}
           {errorMsg && (
-            <div className="p-3 bg-rose-50 border border-rose-300 rounded text-rose-800 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+            <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-300 rounded text-rose-800 dark:text-rose-200 flex items-center gap-2 font-medium">
+              <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
               <span>{errorMsg}</span>
             </div>
           )}
 
           {/* Risultati Elaborazione Intake */}
           {intakeResult && (
-            <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-lg space-y-2 text-emerald-950">
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 rounded-lg space-y-2 text-emerald-950 dark:text-emerald-100">
               <div className="flex items-center justify-between font-bold">
                 <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
                   Analisi completata con successo
                 </span>
                 <span className="font-mono text-xs">{intakeResult.durationMs}ms</span>
               </div>
-              <div className="grid grid-cols-3 gap-2 text-center text-xs bg-white p-2 rounded border border-emerald-200">
+              <div className="grid grid-cols-3 gap-2 text-center text-xs bg-[var(--card-bg)] p-2 rounded border border-emerald-300/50">
                 <div>
-                  <div className="text-stone-500 text-[10px]">Pagine totali</div>
-                  <div className="font-bold font-mono text-sm text-stone-800">
+                  <div className="text-[var(--text-secondary)] text-[10px] font-medium">Pagine totali</div>
+                  <div className="font-bold font-mono text-sm text-[var(--text)]">
                     {intakeResult.totalPages}
                   </div>
                 </div>
                 <div>
-                  <div className="text-stone-500 text-[10px]">Testo nativo</div>
-                  <div className="font-bold font-mono text-sm text-stone-800">
+                  <div className="text-[var(--text-secondary)] text-[10px] font-medium">Testo nativo</div>
+                  <div className="font-bold font-mono text-sm text-[var(--text)]">
                     {intakeResult.textNativePages} pag.
                   </div>
                 </div>
                 <div>
-                  <div className="text-stone-500 text-[10px]">Caratteri estratti</div>
-                  <div className="font-bold font-mono text-sm text-stone-800">
+                  <div className="text-[var(--text-secondary)] text-[10px] font-medium">Caratteri estratti</div>
+                  <div className="font-bold font-mono text-sm text-[var(--text)]">
                     {intakeResult.totalNativeChars}
                   </div>
                 </div>
@@ -293,11 +293,11 @@ export const PdfIntakeModal: React.FC<PdfIntakeModalProps> = ({
 
           {/* Stato in avanzamento */}
           {isProcessing && (
-            <div className="p-4 bg-stone-50 border border-stone-200 rounded flex items-center gap-3">
-              <Loader2 className="w-5 h-5 text-amber-800 animate-spin" />
+            <div className="p-4 bg-[var(--card-sub-bg)] border border-[var(--border)] rounded flex items-center gap-3">
+              <Loader2 className="w-5 h-5 text-amber-800 dark:text-[var(--accent-paglierino)] animate-spin" />
               <div>
-                <div className="font-semibold text-stone-800">Elaborazione in corso...</div>
-                <div className="text-[11px] text-stone-500">{progressStatus}</div>
+                <div className="font-bold text-[var(--text)]">Elaborazione in corso...</div>
+                <div className="text-[11px] text-[var(--text-secondary)] font-medium">{progressStatus}</div>
               </div>
             </div>
           )}
@@ -305,8 +305,8 @@ export const PdfIntakeModal: React.FC<PdfIntakeModalProps> = ({
 
         {/* Footer */}
         <div className="bg-[var(--chrome-bg)] p-3 border-t border-[var(--border)] flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-1.5 text-stone-500 text-[11px]">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+          <div className="flex items-center gap-1.5 text-[var(--text-secondary)] text-[11px] font-medium">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             <span>Elaborazione locale local-first conforme a GDPR</span>
           </div>
 
@@ -314,7 +314,7 @@ export const PdfIntakeModal: React.FC<PdfIntakeModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 bg-white border border-stone-300 text-stone-700 rounded hover:bg-stone-50"
+              className="px-3 py-1.5 bg-[var(--badge-bg)] border border-[var(--border)] text-[var(--text)] font-semibold rounded hover:bg-[var(--hover-bg)] cursor-pointer"
             >
               Chiudi
             </button>
@@ -324,7 +324,7 @@ export const PdfIntakeModal: React.FC<PdfIntakeModalProps> = ({
                 type="button"
                 onClick={runIntake}
                 disabled={(!file && !selectedOfficialModel) || isProcessing}
-                className="px-4 py-1.5 bg-amber-800 hover:bg-amber-900 disabled:bg-stone-300 text-white rounded font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                className="px-4 py-1.5 bg-amber-800 hover:bg-amber-900 disabled:bg-stone-300 dark:disabled:bg-stone-700 text-white rounded font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
                 <span>Avvia Ingestione R3</span>

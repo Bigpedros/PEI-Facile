@@ -18,6 +18,7 @@ import {
   Sparkles,
   ShieldCheck,
   CheckCircle2,
+  Lock,
 } from 'lucide-react';
 
 interface AppHeaderProps {
@@ -38,6 +39,7 @@ interface AppHeaderProps {
   onClosePei: () => void;
   onOpenSettingsModal: () => void;
   onOpenHelpModal: () => void;
+  onOpenShareModal: () => void;
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
@@ -74,7 +76,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const isAnteprima = currentScreen === 'SCR-003';
 
   return (
-    <header className="bg-[var(--chrome-bg)] border-b border-[var(--border)] text-[var(--text)] select-none shadow-xs sticky top-0 z-30">
+    <header className="shrink-0 relative z-30 bg-[var(--chrome-bg)] border-b border-[var(--border)] text-[var(--text)] select-none shadow-xs">
       {/* 1. Barra Menu Primaria */}
       <div className="flex items-center justify-between px-3 py-1.5 border-b border-[var(--border)] text-xs">
         <div className="flex items-center gap-4">
@@ -93,7 +95,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               }}
             />
             <span className="text-sm font-black tracking-wider text-[var(--text)]">
-              PEI <span className="text-amber-800">FACILE</span>
+              PEI <span className="text-[var(--accent)]">FACILE</span>
             </span>
           </div>
 
@@ -112,7 +114,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               </button>
               {openMenu === 'file' && (
                 <div
-                  className="absolute left-0 top-full mt-1 w-52 bg-white border border-stone-200 rounded shadow-lg py-1 z-50 text-stone-800 text-xs"
+                  className="absolute left-0 top-full mt-1 w-52 bg-[var(--chrome-bg)] border border-[var(--border)] rounded shadow-lg py-1 z-50 text-[var(--text)] text-xs"
                   onMouseLeave={closeMenus}
                 >
                   <button
@@ -120,9 +122,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                       onNewPei();
                       closeMenus();
                     }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-amber-50 flex items-center gap-2"
+                    className="w-full text-left px-3 py-1.5 hover:bg-[var(--hover-bg)] flex items-center gap-2"
                   >
-                    <FilePlus className="w-3.5 h-3.5 text-stone-500" />
+                    <FilePlus className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
                     <span>Nuovo PEI...</span>
                   </button>
                   <button
@@ -130,9 +132,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                       onOpenSamplePei();
                       closeMenus();
                     }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-amber-50 flex items-center gap-2"
+                    className="w-full text-left px-3 py-1.5 hover:bg-[var(--hover-bg)] flex items-center gap-2"
                   >
-                    <FolderOpen className="w-3.5 h-3.5 text-stone-500" />
+                    <FolderOpen className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
                     <span>Carica PEI Demo</span>
                   </button>
                   <button
@@ -140,31 +142,31 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                       onOpenPdfIntake();
                       closeMenus();
                     }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-amber-50 flex items-center gap-2"
+                    className="w-full text-left px-3 py-1.5 hover:bg-[var(--hover-bg)] flex items-center gap-2"
                   >
-                    <Upload className="w-3.5 h-3.5 text-stone-500" />
+                    <Upload className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
                     <span>Importa PDF (Intake R3)...</span>
                   </button>
-                  <div className="border-t border-stone-200 my-1" />
+                  <div className="border-t border-[var(--border)] my-1" />
                   <button
                     disabled={!hasOpenDocument}
                     onClick={() => {
                       onSaveDemo();
                       closeMenus();
                     }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-amber-50 flex items-center gap-2 disabled:opacity-40"
+                    className="w-full text-left px-3 py-1.5 hover:bg-[var(--hover-bg)] flex items-center gap-2 disabled:text-[var(--text-disabled)] disabled:pointer-events-none"
                   >
-                    <Save className="w-3.5 h-3.5 text-stone-500" />
+                    <Save className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
                     <span>Salva modifiche</span>
                   </button>
-                  <div className="border-t border-stone-200 my-1" />
+                  <div className="border-t border-[var(--border)] my-1" />
                   <button
                     disabled={!hasOpenDocument}
                     onClick={() => {
                       onClosePei();
                       closeMenus();
                     }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-rose-50 text-rose-700 flex items-center gap-2 disabled:opacity-40"
+                    className="w-full text-left px-3 py-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-700 dark:text-rose-400 flex items-center gap-2 disabled:text-[var(--text-disabled)] disabled:pointer-events-none"
                   >
                     <span>Chiudi PEI</span>
                   </button>
@@ -178,33 +180,33 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 type="button"
                 disabled={!hasOpenDocument || isHome}
                 onClick={() => toggleMenu('inserisci')}
-                className="px-2.5 py-1 rounded hover:bg-[var(--hover-bg)] font-medium disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                className="px-2.5 py-1 rounded hover:bg-[var(--hover-bg)] font-medium disabled:text-[var(--text-disabled)] disabled:pointer-events-none transition-colors"
               >
                 Inserisci
               </button>
               {openMenu === 'inserisci' && (
                 <div
-                  className="absolute left-0 top-full mt-1 w-48 bg-white border border-stone-200 rounded shadow-lg py-1 z-50 text-stone-800 text-xs"
+                  className="absolute left-0 top-full mt-1 w-48 bg-[var(--chrome-bg)] border border-[var(--border)] rounded shadow-lg py-1 z-50 text-[var(--text)] text-xs"
                   onMouseLeave={closeMenus}
                 >
-                  <div className="px-3 py-1 text-[10px] text-stone-400 uppercase font-semibold">
+                  <div className="px-3 py-1 text-[10px] text-[var(--text-tertiary)] uppercase font-semibold">
                     Strumenti di testo
                   </div>
                   <button
                     onClick={closeMenus}
-                    className="w-full text-left px-3 py-1.5 hover:bg-amber-50"
+                    className="w-full text-left px-3 py-1.5 hover:bg-[var(--hover-bg)]"
                   >
                     Testo dalla libreria
                   </button>
                   <button
                     onClick={closeMenus}
-                    className="w-full text-left px-3 py-1.5 hover:bg-amber-50"
+                    className="w-full text-left px-3 py-1.5 hover:bg-[var(--hover-bg)]"
                   >
                     Traccia guidata
                   </button>
                   <button
                     onClick={closeMenus}
-                    className="w-full text-left px-3 py-1.5 hover:bg-amber-50"
+                    className="w-full text-left px-3 py-1.5 hover:bg-[var(--hover-bg)]"
                   >
                     Data corrente
                   </button>
@@ -218,31 +220,31 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 type="button"
                 disabled={!hasOpenDocument || isHome}
                 onClick={() => toggleMenu('revisione')}
-                className="px-2.5 py-1 rounded hover:bg-[var(--hover-bg)] font-medium disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                className="px-2.5 py-1 rounded hover:bg-[var(--hover-bg)] font-medium disabled:text-[var(--text-disabled)] disabled:pointer-events-none transition-colors"
               >
                 Revisione
               </button>
               {openMenu === 'revisione' && (
                 <div
-                  className="absolute left-0 top-full mt-1 w-52 bg-white border border-stone-200 rounded shadow-lg py-1 z-50 text-stone-800 text-xs"
+                  className="absolute left-0 top-full mt-1 w-52 bg-[var(--chrome-bg)] border border-[var(--border)] rounded shadow-lg py-1 z-50 text-[var(--text)] text-xs"
                   onMouseLeave={closeMenus}
                 >
                   <button
                     onClick={closeMenus}
-                    className="w-full text-left px-3 py-1.5 hover:bg-amber-50 flex items-center gap-2"
+                    className="w-full text-left px-3 py-1.5 hover:bg-[var(--hover-bg)] flex items-center gap-2"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                     <span>Controlla sezione attiva</span>
                   </button>
                   <button
                     onClick={closeMenus}
-                    className="w-full text-left px-3 py-1.5 hover:bg-amber-50"
+                    className="w-full text-left px-3 py-1.5 hover:bg-[var(--hover-bg)]"
                   >
                     Riepilogo completezza campi
                   </button>
                   <button
                     onClick={closeMenus}
-                    className="w-full text-left px-3 py-1.5 hover:bg-amber-50"
+                    className="w-full text-left px-3 py-1.5 hover:bg-[var(--hover-bg)]"
                   >
                     Verifica finale per GLO
                   </button>
@@ -256,13 +258,13 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 type="button"
                 disabled={!hasOpenDocument}
                 onClick={() => toggleMenu('stampa')}
-                className="px-2.5 py-1 rounded hover:bg-[var(--hover-bg)] font-medium disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                className="px-2.5 py-1 rounded hover:bg-[var(--hover-bg)] font-medium disabled:text-[var(--text-disabled)] disabled:pointer-events-none transition-colors"
               >
                 Stampa
               </button>
               {openMenu === 'stampa' && (
                 <div
-                  className="absolute left-0 top-full mt-1 w-52 bg-white border border-stone-200 rounded shadow-lg py-1 z-50 text-stone-800 text-xs"
+                  className="absolute left-0 top-full mt-1 w-52 bg-[var(--chrome-bg)] border border-[var(--border)] rounded shadow-lg py-1 z-50 text-[var(--text)] text-xs"
                   onMouseLeave={closeMenus}
                 >
                   <button
@@ -270,7 +272,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                       onNavigate('SCR-003');
                       closeMenus();
                     }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-amber-50 flex items-center gap-2 font-medium"
+                    className="w-full text-left px-3 py-1.5 hover:bg-[var(--hover-bg)] flex items-center gap-2 font-medium"
                   >
                     <Eye className="w-3.5 h-3.5 text-amber-800" />
                     <span>Anteprima di stampa (SCR-003)</span>
@@ -280,9 +282,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                       window.print();
                       closeMenus();
                     }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-amber-50 flex items-center gap-2"
+                    className="w-full text-left px-3 py-1.5 hover:bg-[var(--hover-bg)] flex items-center gap-2"
                   >
-                    <Printer className="w-3.5 h-3.5 text-stone-500" />
+                    <Printer className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
                     <span>Stampa documento</span>
                   </button>
                   <button
@@ -290,9 +292,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                       alert('Esportazione PDF con layout ministeriale certificato.');
                       closeMenus();
                     }}
-                    className="w-full text-left px-3 py-1.5 hover:bg-amber-50 flex items-center gap-2"
+                    className="w-full text-left px-3 py-1.5 hover:bg-[var(--hover-bg)] flex items-center gap-2"
                   >
-                    <FileText className="w-3.5 h-3.5 text-stone-500" />
+                    <FileText className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
                     <span>Salva come PDF</span>
                   </button>
                 </div>
@@ -303,7 +305,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             <button
               type="button"
               onClick={onOpenSettingsModal}
-              className="px-2.5 py-1 rounded hover:bg-[var(--hover-bg)] font-medium transition-colors"
+              className="px-2.5 py-1 rounded hover:bg-[var(--hover-bg)] font-medium transition-colors cursor-pointer"
             >
               Impostazioni
             </button>
@@ -312,7 +314,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             <button
               type="button"
               onClick={onOpenHelpModal}
-              className="px-2.5 py-1 rounded hover:bg-[var(--hover-bg)] font-medium transition-colors"
+              className="px-2.5 py-1 rounded hover:bg-[var(--hover-bg)] font-medium transition-colors cursor-pointer"
             >
               Aiuto
             </button>
@@ -323,12 +325,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         <div className="flex items-center gap-3">
           {/* Selettore Tema */}
           <div className="flex items-center gap-1 border border-[var(--border)] rounded p-0.5 bg-[var(--input-bg)]">
-            <Palette className="w-3 h-3 text-stone-400 ml-1" />
+            <Palette className="w-3 h-3 text-[var(--text-secondary)] ml-1" />
             <button
               type="button"
               onClick={() => onChangeTheme('sabbia')}
-              className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-                currentTheme === 'sabbia' ? 'bg-[#F3EBD9] text-stone-900 shadow-2xs font-bold border border-amber-300' : 'text-stone-600 hover:text-stone-900'
+              className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
+                currentTheme === 'sabbia'
+                  ? 'bg-[#F3EBD9] text-[#1F1D19] shadow-2xs font-bold border border-[#C8B796]'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text)]'
               }`}
               title="Tema Chiaro - Sabbia (#F3EBD9)"
             >
@@ -337,8 +341,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             <button
               type="button"
               onClick={() => onChangeTheme('navy')}
-              className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-                currentTheme === 'navy' ? 'bg-[#C3CEDD] text-slate-900 shadow-2xs font-bold border border-slate-400' : 'text-stone-600 hover:text-stone-900'
+              className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
+                currentTheme === 'navy'
+                  ? 'bg-[#C3CEDD] text-[#182330] shadow-2xs font-bold border border-[#A8B8CC]'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text)]'
               }`}
               title="Tema Default - Blu Navy 35% (#C3CEDD)"
             >
@@ -347,8 +353,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             <button
               type="button"
               onClick={() => onChangeTheme('antracite')}
-              className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-                currentTheme === 'antracite' ? 'bg-[#222528] text-white shadow-2xs font-bold border border-stone-600' : 'text-stone-600 hover:text-stone-900'
+              className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
+                currentTheme === 'antracite'
+                  ? 'bg-[#222528] text-[#FFFDF7] shadow-2xs font-bold border border-[#525862]'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text)]'
               }`}
               title="Tema Scuro - Antracite (#222528)"
             >
@@ -366,7 +374,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             <button
               type="button"
               onClick={() => onNavigate('SCR-001')}
-              className={`px-3 py-1 rounded text-xs font-semibold transition-all ${
+              className={`px-3 py-1 rounded text-xs font-semibold transition-all cursor-pointer ${
                 isHome
                   ? 'bg-amber-900 text-white shadow-xs'
                   : 'text-[var(--text)] hover:bg-[var(--hover-bg)]'
@@ -378,7 +386,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               type="button"
               disabled={!hasOpenDocument}
               onClick={() => onNavigate('SCR-002')}
-              className={`px-3 py-1 rounded text-xs font-semibold transition-all disabled:opacity-40 disabled:pointer-events-none ${
+              className={`px-3 py-1 rounded text-xs font-semibold transition-all cursor-pointer disabled:text-[var(--text-disabled)] disabled:pointer-events-none ${
                 isCompilazione
                   ? 'bg-amber-900 text-white shadow-xs'
                   : 'text-[var(--text)] hover:bg-[var(--hover-bg)]'
@@ -390,7 +398,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               type="button"
               disabled={!hasOpenDocument}
               onClick={() => onNavigate('SCR-003')}
-              className={`px-3 py-1 rounded text-xs font-semibold transition-all disabled:opacity-40 disabled:pointer-events-none ${
+              className={`px-3 py-1 rounded text-xs font-semibold transition-all cursor-pointer disabled:text-[var(--text-disabled)] disabled:pointer-events-none ${
                 isAnteprima
                   ? 'bg-amber-900 text-white shadow-xs'
                   : 'text-[var(--text)] hover:bg-[var(--hover-bg)]'
@@ -403,7 +411,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           {/* Selettore Modello A1 - A4 */}
           {hasOpenDocument && (
             <div className="flex items-center gap-1.5 pl-2 border-l border-[var(--border)]">
-              <span className="text-stone-500 text-[11px]">Modello:</span>
+              <span className="text-[var(--text-secondary)] text-[11px] font-semibold">Modello:</span>
               <select
                 value={schoolOrder}
                 onChange={(e) => onChangeSchoolOrder(e.target.value as SchoolOrder)}
@@ -419,8 +427,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
           {/* Indicatore Sezione Attiva (in compilazione) */}
           {isCompilazione && activeSectionTitle && (
-            <div className="text-stone-600 pl-2 border-l border-[var(--border)] flex items-center gap-1.5 font-medium">
-              <span className="text-stone-400">Sezione:</span>
+            <div className="pl-2 border-l border-[var(--border)] flex items-center gap-1.5 font-medium">
+              <span className="text-[var(--text-tertiary)]">Sezione:</span>
               <span className="text-[var(--text)] font-semibold">{activeSectionTitle}</span>
             </div>
           )}
@@ -434,18 +442,18 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               <button
                 type="button"
                 onClick={() => onChangeZoom(Math.max(0.75, zoomScale - 0.1))}
-                className="p-1 hover:bg-stone-200/50 rounded text-stone-600"
+                className="p-1 hover:bg-[var(--hover-bg)] rounded text-[var(--text-secondary)] hover:text-[var(--text)]"
                 title="Riduci zoom"
               >
                 <ZoomOut className="w-3.5 h-3.5" />
               </button>
-              <span className="text-[11px] font-mono font-medium px-1 min-w-[40px] text-center">
+              <span className="text-[11px] font-mono font-bold px-1 min-w-[40px] text-center text-[var(--text)]">
                 {Math.round(zoomScale * 100)}%
               </span>
               <button
                 type="button"
                 onClick={() => onChangeZoom(Math.min(1.5, zoomScale + 0.1))}
-                className="p-1 hover:bg-stone-200/50 rounded text-stone-600"
+                className="p-1 hover:bg-[var(--hover-bg)] rounded text-[var(--text-secondary)] hover:text-[var(--text)]"
                 title="Aumenta zoom"
               >
                 <ZoomIn className="w-3.5 h-3.5" />
@@ -458,7 +466,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             <button
               type="button"
               onClick={onSaveDemo}
-              className="px-3 py-1 bg-amber-800 hover:bg-amber-900 text-white rounded font-medium inline-flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+              className="px-3 py-1 bg-amber-800 hover:bg-amber-900 text-white rounded font-bold inline-flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
             >
               <Save className="w-3.5 h-3.5" />
               <span>Salva</span>

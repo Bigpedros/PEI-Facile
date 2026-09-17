@@ -98,20 +98,20 @@ export const CompilazioneScreen: React.FC<CompilazioneScreenProps> = ({
               type="button"
               onClick={handlePrevSection}
               disabled={currentSectionIndex === 0}
-              className="p-1.5 rounded hover:bg-[var(--hover-bg)] disabled:opacity-30 disabled:pointer-events-none text-[var(--text)] inline-flex items-center gap-1 font-medium cursor-pointer"
+              className="p-1.5 rounded hover:bg-[var(--hover-bg)] disabled:text-[var(--text-disabled)] disabled:pointer-events-none text-[var(--text)] inline-flex items-center gap-1 font-semibold cursor-pointer transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
               <span>Sez. precedente</span>
             </button>
-            <span className="text-stone-400">|</span>
-            <span className="font-bold text-[var(--text)]">
+            <span className="text-[var(--border)]">|</span>
+            <span className="font-bold text-[var(--text-title)]">
               Sezione {currentSection.number} di {sections.length}: {currentSection.title}
             </span>
             <button
               type="button"
               onClick={handleNextSection}
               disabled={currentSectionIndex === sections.length - 1}
-              className="p-1.5 rounded hover:bg-[var(--hover-bg)] disabled:opacity-30 disabled:pointer-events-none text-[var(--text)] inline-flex items-center gap-1 font-medium cursor-pointer"
+              className="p-1.5 rounded hover:bg-[var(--hover-bg)] disabled:text-[var(--text-disabled)] disabled:pointer-events-none text-[var(--text)] inline-flex items-center gap-1 font-semibold cursor-pointer transition-colors"
             >
               <span>Sez. successiva</span>
               <ChevronRight className="w-4 h-4" />
@@ -121,14 +121,14 @@ export const CompilazioneScreen: React.FC<CompilazioneScreenProps> = ({
           <div className="flex items-center gap-3">
             {/* Indicatore avanzamento complessivo */}
             <div className="flex items-center gap-2 bg-[var(--input-bg)] px-2 py-1 rounded border border-[var(--border)]">
-              <span className="text-[11px] text-stone-500">Completamento:</span>
-              <div className="w-20 bg-stone-200 rounded-full h-2 overflow-hidden">
+              <span className="text-[11px] font-semibold text-[var(--text-secondary)]">Completamento:</span>
+              <div className="w-20 bg-[var(--badge-bg)] border border-[var(--border)] rounded-full h-2 overflow-hidden">
                 <div
                   className="bg-emerald-600 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${percentComplete}%` }}
                 />
               </div>
-              <span className="text-[11px] font-mono font-bold text-stone-700">
+              <span className="text-[11px] font-mono font-bold text-[var(--text)]">
                 {percentComplete}%
               </span>
             </div>
@@ -136,10 +136,10 @@ export const CompilazioneScreen: React.FC<CompilazioneScreenProps> = ({
             <button
               type="button"
               onClick={onGoToPreview}
-              className="px-2.5 py-1 text-xs font-semibold bg-stone-100 hover:bg-stone-200 text-stone-800 rounded border border-stone-300 inline-flex items-center gap-1.5 cursor-pointer"
+              className="px-2.5 py-1 text-xs font-bold bg-[var(--badge-bg)] hover:bg-[var(--hover-bg)] text-[var(--text)] rounded border border-[var(--border)] inline-flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
               title="Passa all'anteprima di stampa completa"
             >
-              <Eye className="w-3.5 h-3.5 text-stone-600" />
+              <Eye className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
               <span>Anteprima</span>
             </button>
           </div>

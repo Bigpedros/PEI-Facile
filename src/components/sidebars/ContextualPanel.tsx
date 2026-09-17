@@ -74,10 +74,10 @@ export const ContextualPanel: React.FC<ContextualPanelProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('help')}
-            className={`px-2 py-1 text-xs font-semibold rounded transition-colors ${
+            className={`px-2 py-1 text-xs font-bold rounded transition-colors cursor-pointer ${
               activeTab === 'help'
-                ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                : 'text-stone-600 hover:text-stone-900'
+                ? 'bg-[var(--badge-bg)] text-[var(--badge-text)] border border-[var(--border)] shadow-2xs'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text)]'
             }`}
           >
             Guida
@@ -85,10 +85,10 @@ export const ContextualPanel: React.FC<ContextualPanelProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('library')}
-            className={`px-2 py-1 text-xs font-semibold rounded transition-colors ${
+            className={`px-2 py-1 text-xs font-bold rounded transition-colors cursor-pointer ${
               activeTab === 'library'
-                ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                : 'text-stone-600 hover:text-stone-900'
+                ? 'bg-[var(--badge-bg)] text-[var(--badge-text)] border border-[var(--border)] shadow-2xs'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text)]'
             }`}
           >
             Libreria
@@ -96,10 +96,10 @@ export const ContextualPanel: React.FC<ContextualPanelProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('model')}
-            className={`px-2 py-1 text-xs font-semibold rounded transition-colors ${
+            className={`px-2 py-1 text-xs font-bold rounded transition-colors cursor-pointer ${
               activeTab === 'model'
-                ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                : 'text-stone-600 hover:text-stone-900'
+                ? 'bg-[var(--badge-bg)] text-[var(--badge-text)] border border-[var(--border)] shadow-2xs'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text)]'
             }`}
           >
             Modello
@@ -109,7 +109,7 @@ export const ContextualPanel: React.FC<ContextualPanelProps> = ({
         <button
           type="button"
           onClick={onToggle}
-          className="p-1 hover:bg-stone-200/60 rounded text-stone-500 cursor-pointer"
+          className="p-1 hover:bg-[var(--hover-bg)] rounded text-[var(--text-secondary)] hover:text-[var(--text)] cursor-pointer"
           title="Chiudi pannello laterale"
         >
           <ChevronRight className="w-4 h-4" />
@@ -120,48 +120,48 @@ export const ContextualPanel: React.FC<ContextualPanelProps> = ({
       <div className="flex-1 overflow-y-auto p-3 text-xs space-y-3">
         {activeTab === 'help' && (
           <div className="space-y-3">
-            <div className="p-2.5 bg-amber-50/70 border border-amber-200 rounded">
-              <div className="flex items-center gap-1.5 font-bold text-amber-950 mb-1">
-                <HelpCircle className="w-4 h-4 text-amber-800" />
+            <div className="p-2.5 bg-[var(--card-sub-bg)] border border-[var(--border)] rounded">
+              <div className="flex items-center gap-1.5 font-bold text-[var(--text-title)] mb-1">
+                <HelpCircle className="w-4 h-4 text-amber-800 dark:text-[var(--accent-paglierino)]" />
                 <span>Sezione {activeSection.number} — Guida</span>
               </div>
-              <p className="text-stone-700 leading-relaxed">
+              <p className="text-[var(--text)] leading-relaxed font-medium">
                 {activeSection.description}
               </p>
             </div>
 
             {activeField ? (
-              <div className="p-2.5 bg-white border border-stone-200 rounded space-y-2 shadow-2xs">
-                <div className="font-semibold text-stone-900 flex items-center justify-between">
+              <div className="p-2.5 bg-[var(--card-bg)] border border-[var(--border)] rounded space-y-2 shadow-2xs">
+                <div className="font-bold text-[var(--text-secondary)] flex items-center justify-between">
                   <span>Campo attivo:</span>
-                  <span className="font-mono text-[10px] bg-stone-100 px-1 py-0.5 rounded text-stone-500">
+                  <span className="font-mono text-[10px] bg-[var(--badge-bg)] text-[var(--badge-text)] border border-[var(--border)] px-1 py-0.5 rounded font-bold">
                     {activeField.componentType}
                   </span>
                 </div>
-                <div className="font-medium text-stone-800">{activeField.label}</div>
+                <div className="font-bold text-[var(--text)]">{activeField.label}</div>
                 {activeField.helpText && (
-                  <p className="text-stone-600 text-[11px] leading-relaxed">
+                  <p className="text-[var(--text-secondary)] text-[11px] leading-relaxed font-medium">
                     {activeField.helpText}
                   </p>
                 )}
                 {activeField.legalReference && (
-                  <div className="text-[10px] text-stone-500 font-mono bg-stone-50 p-1.5 rounded border border-stone-200">
+                  <div className="text-[10px] text-[var(--text-secondary)] font-mono bg-[var(--input-bg)] p-1.5 rounded border border-[var(--border)] font-semibold">
                     Rif. Normativo: {activeField.legalReference}
                   </div>
                 )}
               </div>
             ) : (
-              <div className="p-3 text-center text-stone-500 italic bg-stone-50 border border-stone-200 rounded">
+              <div className="p-3 text-center text-[var(--text-secondary)] italic bg-[var(--card-sub-bg)] border border-[var(--border)] rounded font-medium">
                 Seleziona un campo nel foglio A4 per visualizzare i chiarimenti contestuali e i criteri ministeriali.
               </div>
             )}
 
-            <div className="p-2.5 bg-stone-50 border border-stone-200 rounded space-y-1 text-stone-600">
-              <div className="font-semibold text-stone-800 flex items-center gap-1">
-                <Info className="w-3.5 h-3.5 text-stone-500" />
+            <div className="p-2.5 bg-[var(--card-sub-bg)] border border-[var(--border)] rounded space-y-1 text-[var(--text-secondary)]">
+              <div className="font-bold text-[var(--text-title)] flex items-center gap-1">
+                <Info className="w-3.5 h-3.5 text-amber-800 dark:text-[var(--accent-paglierino)]" />
                 <span>Principi D.I. 182/2020</span>
               </div>
-              <ul className="list-disc list-inside space-y-1 text-[11px]">
+              <ul className="list-disc list-inside space-y-1 text-[11px] font-medium">
                 <li>Prospettiva bio-psico-sociale (ICF)</li>
                 <li>Coinvolgimento effettivo della famiglia e dello studente</li>
                 <li>Separazione netta tra dati e layout di stampa</li>
@@ -172,27 +172,27 @@ export const ContextualPanel: React.FC<ContextualPanelProps> = ({
 
         {activeTab === 'library' && (
           <div className="space-y-3">
-            <div className="flex items-center gap-1.5 font-bold text-stone-800">
-              <BookOpen className="w-4 h-4 text-amber-800" />
+            <div className="flex items-center gap-1.5 font-bold text-[var(--text-title)]">
+              <BookOpen className="w-4 h-4 text-amber-800 dark:text-[var(--accent-paglierino)]" />
               <span>Libreria Frasi Tipo Demo</span>
             </div>
 
             {activeField && activeField.suggestedPhrases && activeField.suggestedPhrases.length > 0 ? (
               <div className="space-y-2">
-                <p className="text-[11px] text-stone-500">
-                  Frasi pertinenti a <strong>{activeField.label}</strong>:
+                <p className="text-[11px] text-[var(--text-secondary)] font-medium">
+                  Frasi pertinenti a <strong className="text-[var(--text)]">{activeField.label}</strong>:
                 </p>
                 {activeField.suggestedPhrases.map((phrase, idx) => (
                   <div
                     key={idx}
-                    className="p-2.5 bg-white border border-stone-200 rounded hover:border-amber-300 transition-colors space-y-1.5 shadow-2xs"
+                    className="p-2.5 bg-[var(--card-bg)] border border-[var(--border)] rounded hover:border-amber-800 transition-colors space-y-1.5 shadow-2xs"
                   >
-                    <p className="text-stone-800 leading-relaxed text-[11px]">{phrase}</p>
-                    <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-stone-100">
+                    <p className="text-[var(--text)] leading-relaxed text-[11px] font-medium">{phrase}</p>
+                    <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-[var(--border)]">
                       <button
                         type="button"
                         onClick={() => handleCopy(phrase, idx)}
-                        className="px-2 py-0.5 text-[10px] text-stone-600 hover:text-stone-900 bg-stone-100 rounded inline-flex items-center gap-1"
+                        className="px-2 py-0.5 text-[10px] text-[var(--badge-text)] hover:text-[var(--text)] bg-[var(--badge-bg)] border border-[var(--border)] rounded inline-flex items-center gap-1 cursor-pointer font-semibold"
                       >
                         {copiedIndex === idx ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
                         <span>Copia</span>
@@ -200,7 +200,7 @@ export const ContextualPanel: React.FC<ContextualPanelProps> = ({
                       <button
                         type="button"
                         onClick={() => handleInsert(phrase)}
-                        className="px-2 py-0.5 text-[10px] font-medium text-amber-900 bg-amber-100 hover:bg-amber-200 rounded inline-flex items-center gap-1"
+                        className="px-2 py-0.5 text-[10px] font-bold text-white bg-amber-800 hover:bg-amber-900 rounded inline-flex items-center gap-1 cursor-pointer"
                       >
                         <span>Inserisci</span>
                       </button>
@@ -210,7 +210,7 @@ export const ContextualPanel: React.FC<ContextualPanelProps> = ({
               </div>
             ) : (
               <div className="space-y-2">
-                <p className="text-[11px] text-stone-500">
+                <p className="text-[11px] text-[var(--text-secondary)] font-medium">
                   Tracce generali di compilazione per la sezione {activeSection.number}:
                 </p>
                 {[
@@ -220,13 +220,13 @@ export const ContextualPanel: React.FC<ContextualPanelProps> = ({
                 ].map((sample, idx) => (
                   <div
                     key={idx}
-                    className="p-2 bg-white border border-stone-200 rounded space-y-1"
+                    className="p-2 bg-[var(--card-bg)] border border-[var(--border)] rounded space-y-1 shadow-2xs"
                   >
-                    <p className="text-stone-700 text-[11px]">{sample}</p>
+                    <p className="text-[var(--text)] text-[11px] font-medium">{sample}</p>
                     <button
                       type="button"
                       onClick={() => handleInsert(sample)}
-                      className="text-[10px] text-amber-800 hover:text-amber-950 font-medium"
+                      className="text-[10px] text-amber-800 dark:text-[var(--accent-paglierino)] hover:underline font-bold cursor-pointer"
                     >
                       + Inserisci nel campo attivo
                     </button>
@@ -239,29 +239,29 @@ export const ContextualPanel: React.FC<ContextualPanelProps> = ({
 
         {activeTab === 'model' && (
           <div className="space-y-3">
-            <div className="p-3 bg-stone-50 border border-stone-200 rounded space-y-2">
-              <div className="flex items-center gap-1.5 font-bold text-stone-900">
-                <FileText className="w-4 h-4 text-amber-800" />
+            <div className="p-3 bg-[var(--card-bg)] border border-[var(--border)] rounded space-y-2 shadow-2xs">
+              <div className="flex items-center gap-1.5 font-bold text-[var(--text-title)]">
+                <FileText className="w-4 h-4 text-amber-800 dark:text-[var(--accent-paglierino)]" />
                 <span>{modelMeta.officialAllegato} — {modelMeta.schoolLevel}</span>
               </div>
-              <p className="text-stone-600 text-[11px] leading-relaxed">
+              <p className="text-[var(--text-secondary)] text-[11px] leading-relaxed font-medium">
                 {modelMeta.description}
               </p>
-              <div className="text-[11px] space-y-1 pt-1 border-t border-stone-200">
+              <div className="text-[11px] space-y-1.5 pt-1.5 border-t border-[var(--border)]">
                 <div>
-                  <span className="text-stone-500">Pagine ufficiali:</span>{' '}
-                  <strong className="text-stone-800">{modelMeta.pageCount}</strong>
+                  <span className="text-[var(--text-secondary)] font-medium">Pagine ufficiali:</span>{' '}
+                  <strong className="text-[var(--text)] font-bold">{modelMeta.pageCount}</strong>
                 </div>
                 <div>
-                  <span className="text-stone-500">Quadro normativo:</span>{' '}
-                  <strong className="text-stone-800">{modelMeta.decree}</strong>
+                  <span className="text-[var(--text-secondary)] font-medium">Quadro normativo:</span>{' '}
+                  <strong className="text-[var(--text)] font-bold">{modelMeta.decree}</strong>
                 </div>
                 <div>
-                  <span className="text-stone-500">PDF sorgente:</span>{' '}
-                  <span className="font-mono text-[10px] text-stone-700">{modelMeta.pdfFileName}</span>
+                  <span className="text-[var(--text-secondary)] font-medium">PDF sorgente:</span>{' '}
+                  <span className="font-mono text-[10px] text-[var(--text)] bg-[var(--input-bg)] border border-[var(--border)] px-1 py-0.5 rounded font-semibold">{modelMeta.pdfFileName}</span>
                 </div>
                 {modelMeta.specialRules && (
-                  <div className="p-1.5 bg-amber-50 text-amber-900 border border-amber-200 rounded mt-1.5">
+                  <div className="p-2 bg-[var(--card-sub-bg)] text-[var(--text)] border border-[var(--border)] rounded mt-1.5 font-medium text-[11px]">
                     {modelMeta.specialRules}
                   </div>
                 )}

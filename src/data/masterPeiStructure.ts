@@ -3,6 +3,7 @@ import type {
   SchoolOrderMetadata,
   PeiSectionDefinition,
   PeiDocument,
+  PeiModelDefinition,
 } from '../types/pei';
 
 export const SCHOOL_ORDERS_METADATA: Record<SchoolOrder, SchoolOrderMetadata> = {
@@ -590,13 +591,16 @@ export function createEmptyPeiDocument(
   model: SchoolOrder,
   studentCode?: string,
   schoolName?: string,
-  classOrSection?: string
+  classOrSection?: string,
+  modelDef?: PeiModelDefinition | null
 ): PeiDocument {
   const meta = SCHOOL_ORDERS_METADATA[model];
   const finalStudentCode = studentCode || `ALU-${model}-2026-F`;
   const finalSchoolName = schoolName || 'I.C. Statale "Gianni Rodari"';
   const finalClassOrSection =
     classOrSection || (model === 'A1' ? 'Sezione Girasoli' : 'Classe 2^ B');
+
+  const isCustom = modelDef ? !modelDef.isMinisterial : false;
 
   return {
     id: `pei-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -607,6 +611,21 @@ export function createEmptyPeiDocument(
     classOrSection: finalClassOrSection,
     creationDate: '2026-09-16',
     lastModifiedDate: '2026-09-16',
+    // Associazione esplicita al modello
+    modelId: modelDef ? modelDef.id : `MINISTERIAL_${model}`,
+    modelVersion: modelDef ? modelDef.version : 'D.I. 182/2020 - D.I. 153/2023',
+    modelOrigin: modelDef ? modelDef.originType : 'MINISTERIAL',
+    modelName: modelDef ? modelDef.name : meta.officialAllegato,
+    // Retrocompatibilità per codice esistente
+    customModelId: isCustom ? modelDef?.id : undefined,
+    customModelName: isCustom ? modelDef?.name : undefined,
+    customModelOrigin: isCustom
+      ? modelDef?.originType === 'TERRITORIAL'
+        ? 'territoriale'
+        : modelDef?.originType === 'INSTITUTION'
+        ? 'istituto'
+        : 'altro'
+      : undefined,
     values: {
       'f-01-scuola': finalSchoolName,
       'f-01-studente': finalStudentCode,

@@ -5,7 +5,14 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import type { ScreenId, SchoolOrder, ThemeType, PeiDocument, AppSettings } from './types/pei';
+import type {
+  ScreenId,
+  SchoolOrder,
+  ThemeType,
+  PeiDocument,
+  AppSettings,
+  PeiModelDefinition,
+} from './types/pei';
 import {
   MASTER_PEI_SECTIONS,
   DEMO_PEI_DOCUMENT,
@@ -24,6 +31,7 @@ import { NewPeiModal } from './components/modals/NewPeiModal';
 import { PdfIntakeModal } from './components/modals/PdfIntakeModal';
 import { SettingsModal } from './components/modals/SettingsModal';
 import { HelpModal } from './components/modals/HelpModal';
+import { ShareModal } from './components/modals/ShareModal';
 
 const DEFAULT_SETTINGS: AppSettings = {
   schoolName: 'I.C. Statale Alessandro Manzoni',
@@ -63,6 +71,61 @@ export default function App() {
     }
     setCurrentTheme(newSettings.theme);
     showToast('Impostazioni salvate con successo nella memoria locale.');
+  };
+
+  // Modelli PEI personalizzati (Territoriali / Istituto)
+  const [customModels, setCustomModels] = useState<PeiModelDefinition[]>(() => {
+    try {
+      const saved = localStorage.getItem('pei_facile_custom_models_v1');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {
+      // ignore
+    }
+    return [
+      {
+        id: 'model_demo_1',
+        name: 'Modello PEI Inclusivo Territoriale',
+        schoolOrder: 'A3',
+        originType: 'TERRITORIAL',
+        originName: 'Comune / ATS di Riferimento',
+        version: '2.1',
+        acquisitionDate: '2026-01-15',
+        format: 'PDF',
+        status: 'attivo',
+        isDefault: false,
+        isMinisterial: false,
+        sourceHash: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
+        description: 'Adattamento territoriale per la Secondaria di I Grado validato dall’accordo di programma.',
+        usedCount: 1,
+      },
+    ];
+  });
+
+  const handleAddCustomModel = (model: PeiModelDefinition) => {
+    setCustomModels((prev) => {
+      const updated = [model, ...prev];
+      try {
+        localStorage.setItem('pei_facile_custom_models_v1', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+  };
+
+  const handleUpdateModelStatus = (id: string, status: 'attivo' | 'archiviato') => {
+    setCustomModels((prev) => {
+      const updated = prev.map((m) => (m.id === id ? { ...m, status } : m));
+      try {
+        localStorage.setItem('pei_facile_custom_models_v1', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+    showToast(`Stato del modello aggiornato a: ${status}`);
   };
 
   // 2. Stato di Navigazione
@@ -107,6 +170,7 @@ export default function App() {
   const [isPdfIntakeModalOpen, setIsPdfIntakeModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   // 8. Notifiche Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -187,9 +251,10 @@ export default function App() {
     order: SchoolOrder,
     studentCode: string,
     schoolName: string,
-    classSec: string
+    classSec: string,
+    modelDef?: PeiModelDefinition
   ) => {
-    const newDoc = createEmptyPeiDocument(order, studentCode, schoolName, classSec);
+    const newDoc = createEmptyPeiDocument(order, studentCode, schoolName, classSec, modelDef);
     setDocument(newDoc);
     setHasOpenDocument(true);
     try {
@@ -200,7 +265,7 @@ export default function App() {
     const orderSections = filterSectionsForSchoolOrder(MASTER_PEI_SECTIONS, order);
     setActiveSectionId(orderSections[0].id);
     setCurrentScreen('SCR-002');
-    showToast(`Nuovo PEI ${order} creato con successo.`);
+    showToast(`Nuovo PEI creato con modello ${modelDef?.name || order}.`);
   };
 
   // Apertura PEI Esistente / Salvato
@@ -298,14 +363,15 @@ export default function App() {
         onClosePei={handleClosePei}
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
         onOpenHelpModal={() => setIsHelpModalOpen(true)}
+        onOpenShareModal={() => setIsShareModalOpen(true)}
       />
 
       {/* Contenuto Principale: Visualizzazione Schermata Corrente */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex overflow-hidden relative min-h-0">
         {/* SCR-001: Schermata Home con Albero Attenuato */}
         {currentScreen === 'SCR-001' && (
-          <div className="flex-1 flex overflow-hidden">
-            <aside className="w-72 shrink-0 h-full hidden lg:block opacity-40 pointer-events-none select-none border-r border-[var(--border)]">
+          <div className="flex-1 flex overflow-hidden min-h-0">
+            <aside className="w-72 shrink-0 h-full hidden lg:block border-r border-[var(--border)] bg-[var(--chrome-bg)]">
               <MasterTree
                 sections={currentSections}
                 activeSectionId={activeSectionId}
@@ -321,6 +387,9 @@ export default function App() {
               savedDocument={savedDocument}
               onSelectSavedDocument={handleOpenSavedPei}
               onOpenHelpModal={() => setIsHelpModalOpen(true)}
+              currentSchoolOrder={document.schoolOrder}
+              currentDocument={hasOpenDocument ? document : null}
+              customModels={customModels}
             />
           </div>
         )}
@@ -347,6 +416,7 @@ export default function App() {
             onBackToCompilazione={() => setCurrentScreen('SCR-002')}
             zoomScale={zoomScale}
             onChangeZoom={setZoomScale}
+            onOpenShareModal={() => setIsShareModalOpen(true)}
           />
         )}
       </div>
@@ -364,6 +434,7 @@ export default function App() {
         isOpen={isNewPeiModalOpen}
         onClose={() => setIsNewPeiModalOpen(false)}
         settings={settings}
+        customModels={customModels}
         onConfirmCreate={handleConfirmCreateNewPei}
       />
 
@@ -388,11 +459,22 @@ export default function App() {
           handleSaveSettings({ ...settings, defaultSchoolOrder: ord });
           handleChangeSchoolOrder(ord);
         }}
+        customModels={customModels}
+        onAddCustomModel={handleAddCustomModel}
+        onUpdateModelStatus={handleUpdateModelStatus}
+        showToast={showToast}
       />
 
       <HelpModal
         isOpen={isHelpModalOpen}
         onClose={() => setIsHelpModalOpen(false)}
+      />
+
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        documentTitle={document.schoolName ? `${document.schoolName} — Alunno ${document.studentCode}` : 'PEI'}
+        showToast={showToast}
       />
     </div>
   );
