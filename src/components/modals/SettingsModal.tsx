@@ -22,6 +22,7 @@ interface SettingsModalProps {
   onAddCustomModel: (model: PeiModelDefinition) => void;
   onUpdateModelStatus: (id: string, status: 'attivo' | 'archiviato') => void;
   showToast: (msg: string) => void;
+  onOpenCalibration?: (model: PeiModelDefinition) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -37,6 +38,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onAddCustomModel,
   onUpdateModelStatus,
   showToast,
+  onOpenCalibration,
 }) => {
   const [form, setForm] = useState<AppSettings>(settings);
 
@@ -199,6 +201,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onSetDefaultModel={handleSelectDefaultModel}
                 defaultModelId={form.defaultModelId || currentResolvedDefault.id}
                 showToast={showToast}
+                onOpenCalibration={(model) => {
+                  onClose();
+                  onOpenCalibration?.(model);
+                }}
               />
             </div>
           </div>

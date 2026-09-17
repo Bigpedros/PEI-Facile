@@ -28,10 +28,17 @@ import { AnteprimaScreen } from './components/screens/AnteprimaScreen';
 import { MasterTree } from './components/navigation/MasterTree';
 
 import { NewPeiModal } from './components/modals/NewPeiModal';
+import { OtherModelCatalogModal } from './components/modals/OtherModelCatalogModal';
 import { PdfIntakeModal } from './components/modals/PdfIntakeModal';
 import { SettingsModal } from './components/modals/SettingsModal';
 import { HelpModal } from './components/modals/HelpModal';
 import { ShareModal } from './components/modals/ShareModal';
+import { TemplateCalibrationWorkspace } from './components/calibration/TemplateCalibrationWorkspace';
+import { GeometryCalibrationTool } from './dev/GeometryCalibrationTool';
+import {
+  findModelDefinition,
+  getMinisterialCanonicalInfo,
+} from './data/peiModelRegistry';
 
 const DEFAULT_SETTINGS: AppSettings = {
   schoolName: 'I.C. Statale Alessandro Manzoni',
@@ -167,10 +174,69 @@ export default function App() {
 
   // 7. Stati Modali
   const [isNewPeiModalOpen, setIsNewPeiModalOpen] = useState(false);
+  const [isOtherModelCatalogOpen, setIsOtherModelCatalogOpen] = useState(false);
   const [isPdfIntakeModalOpen, setIsPdfIntakeModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isCalibrationWorkspaceOpen, setIsCalibrationWorkspaceOpen] = useState(false);
+  const [calibrationModel, setCalibrationModel] = useState<PeiModelDefinition | null>(null);
+  const [calibrationNotice, setCalibrationNotice] = useState<string | null>(null);
+
+  // Risoluzione deterministica del modello corrente per header e binding
+  const currentModelDef = React.useMemo(() => {
+    return findModelDefinition(
+      document.modelId || document.customModelId || `MINISTERIAL_${document.schoolOrder}`,
+      customModels
+    );
+  }, [customModels, document.modelId, document.customModelId, document.schoolOrder]);
+
+  const handleOpenCalibration = (model?: PeiModelDefinition | null, notice?: string) => {
+    setCalibrationModel(model || null);
+    setCalibrationNotice(notice || null);
+    setIsCalibrationWorkspaceOpen(true);
+  };
+
+  const handleCalibrationApproved = (calibratedModel: PeiModelDefinition) => {
+    setCustomModels((prev) => {
+      const exists = prev.some((m) => m.id === calibratedModel.id);
+      const updated = exists
+        ? prev.map((m) => (m.id === calibratedModel.id ? calibratedModel : m))
+        : [calibratedModel, ...prev];
+      try {
+        localStorage.setItem('pei_facile_custom_models_v1', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+
+    if (document.modelDefinitionId === calibratedModel.id) {
+      setDocument((prev) => ({
+        ...prev,
+        calibrationStatus: 'CALIBRATED',
+      }));
+    }
+
+    showToast(`Modello "${calibratedModel.name}" approvato e pronto per la compilazione!`);
+    setIsCalibrationWorkspaceOpen(false);
+  };
+
+  const handleCalibrationDraftSaved = (savedModel: PeiModelDefinition) => {
+    setCustomModels((prev) => {
+      const exists = prev.some((m) => m.id === savedModel.id);
+      const updated = exists
+        ? prev.map((m) => (m.id === savedModel.id ? savedModel : m))
+        : [savedModel, ...prev];
+      try {
+        localStorage.setItem('pei_facile_custom_models_v1', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+    showToast('Bozza salvata in revisione.');
+  };
 
   // 8. Notifiche Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -226,11 +292,19 @@ export default function App() {
 
   // Cambio ordine di scuola (A1 - A4)
   const handleChangeSchoolOrder = (newOrder: SchoolOrder) => {
+    const canonical = getMinisterialCanonicalInfo(newOrder);
     setDocument((prev) => {
-      const updated = {
+      const updated: PeiDocument = {
         ...prev,
         schoolOrder: newOrder,
-        updatedAt: new Date().toISOString(),
+        modelId: canonical ? canonical.modelId : `MINISTERIAL_${newOrder}`,
+        modelVersion: 'D.I. 182/2020 - D.I. 153/2023',
+        modelOrigin: 'MINISTERIAL',
+        modelName: SCHOOL_ORDERS_METADATA[newOrder].officialAllegato,
+        customModelId: undefined,
+        customModelName: undefined,
+        customModelOrigin: undefined,
+        lastModifiedDate: new Date().toISOString(),
       };
       try {
         localStorage.setItem('pei_facile_saved_doc', JSON.stringify(updated));
@@ -244,6 +318,40 @@ export default function App() {
       setActiveSectionId(newSections[0].id);
     }
     showToast(`Modello ministeriale aggiornato ad ${newOrder} (${SCHOOL_ORDERS_METADATA[newOrder].officialAllegato})`);
+  };
+
+  // Selezione modello personalizzato / non-ministeriale dal catalogo o dropdown
+  const handleSelectCustomModel = (modelDef: PeiModelDefinition) => {
+    setDocument((prev) => {
+      const updated: PeiDocument = {
+        ...prev,
+        schoolOrder: modelDef.schoolOrder,
+        modelId: modelDef.id,
+        modelVersion: modelDef.version,
+        modelOrigin: modelDef.originType,
+        modelName: modelDef.name,
+        customModelId: modelDef.id,
+        customModelName: modelDef.name,
+        customModelOrigin:
+          modelDef.originType === 'TERRITORIAL'
+            ? 'territoriale'
+            : modelDef.originType === 'INSTITUTION'
+            ? 'istituto'
+            : 'altro',
+        lastModifiedDate: new Date().toISOString(),
+      };
+      try {
+        localStorage.setItem('pei_facile_saved_doc', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+    const newSections = filterSectionsForSchoolOrder(MASTER_PEI_SECTIONS, modelDef.schoolOrder);
+    if (!newSections.some((s) => s.id === activeSectionId)) {
+      setActiveSectionId(newSections[0].id);
+    }
+    showToast(`Modello impostato su: ${modelDef.name}`);
   };
 
   // Creazione nuovo PEI
@@ -364,6 +472,11 @@ export default function App() {
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
         onOpenHelpModal={() => setIsHelpModalOpen(true)}
         onOpenShareModal={() => setIsShareModalOpen(true)}
+        onOpenCalibration={() => handleOpenCalibration()}
+        currentModelDef={currentModelDef}
+        customModels={customModels}
+        onOpenOtherModelCatalog={() => setIsOtherModelCatalogOpen(true)}
+        onSelectCustomModel={handleSelectCustomModel}
       />
 
       {/* Contenuto Principale: Visualizzazione Schermata Corrente */}
@@ -438,6 +551,16 @@ export default function App() {
         onConfirmCreate={handleConfirmCreateNewPei}
       />
 
+      <OtherModelCatalogModal
+        isOpen={isOtherModelCatalogOpen}
+        onClose={() => setIsOtherModelCatalogOpen(false)}
+        customModels={customModels}
+        currentModelId={document.modelId || document.customModelId}
+        onSelectModel={handleSelectCustomModel}
+        onOpenImportModal={() => setIsSettingsModalOpen(true)}
+        onOpenCalibration={(model) => handleOpenCalibration(model)}
+      />
+
       <PdfIntakeModal
         isOpen={isPdfIntakeModalOpen}
         onClose={() => setIsPdfIntakeModalOpen(false)}
@@ -463,6 +586,7 @@ export default function App() {
         onAddCustomModel={handleAddCustomModel}
         onUpdateModelStatus={handleUpdateModelStatus}
         showToast={showToast}
+        onOpenCalibration={handleOpenCalibration}
       />
 
       <HelpModal
@@ -476,6 +600,34 @@ export default function App() {
         documentTitle={document.schoolName ? `${document.schoolName} — Alunno ${document.studentCode}` : 'PEI'}
         showToast={showToast}
       />
+
+      {/* Production Template Calibration Workspace (Phase 1D R01) */}
+      {isCalibrationWorkspaceOpen && (
+        <TemplateCalibrationWorkspace
+          initialModelDef={calibrationModel}
+          instructionNotice={calibrationNotice}
+          onClose={() => {
+            setIsCalibrationWorkspaceOpen(false);
+            setCalibrationModel(null);
+            setCalibrationNotice(null);
+          }}
+          onApproved={handleCalibrationApproved}
+          onDraftSaved={handleCalibrationDraftSaved}
+        />
+      )}
+
+      {/* Dev-only Geometry Calibration Tool URL parameter (?dev=geometry) */}
+      {typeof window !== 'undefined' &&
+        new URLSearchParams(window.location.search).get('dev') === 'geometry' && (
+          <GeometryCalibrationTool
+            onClose={() => {
+              const url = new URL(window.location.href);
+              url.searchParams.delete('dev');
+              window.history.replaceState({}, '', url.toString());
+              window.location.reload();
+            }}
+          />
+        )}
     </div>
   );
 }

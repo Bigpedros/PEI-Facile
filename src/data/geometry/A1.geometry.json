@@ -1,0 +1,511 @@
+{
+  "schemaVersion": "1.0.0",
+  "modelId": "A1",
+  "schoolOrder": "A1",
+  "modelName": "Modello Ministeriale Ufficiale A1 — Scuola dell'Infanzia",
+  "sourcePdf": "ALLEGATO_A1_PEI_INFANZIA.pdf",
+  "sourcePdfSha256": "affc8680aab976fd422f9f64ed6c1b0481ca51c3c332e00f92fbf44301cb468c",
+  "totalPages": 12,
+  "pages": [
+    {
+      "pageNumber": 1,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-01-scuola",
+          "label": "Istituzione scolastica",
+          "pageNumber": 1,
+          "xPt": 160,
+          "yPt": 65,
+          "widthPt": 280,
+          "heightPt": 32,
+          "anchorText": "[ INTESTAZIONE DELLA SCUOLA ]",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-01-studente",
+          "label": "Codice identificativo alunno/a (pseudonimizzato)",
+          "pageNumber": 1,
+          "xPt": 110,
+          "yPt": 178,
+          "widthPt": 440,
+          "heightPt": 22,
+          "anchorText": "BAMBINO/A ____________________________",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-01-classe",
+          "label": "Classe / Sezione e Plesso",
+          "pageNumber": 1,
+          "xPt": 85,
+          "yPt": 226,
+          "widthPt": 465,
+          "heightPt": 22,
+          "anchorText": "Sezione _________________ Plesso o sede__________________",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-01-data-redazione",
+          "label": "Data di redazione del PEI",
+          "pageNumber": 1,
+          "xPt": 245,
+          "yPt": 498,
+          "widthPt": 85,
+          "heightPt": 18,
+          "anchorText": "DATA _______________ FIRMA DEL DIRIGENTE SCOLASTICO",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-02-data-emissione",
+          "label": "Data rilascio documento diagnostico",
+          "pageNumber": 1,
+          "xPt": 198,
+          "yPt": 310,
+          "widthPt": 160,
+          "heightPt": 20,
+          "anchorText": "PROFILO DI FUNZIONAMENTO redatto in data _______________",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 2,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-01-situazione-famiglia",
+          "label": "Descrizione del contesto familiare e prospettiva dei genitori",
+          "pageNumber": 2,
+          "xPt": 55,
+          "yPt": 410,
+          "widthPt": 485,
+          "heightPt": 85,
+          "anchorText": "Situazione familiare / descrizione del bambino o della bambina",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-01-alunno-voce",
+          "label": "La voce dello studente / del bambino (autodeterminazione)",
+          "pageNumber": 2,
+          "xPt": 55,
+          "yPt": 500,
+          "widthPt": 485,
+          "heightPt": 22,
+          "anchorText": "La voce del bambino o della bambina",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-02-doc-riferimento",
+          "label": "Documento clinico-funzionale di riferimento",
+          "pageNumber": 2,
+          "xPt": 55,
+          "yPt": 545,
+          "widthPt": 485,
+          "heightPt": 22,
+          "anchorText": "o, se non disponibile, dalla Diagnosi Funzionale",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-02-sintesi-assi",
+          "label": "Sintesi delle capacità e delle performance secondo il Profilo",
+          "pageNumber": 2,
+          "xPt": 55,
+          "yPt": 590,
+          "widthPt": 490,
+          "heightPt": 50,
+          "anchorText": "Sintetica descrizione, considerando in particolare le dimensioni",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-03-stato-progetto",
+          "label": "Stato di attivazione del Progetto Individuale",
+          "pageNumber": 3,
+          "xPt": 55,
+          "yPt": 85,
+          "widthPt": 490,
+          "heightPt": 35,
+          "anchorText": "3. Raccordo con il Progetto Individuale di cui all'art. 14",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-03-accordi-territorio",
+          "label": "Interventi coordinati scuola-famiglia-servizi",
+          "pageNumber": 3,
+          "xPt": 55,
+          "yPt": 125,
+          "widthPt": 490,
+          "heightPt": 75,
+          "anchorText": "Interventi coordinati tra scuola, famiglia e servizi territoriali",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-04-dim-relazione",
+          "label": "Dimensione della Relazione, dell’interazione e della socializzazione",
+          "pageNumber": 3,
+          "xPt": 55,
+          "yPt": 260,
+          "widthPt": 490,
+          "heightPt": 220,
+          "anchorText": "4. Osservazioni sul/sulla bambino/a: Relazione, interazione, socializzazione",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 4,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-04-dim-comunicazione",
+          "label": "Dimensione della Comunicazione e dei linguaggi",
+          "pageNumber": 4,
+          "xPt": 55,
+          "yPt": 80,
+          "widthPt": 490,
+          "heightPt": 200,
+          "anchorText": "Dimensione Comunicazione e linguaggi",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-04-dim-autonomia",
+          "label": "Dimensione dell’Autonomia e dell’orientamento",
+          "pageNumber": 4,
+          "xPt": 55,
+          "yPt": 310,
+          "widthPt": 490,
+          "heightPt": 200,
+          "anchorText": "Dimensione Autonomia e orientamento",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 5,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-04-dim-cognitiva",
+          "label": "Dimensione Cognitiva, neuropsicologica e dell’apprendimento",
+          "pageNumber": 5,
+          "xPt": 55,
+          "yPt": 80,
+          "widthPt": 490,
+          "heightPt": 180,
+          "anchorText": "Dimensione Cognitiva, neuropsicologica e dell'apprendimento",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-05-tabella-obiettivi",
+          "label": "Obiettivi educativi, didattici, strategie e criteri di valutazione",
+          "pageNumber": 5,
+          "xPt": 50,
+          "yPt": 280,
+          "widthPt": 495,
+          "heightPt": 360,
+          "anchorText": "5. Interventi per il/la bambino/a: Obiettivi e campi di esperienza",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 6,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-05-facilitatori-scelta",
+          "label": "Strumenti compensativi e mediatori didattici prioritari",
+          "pageNumber": 6,
+          "xPt": 50,
+          "yPt": 550,
+          "widthPt": 495,
+          "heightPt": 120,
+          "anchorText": "Strumenti, mediatori e facilitatori didattici attivati",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 7,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-06-barriere",
+          "label": "Fattori contestuali che costituiscono barriere (e1-e5 ICF)",
+          "pageNumber": 7,
+          "xPt": 55,
+          "yPt": 120,
+          "widthPt": 490,
+          "heightPt": 140,
+          "anchorText": "6. Osservazioni sul contesto: barriere (fattori ambientali sfavorevoli)",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-06-facilitatori",
+          "label": "Fattori contestuali che costituiscono facilitatori (e1-e5 ICF)",
+          "pageNumber": 7,
+          "xPt": 55,
+          "yPt": 280,
+          "widthPt": 490,
+          "heightPt": 140,
+          "anchorText": "Fattori che costituiscono facilitatori (elementi di supporto)",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-07-interventi",
+          "label": "Azioni programmate per l’accessibilità e l’inclusione ambientale",
+          "pageNumber": 7,
+          "xPt": 55,
+          "yPt": 440,
+          "widthPt": 490,
+          "heightPt": 200,
+          "anchorText": "7. Interventi sul contesto per realizzare un ambiente inclusivo",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 8,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-08-tipo-percorso",
+          "label": "Tipologia di percorso curricolare adottato",
+          "pageNumber": 8,
+          "xPt": 55,
+          "yPt": 85,
+          "widthPt": 490,
+          "heightPt": 45,
+          "anchorText": "8. Interventi sul percorso curricolare / Campi di esperienza",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-08-adattamenti-discipline",
+          "label": "Modalità di svolgimento delle prove e discipline con programmazione personalizzata",
+          "pageNumber": 8,
+          "xPt": 55,
+          "yPt": 145,
+          "widthPt": 490,
+          "heightPt": 260,
+          "anchorText": "Modalita di svolgimento delle attivita didattiche inclusive",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-09-ore-sostegno",
+          "label": "Ore settimanali di sostegno didattico assegnate",
+          "pageNumber": 8,
+          "xPt": 350,
+          "yPt": 85,
+          "widthPt": 180,
+          "heightPt": 22,
+          "anchorText": "Ore settimanali di sostegno didattico assegnate",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-09-ore-assistenza",
+          "label": "Ore settimanali di assistenza all’autonomia e comunicazione",
+          "pageNumber": 8,
+          "xPt": 350,
+          "yPt": 145,
+          "widthPt": 180,
+          "heightPt": 22,
+          "anchorText": "Ore settimanali di assistenza all'autonomia e comunicazione",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-09-totale-ore",
+          "label": "Totale monte ore di supporto settimanale",
+          "pageNumber": 8,
+          "xPt": 350,
+          "yPt": 215,
+          "widthPt": 180,
+          "heightPt": 22,
+          "anchorText": "Totale monte ore di supporto settimanale",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-09-presenza-altre-figure",
+          "label": "Altre figure e servizi di supporto operativi",
+          "pageNumber": 8,
+          "xPt": 55,
+          "yPt": 270,
+          "widthPt": 490,
+          "heightPt": 140,
+          "anchorText": "Altre figure e servizi di supporto operativi",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 9,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-11-esito-globale",
+          "label": "Valutazione globale dei progressi compiuti",
+          "pageNumber": 9,
+          "xPt": 55,
+          "yPt": 92,
+          "widthPt": 490,
+          "heightPt": 70,
+          "anchorText": "Verifica finale del PEI.",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-11-relazione-finale",
+          "label": "Relazione sintetica conclusiva del team docente e specialistico",
+          "pageNumber": 9,
+          "xPt": 55,
+          "yPt": 175,
+          "widthPt": 490,
+          "heightPt": 270,
+          "anchorText": "Relazione conclusiva del team docente",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 10,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-11-data-verifica",
+          "label": "Data del GLO di verifica finale",
+          "pageNumber": 10,
+          "xPt": 265,
+          "yPt": 535,
+          "widthPt": 180,
+          "heightPt": 20,
+          "anchorText": "è stata approvata dal GLO in data ______________",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 11,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-12-richiesta-ore-sostegno",
+          "label": "Proposta orario sostegno per il prossimo anno scolastico",
+          "pageNumber": 11,
+          "xPt": 350,
+          "yPt": 285,
+          "widthPt": 180,
+          "heightPt": 22,
+          "anchorText": "Ore di sostegno richieste per l'a. s. successivo ___________",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 12,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-12-richiesta-assistenza",
+          "label": "Proposta ore assistenza specialistica per il prossimo anno",
+          "pageNumber": 12,
+          "xPt": 350,
+          "yPt": 270,
+          "widthPt": 180,
+          "heightPt": 22,
+          "anchorText": "per N. ore_________________(1).",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-12-avanzamento-globale",
+          "label": "Stato di completezza complessiva della redazione del PEI",
+          "pageNumber": 12,
+          "xPt": 55,
+          "yPt": 460,
+          "widthPt": 490,
+          "heightPt": 130,
+          "anchorText": "in data ______________ / Firme GLO",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    }
+  ]
+}

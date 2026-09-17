@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { ScreenId, SchoolOrder, ThemeType } from '../../types/pei';
+import type { ScreenId, SchoolOrder, ThemeType, PeiModelDefinition } from '../../types/pei';
 import { SCHOOL_ORDERS_METADATA } from '../../data/masterPeiStructure';
 import {
   FileText,
@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   CheckCircle2,
   Lock,
+  Compass,
 } from 'lucide-react';
 
 interface AppHeaderProps {
@@ -40,6 +41,11 @@ interface AppHeaderProps {
   onOpenSettingsModal: () => void;
   onOpenHelpModal: () => void;
   onOpenShareModal: () => void;
+  onOpenCalibration?: () => void;
+  currentModelDef?: PeiModelDefinition | null;
+  customModels?: PeiModelDefinition[];
+  onOpenOtherModelCatalog?: () => void;
+  onSelectCustomModel?: (model: PeiModelDefinition) => void;
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
@@ -60,6 +66,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onClosePei,
   onOpenSettingsModal,
   onOpenHelpModal,
+  onOpenCalibration,
+  currentModelDef,
+  customModels = [],
+  onOpenOtherModelCatalog,
+  onSelectCustomModel,
 }) => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
 
@@ -248,6 +259,17 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   >
                     Verifica finale per GLO
                   </button>
+                  <div className="border-t border-[var(--border)] my-1" />
+                  <button
+                    onClick={() => {
+                      onOpenCalibration?.();
+                      closeMenus();
+                    }}
+                    className="w-full text-left px-3 py-1.5 hover:bg-[var(--hover-bg)] flex items-center gap-2 font-medium text-amber-800 dark:text-amber-300"
+                  >
+                    <Compass className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Calibrazione Template (L1/L2)...</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -289,7 +311,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   </button>
                   <button
                     onClick={() => {
-                      alert('Esportazione PDF con layout ministeriale certificato.');
+                      alert('Esportazione PDF con layout ministeriale ufficiale.');
                       closeMenus();
                     }}
                     className="w-full text-left px-3 py-1.5 hover:bg-[var(--hover-bg)] flex items-center gap-2"
@@ -408,22 +430,48 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             </button>
           </div>
 
-          {/* Selettore Modello A1 - A4 */}
-          {hasOpenDocument && (
-            <div className="flex items-center gap-1.5 pl-2 border-l border-[var(--border)]">
-              <span className="text-[var(--text-secondary)] text-[11px] font-semibold">Modello:</span>
-              <select
-                value={schoolOrder}
-                onChange={(e) => onChangeSchoolOrder(e.target.value as SchoolOrder)}
-                className="px-2 py-1 text-xs font-semibold bg-[var(--input-bg)] border border-[var(--border)] rounded text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-amber-800"
-              >
-                <option value="A1">A1 — Infanzia</option>
-                <option value="A2">A2 — Primaria</option>
-                <option value="A3">A3 — Secondaria I Grado</option>
-                <option value="A4">A4 — Secondaria II Grado</option>
-              </select>
-            </div>
-          )}
+          {/* Selettore Modello Globale: A1 - A4, Modello Custom se attivo, Altro modello… */}
+          <div className="flex items-center gap-1.5 pl-2 border-l border-[var(--border)]">
+            <span className="text-[var(--text-secondary)] text-[11px] font-semibold">Modello:</span>
+            <select
+              id="global-model-selector"
+              value={
+                currentModelDef && !currentModelDef.isMinisterial && currentModelDef.originType !== 'MINISTERIAL'
+                  ? currentModelDef.id
+                  : schoolOrder
+              }
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '__ALTRO_MODELLO__') {
+                  if (onOpenOtherModelCatalog) {
+                    onOpenOtherModelCatalog();
+                  }
+                  return;
+                }
+                if (val === 'A1' || val === 'A2' || val === 'A3' || val === 'A4') {
+                  onChangeSchoolOrder(val as SchoolOrder);
+                  return;
+                }
+                const foundCustom = customModels.find((m) => m.id === val);
+                if (foundCustom && onSelectCustomModel) {
+                  onSelectCustomModel(foundCustom);
+                }
+              }}
+              className="px-2 py-1 text-xs font-semibold bg-[var(--input-bg)] border border-[var(--border)] rounded text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-amber-800 cursor-pointer max-w-[280px] truncate"
+              title="Seleziona modello PEI"
+            >
+              <option value="A1">A1 — Infanzia</option>
+              <option value="A2">A2 — Primaria</option>
+              <option value="A3">A3 — Secondaria I Grado</option>
+              <option value="A4">A4 — Secondaria II Grado</option>
+              {currentModelDef && !currentModelDef.isMinisterial && currentModelDef.originType !== 'MINISTERIAL' && (
+                <option value={currentModelDef.id}>
+                  {currentModelDef.name}
+                </option>
+              )}
+              <option value="__ALTRO_MODELLO__">Altro modello…</option>
+            </select>
+          </div>
 
           {/* Indicatore Sezione Attiva (in compilazione) */}
           {isCompilazione && activeSectionTitle && (

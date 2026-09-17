@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
 import type { SchoolOrder, PeiModelDefinition, ModelOriginType } from '../../types/pei';
 import { getModelOriginDisplayLabel } from '../../data/peiModelRegistry';
-import { FileText, Upload, Check, Trash2, Archive, AlertCircle, Building, Shield, Star, CheckSquare } from 'lucide-react';
+import { FileText, Upload, Check, Trash2, Archive, AlertCircle, Building, Shield, Star, CheckSquare, Sparkles, AlertTriangle, Compass } from 'lucide-react';
+import { acquirePdfTemplate } from '../../core/templateAcquisitionService';
+import { saveCustomTemplate } from '../../core/templateStorage';
+import type { TemplateAcquisitionResult } from '../../core/templateAcquisitionTypes';
+import { createTemplateSchemaFromCandidates, saveTemplateSchema } from '../../core/templateSchemaService';
+import type { TemplateCalibrationStatus } from '../../core/templateSchemaTypes';
 
 export type CustomPeiModel = PeiModelDefinition;
 
@@ -12,6 +17,7 @@ interface CustomModelManagerProps {
   onSetDefaultModel?: (id: string) => void;
   defaultModelId?: string;
   showToast: (msg: string) => void;
+  onOpenCalibration?: (model: PeiModelDefinition) => void;
 }
 
 export const CustomModelManager: React.FC<CustomModelManagerProps> = ({
@@ -21,6 +27,7 @@ export const CustomModelManager: React.FC<CustomModelManagerProps> = ({
   onSetDefaultModel,
   defaultModelId,
   showToast,
+  onOpenCalibration,
 }) => {
   const [isImporting, setIsImporting] = useState(false);
   const [modelName, setModelName] = useState('');
@@ -32,23 +39,60 @@ export const CustomModelManager: React.FC<CustomModelManagerProps> = ({
   const [fileName, setFileName] = useState('');
   const [confirmedEmptyAndVerified, setConfirmedEmptyAndVerified] = useState(false);
 
-  const handleSimulateFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [isAcquiring, setIsAcquiring] = useState(false);
+  const [acquisitionResult, setAcquisitionResult] = useState<TemplateAcquisitionResult | null>(null);
+  const [selectedFileBytes, setSelectedFileBytes] = useState<Uint8Array | null>(null);
+  const [docxErrorNotice, setDocxErrorNotice] = useState<string | null>(null);
+
+  const handleRealFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setFileName(file.name);
-      if (file.name.endsWith('.docx')) {
-        setFormat('DOCX');
-      } else {
-        setFormat('PDF');
+    if (!file) return;
+
+    setFileName(file.name);
+    setDocxErrorNotice(null);
+    setAcquisitionResult(null);
+    setSelectedFileBytes(null);
+
+    // Mandated DOCX Check (Honest Classification)
+    if (file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.doc')) {
+      setFormat('DOCX');
+      setDocxErrorNotice(
+        'DOCX CANONICALIZATION: NOT IMPLEMENTED — I modelli DOCX richiedono la preventiva normalizzazione ed esportazione in PDF canonico. PEI FACILE non simula il rendering DOCX per garantire l’integrità geometrica e giuridica del documento.'
+      );
+      return;
+    }
+
+    setFormat('PDF');
+    if (!modelName) {
+      setModelName(file.name.replace(/\.[^/.]+$/, ''));
+    }
+
+    setIsAcquiring(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      const rawBytes = new Uint8Array(buffer);
+      setSelectedFileBytes(rawBytes);
+
+      const result = await acquirePdfTemplate(rawBytes, file.name);
+      setAcquisitionResult(result);
+
+      if (result.status === 'FAILED') {
+        setDocxErrorNotice(`Acquisizione fallita: ${result.warnings.join(' ')}`);
       }
-      if (!modelName) {
-        setModelName(file.name.replace(/\.[^/.]+$/, ''));
-      }
+    } catch (err: any) {
+      setDocxErrorNotice(`Errore lettura PDF: ${err?.message || err}`);
+    } finally {
+      setIsAcquiring(false);
     }
   };
 
-  const handleImportSubmit = (e: React.FormEvent) => {
+  const handleImportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (docxErrorNotice) {
+      showToast('Impossibile registrare il modello: correggere gli errori di formato.');
+      return;
+    }
+
     if (!modelName || !institution) {
       showToast('Compila i campi obbligatori per registrare il modello.');
       return;
@@ -56,6 +100,11 @@ export const CustomModelManager: React.FC<CustomModelManagerProps> = ({
 
     if (!confirmedEmptyAndVerified) {
       showToast('È obbligatorio confermare che il modello è vuoto e verificato prima di procedere.');
+      return;
+    }
+
+    if (!acquisitionResult || !selectedFileBytes) {
+      showToast('Seleziona un file PDF valido da acquisire.');
       return;
     }
 
@@ -68,11 +117,14 @@ export const CustomModelManager: React.FC<CustomModelManagerProps> = ({
       originName: institution,
       version: '1.0',
       acquisitionDate: nowIso.split('T')[0],
-      format,
+      format: 'PDF',
       status: 'attivo',
       isDefault: false,
       isMinisterial: false,
-      sourceHash: `hash_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`,
+      sourceHash: acquisitionResult.sourceSha256,
+      templateId: acquisitionResult.templateId,
+      geometryMappingId: acquisitionResult.templateId,
+      calibrationStatus: acquisitionResult.status === 'READY' ? 'READY' : 'REVIEW_REQUIRED',
       description: description || 'Modello personalizzato/territoriale validato dall’istituto o ente competente.',
       usedCount: 0,
       confirmationState: 'confirmed',
@@ -80,14 +132,58 @@ export const CustomModelManager: React.FC<CustomModelManagerProps> = ({
       confirmationText: "Confermo che il modello è vuoto e che ne ho verificato l'adozione/idoneità presso l'istituzione competente.",
     };
 
+    // Save to IndexedDB
+    try {
+      await saveCustomTemplate(
+        {
+          templateId: acquisitionResult.templateId,
+          name: modelName,
+          schoolOrder,
+          sourceFileName: fileName,
+          sourceSha256: acquisitionResult.sourceSha256,
+          fileSizeBytes: acquisitionResult.fileSizeBytes,
+          pageCount: acquisitionResult.pageCount,
+          schemaVersion: '1.0.0',
+          createdAt: nowIso,
+          updatedAt: nowIso,
+          calibrationStatus: newModel.calibrationStatus || 'REVIEW_REQUIRED',
+          pages: acquisitionResult.pages,
+        },
+        selectedFileBytes
+      );
+
+      // Generate and save initial TemplateSchema
+      const calibStatus: TemplateCalibrationStatus =
+        newModel.calibrationStatus === 'CALIBRATED' ? 'CALIBRATED' : 'REVIEW_REQUIRED';
+
+      const initialSchema = createTemplateSchemaFromCandidates(
+        acquisitionResult.templateId,
+        fileName || modelName,
+        acquisitionResult.sourceSha256,
+        acquisitionResult.pages,
+        acquisitionResult.geometryCandidates,
+        calibStatus,
+        schoolOrder
+      );
+      await saveTemplateSchema(initialSchema);
+    } catch (err) {
+      console.warn('Errore salvataggio IndexedDB:', err);
+    }
+
     onAddCustomModel(newModel);
-    showToast(`Modello "${modelName}" registrato con successo.`);
+    showToast(`Modello "${modelName}" registrato con successo. Apertura calibrazione...`);
     setIsImporting(false);
     setModelName('');
     setInstitution('');
     setDescription('');
     setFileName('');
+    setAcquisitionResult(null);
+    setSelectedFileBytes(null);
     setConfirmedEmptyAndVerified(false);
+
+    if (onOpenCalibration) {
+      onOpenCalibration(newModel);
+    }
   };
 
   return (
@@ -157,18 +253,55 @@ export const CustomModelManager: React.FC<CustomModelManagerProps> = ({
                       )}
                     </td>
                     <td className="p-2.5 text-[var(--text-secondary)] font-mono text-[11px] font-medium">{m.version}</td>
-                    <td className="p-2.5">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          m.status === 'attivo'
-                            ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300'
-                            : 'bg-[var(--badge-bg)] text-[var(--badge-text)] border border-[var(--border)]'
-                        }`}
-                      >
-                        {m.status.toUpperCase()}
-                      </span>
+                    <td className="p-2.5 space-y-1">
+                      <div>
+                        {m.status === 'archiviato' ? (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-stone-100 dark:bg-stone-900 text-stone-600 dark:text-stone-400 border border-stone-300">
+                            ARCHIVIATO
+                          </span>
+                        ) : m.isMinisterial ? (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/50 text-blue-800 dark:text-blue-300 border border-blue-300">
+                            PRECALIBRATO
+                          </span>
+                        ) : m.calibrationStatus === 'CALIBRATED' ? (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300">
+                            CALIBRATO
+                          </span>
+                        ) : (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-300">
+                            DA CALIBRARE
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <span
+                          className={`inline-block px-1.5 py-0.2 rounded text-[9px] font-mono font-bold ${
+                            m.calibrationStatus === 'CALIBRATED'
+                              ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-400'
+                              : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-400'
+                          }`}
+                        >
+                          {m.calibrationStatus === 'CALIBRATED' ? 'CALIBRATED' : 'IN REVISIONE'}
+                        </span>
+                      </div>
                     </td>
                     <td className="p-2.5 text-right space-x-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onOpenCalibration) {
+                            onOpenCalibration(m);
+                          } else {
+                            window.location.search = `?dev=geometry&model=${m.templateId || m.id}`;
+                          }
+                        }}
+                        title="Apri calibrazione geometrica per questo modello"
+                        className="px-2 py-1 bg-amber-800 hover:bg-amber-900 text-white rounded text-[11px] inline-flex items-center gap-1 font-semibold cursor-pointer shadow-2xs"
+                      >
+                        <Compass className="w-3 h-3" />
+                        <span>Calibra</span>
+                      </button>
+
                       {onSetDefaultModel && m.status === 'attivo' && !isCurrentDefault && (
                         <button
                           type="button"
@@ -236,23 +369,56 @@ export const CustomModelManager: React.FC<CustomModelManagerProps> = ({
               </div>
 
               <div>
-                <label className="block font-bold text-[var(--text-title)] mb-1">Seleziona file modello (PDF o DOCX) *</label>
+                <label className="block font-bold text-[var(--text-title)] mb-1">Seleziona file modello (PDF canonico) *</label>
                 <div className="border-2 border-dashed border-[var(--border)] rounded-lg p-4 text-center hover:bg-[var(--hover-bg)] transition-colors relative cursor-pointer">
                   <input
                     type="file"
-                    accept=".pdf,.docx"
+                    accept=".pdf,.docx,.doc"
                     required
-                    onChange={handleSimulateFileSelect}
+                    onChange={handleRealFileSelect}
                     className="absolute inset-0 opacity-0 cursor-pointer"
                   />
                   <div className="flex flex-col items-center gap-1">
                     <Upload className="w-6 h-6 text-amber-800 dark:text-[var(--accent-paglierino)]" />
                     <span className="font-bold text-[var(--text)]">
-                      {fileName || 'Clicca o trascina qui il file del modello'}
+                      {isAcquiring ? 'Acquisizione in corso…' : fileName || 'Clicca o trascina qui il file del modello'}
                     </span>
-                    <span className="text-[10px] text-[var(--text-secondary)] font-medium">Formati supportati: PDF, DOCX (Senza dati alunno)</span>
+                    <span className="text-[10px] text-[var(--text-secondary)] font-medium">
+                      PDF canonico (AcroForm, Annotazioni, Vettoriale). I file DOCX richiedono esportazione PDF.
+                    </span>
                   </div>
                 </div>
+
+                {/* Honest DOCX Classification Warning */}
+                {docxErrorNotice && (
+                  <div className="mt-2 p-2.5 rounded bg-rose-950/40 border border-rose-600 text-rose-300 text-[11px] flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                    <div className="font-medium">{docxErrorNotice}</div>
+                  </div>
+                )}
+
+                {/* Successful Dynamic Acquisition Feedback */}
+                {acquisitionResult && !docxErrorNotice && (
+                  <div className="mt-2 p-2.5 rounded bg-emerald-950/40 border border-emerald-600/50 text-emerald-300 text-[11px] space-y-1">
+                    <div className="flex items-center justify-between font-bold">
+                      <span className="flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                        Template Acquisito ({acquisitionResult.status})
+                      </span>
+                      <span className="font-mono text-[10px]">
+                        {acquisitionResult.pageCount} pag. — {acquisitionResult.geometryCandidates.length} campi
+                      </span>
+                    </div>
+                    <div className="font-mono text-[10px] text-emerald-400/80 truncate">
+                      SHA-256: {acquisitionResult.sourceSha256}
+                    </div>
+                    {acquisitionResult.status === 'REVIEW_REQUIRED' && (
+                      <div className="text-[10px] text-amber-300">
+                        Richiede calibrazione geometrica dei campi prima della compilazione finale.
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">

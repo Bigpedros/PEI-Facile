@@ -103,6 +103,9 @@ export interface PeiSectionDefinition {
 
 export type ModelOriginType = 'MINISTERIAL' | 'TERRITORIAL' | 'INSTITUTION' | 'OTHER';
 
+export type TemplateSourceKind = 'BUILT_IN' | 'USER_IMPORTED';
+export type CalibrationOrigin = 'BUILT_IN_BASELINE' | 'USER_REVIEW' | 'AUTO_DETECTED';
+
 export interface PeiModelDefinition {
   id: string;
   name: string;
@@ -122,6 +125,24 @@ export interface PeiModelDefinition {
   confirmationState?: 'confirmed' | 'pending';
   confirmationDate?: string;
   confirmationText?: string;
+  // Dynamic Template Architecture (Phase 1B + 1C + 1C-R1)
+  sourceKind?: TemplateSourceKind;
+  sourcePath?: string;
+  templateId?: string;
+  sourceSha256?: string;
+  templateSchemaId?: string;
+  geometryMappingId?: string;
+  calibrationStatus?:
+    | 'ACQUIRED'
+    | 'AUTO_ANALYZED'
+    | 'REVIEW_REQUIRED'
+    | 'CALIBRATED'
+    | 'ARCHIVED'
+    | 'DRAFT'
+    | 'READY';
+  calibrationOrigin?: CalibrationOrigin;
+  geometryValidationStatus?: 'PASS' | 'FAIL' | 'NOT_RUN';
+  visualReviewStatus?: 'REQUIRED' | 'IN_PROGRESS' | 'COMPLETED';
 }
 
 export interface PeiDocument {

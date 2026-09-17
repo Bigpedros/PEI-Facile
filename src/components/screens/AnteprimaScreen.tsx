@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { PeiDocument, PeiSectionDefinition } from '../../types/pei';
 import { SCHOOL_ORDERS_METADATA } from '../../data/masterPeiStructure';
-import { A4Sheet } from '../editor/A4Sheet';
+import { DocumentSurface } from '../document/DocumentSurface';
 import {
   Printer,
   FileText,
@@ -31,13 +31,7 @@ export const AnteprimaScreen: React.FC<AnteprimaScreenProps> = ({
   onChangeZoom,
   onOpenShareModal,
 }) => {
-  const [selectedSectionFilter, setSelectedSectionFilter] = useState<string>('all');
   const modelMeta = SCHOOL_ORDERS_METADATA[document.schoolOrder];
-
-  const displayedSections =
-    selectedSectionFilter === 'all'
-      ? sections
-      : sections.filter((s) => s.id === selectedSectionFilter);
 
   const handlePrint = () => {
     window.print();
@@ -50,6 +44,7 @@ export const AnteprimaScreen: React.FC<AnteprimaScreenProps> = ({
         <div className="flex items-center gap-3">
           <button
             type="button"
+            id="btn-back-to-compilazione"
             onClick={onBackToCompilazione}
             className="px-3 py-1.5 bg-[var(--badge-bg)] hover:bg-[var(--hover-bg)] text-[var(--text)] rounded font-bold inline-flex items-center gap-1.5 border border-[var(--border)] transition-colors cursor-pointer shadow-2xs"
           >
@@ -59,29 +54,15 @@ export const AnteprimaScreen: React.FC<AnteprimaScreenProps> = ({
 
           <div className="h-4 w-px bg-[var(--border)]" />
 
-          {/* Filtro Sezioni da Stampare */}
-          <div className="flex items-center gap-1.5">
-            <Filter className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
-            <span className="text-[var(--text-secondary)] font-bold">Visualizza:</span>
-            <select
-              value={selectedSectionFilter}
-              onChange={(e) => setSelectedSectionFilter(e.target.value)}
-              className="px-2 py-1 text-xs bg-[var(--input-bg)] border border-[var(--border)] rounded text-[var(--text)] font-semibold focus:outline-none focus:ring-1 focus:ring-amber-800"
-            >
-              <option value="all">Tutte le sezioni ({sections.length})</option>
-              {sections.map((s) => (
-                <option key={s.id} value={s.id}>
-                  Sezione {s.number} — {s.shortTitle}
-                </option>
-              ))}
-            </select>
+          <div className="text-xs font-mono font-bold text-[var(--text-title)]">
+            Anteprima Ufficiale Documentale — {modelMeta.officialAllegato}
           </div>
         </div>
 
         {/* Reputazione e Convalida */}
         <div className="hidden md:flex items-center gap-2 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-full font-bold text-[11px]">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
-          <span>Layout Vettoriale Ufficiale {modelMeta.officialAllegato}</span>
+          <span>Sorgente PDF Ministeriale Reale (L1 + L2)</span>
         </div>
 
         {/* Pulsanti Azione e Zoom */}
@@ -89,6 +70,7 @@ export const AnteprimaScreen: React.FC<AnteprimaScreenProps> = ({
           <div className="flex items-center gap-1 bg-[var(--input-bg)] border border-[var(--border)] rounded px-1.5 py-0.5">
             <button
               type="button"
+              id="btn-zoom-out"
               onClick={() => onChangeZoom(Math.max(0.6, zoomScale - 0.1))}
               className="p-1 hover:bg-[var(--hover-bg)] rounded text-[var(--text-secondary)] hover:text-[var(--text)] cursor-pointer"
               title="Riduci zoom"
@@ -100,7 +82,8 @@ export const AnteprimaScreen: React.FC<AnteprimaScreenProps> = ({
             </span>
             <button
               type="button"
-              onClick={() => onChangeZoom(Math.min(1.4, zoomScale + 0.1))}
+              id="btn-zoom-in"
+              onClick={() => onChangeZoom(Math.min(1.6, zoomScale + 0.1))}
               className="p-1 hover:bg-[var(--hover-bg)] rounded text-[var(--text-secondary)] hover:text-[var(--text)] cursor-pointer"
               title="Aumenta zoom"
             >
@@ -110,6 +93,7 @@ export const AnteprimaScreen: React.FC<AnteprimaScreenProps> = ({
 
           <button
             type="button"
+            id="btn-share-preview"
             onClick={onOpenShareModal}
             className="px-3 py-1.5 bg-[var(--badge-bg)] hover:bg-[var(--hover-bg)] text-[var(--text)] rounded font-bold inline-flex items-center gap-1.5 border border-[var(--border)] transition-colors cursor-pointer shadow-2xs"
             title="Condividi in sicurezza (DLG-001)"
@@ -120,6 +104,7 @@ export const AnteprimaScreen: React.FC<AnteprimaScreenProps> = ({
 
           <button
             type="button"
+            id="btn-print-pdf"
             onClick={handlePrint}
             className="px-4 py-1.5 bg-amber-800 hover:bg-amber-900 text-white rounded font-bold inline-flex items-center gap-2 shadow-sm transition-colors cursor-pointer"
           >
@@ -129,25 +114,18 @@ export const AnteprimaScreen: React.FC<AnteprimaScreenProps> = ({
         </div>
       </div>
 
-      {/* Area Pagine A4 Continue per Stampa/Anteprima */}
-      <div className="flex-1 overflow-auto p-6 space-y-8 flex flex-col items-center">
-        {displayedSections.map((sec, sIdx) => (
-          <div key={sec.id} className="w-full flex flex-col items-center">
-            {/* Indicatore pagina */}
-            <div className="no-print text-xs text-[var(--text-secondary)] font-mono font-semibold mb-1">
-              Foglio A4 Ministeriale #{sIdx + 1} — Sezione {sec.number}
-            </div>
-
-            <A4Sheet
-              section={sec}
-              document={document}
-              onFieldValueChange={() => {}}
-              readOnly={true}
-              scale={zoomScale}
-              currentPage={sIdx + 1}
-            />
-          </div>
-        ))}
+      {/* Area Documentale Continua con PDF Reale e Overlay in Anteprima (L1 + L2) */}
+      <div className="flex-1 overflow-auto p-6 flex flex-col items-center">
+        <DocumentSurface
+          document={document}
+          schoolOrder={document.schoolOrder}
+          mode="PREVIEW"
+          zoomScale={zoomScale}
+          showAllPages={true}
+          onOpenCalibration={() => {
+            window.location.search = '?dev=geometry';
+          }}
+        />
       </div>
     </div>
   );

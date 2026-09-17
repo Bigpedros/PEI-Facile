@@ -1,0 +1,550 @@
+{
+  "schemaVersion": "1.0.0",
+  "modelId": "A4",
+  "schoolOrder": "A4",
+  "modelName": "Modello Ministeriale Ufficiale A4 — Scuola Secondaria II Grado",
+  "sourcePdf": "ALLEGATO_A4_PEI_SEC_2_GRADO.pdf",
+  "sourcePdfSha256": "9fef25e6eafc03f7a63f6812cd9a7dab9490a056f37ac6b5f384c30be5e73b47",
+  "totalPages": 14,
+  "pages": [
+    {
+      "pageNumber": 1,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-01-scuola",
+          "label": "Istituzione scolastica",
+          "pageNumber": 1,
+          "xPt": 160,
+          "yPt": 65,
+          "widthPt": 280,
+          "heightPt": 32,
+          "anchorText": "[ INTESTAZIONE DELLA SCUOLA ]",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-01-studente",
+          "label": "Codice identificativo alunno/a (pseudonimizzato)",
+          "pageNumber": 1,
+          "xPt": 110,
+          "yPt": 190,
+          "widthPt": 440,
+          "heightPt": 22,
+          "anchorText": "STUDENTE/ESSA ____________________________",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-01-classe",
+          "label": "Classe / Sezione e Plesso",
+          "pageNumber": 1,
+          "xPt": 85,
+          "yPt": 236,
+          "widthPt": 465,
+          "heightPt": 22,
+          "anchorText": "Classe _________________ Plesso o sede__________________",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-01-data-redazione",
+          "label": "Data di redazione del PEI",
+          "pageNumber": 1,
+          "xPt": 245,
+          "yPt": 508,
+          "widthPt": 85,
+          "heightPt": 18,
+          "anchorText": "DATA _______________ FIRMA DEL DIRIGENTE SCOLASTICO",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-02-data-emissione",
+          "label": "Data rilascio documento diagnostico",
+          "pageNumber": 1,
+          "xPt": 198,
+          "yPt": 310,
+          "widthPt": 160,
+          "heightPt": 20,
+          "anchorText": "PROFILO DI FUNZIONAMENTO redatto in data _______________",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 2,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-01-situazione-famiglia",
+          "label": "Descrizione del contesto familiare e prospettiva dei genitori",
+          "pageNumber": 2,
+          "xPt": 55,
+          "yPt": 410,
+          "widthPt": 485,
+          "heightPt": 85,
+          "anchorText": "Situazione familiare / descrizione dello studente o della studentessa",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-01-alunno-voce",
+          "label": "La voce dello studente / del bambino (autodeterminazione)",
+          "pageNumber": 2,
+          "xPt": 55,
+          "yPt": 500,
+          "widthPt": 485,
+          "heightPt": 22,
+          "anchorText": "La voce dello studente / autodeterminazione",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-02-doc-riferimento",
+          "label": "Documento clinico-funzionale di riferimento",
+          "pageNumber": 2,
+          "xPt": 55,
+          "yPt": 540,
+          "widthPt": 485,
+          "heightPt": 22,
+          "anchorText": "Elementi generali desunti dal Profilo di Funzionamento",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-02-sintesi-assi",
+          "label": "Sintesi delle capacità e delle performance secondo il Profilo",
+          "pageNumber": 2,
+          "xPt": 55,
+          "yPt": 585,
+          "widthPt": 490,
+          "heightPt": 50,
+          "anchorText": "Sintetica descrizione, considerando in particolare le dimensioni",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 3,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-03-stato-progetto",
+          "label": "Stato di attivazione del Progetto Individuale",
+          "pageNumber": 3,
+          "xPt": 55,
+          "yPt": 85,
+          "widthPt": 490,
+          "heightPt": 35,
+          "anchorText": "3. Raccordo con il Progetto Individuale di cui all'art. 14",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-03-accordi-territorio",
+          "label": "Interventi coordinati scuola-famiglia-servizi",
+          "pageNumber": 3,
+          "xPt": 55,
+          "yPt": 125,
+          "widthPt": 490,
+          "heightPt": 75,
+          "anchorText": "Interventi coordinati tra scuola, famiglia e servizi territoriali",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-04-dim-relazione",
+          "label": "Dimensione della Relazione, dell’interazione e della socializzazione",
+          "pageNumber": 3,
+          "xPt": 55,
+          "yPt": 260,
+          "widthPt": 490,
+          "heightPt": 220,
+          "anchorText": "4. Osservazioni sullo studente/essa: Relazione, interazione, socializzazione",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-05-tabella-obiettivi",
+          "label": "Obiettivi educativi, didattici, strategie e criteri di valutazione",
+          "pageNumber": 3,
+          "xPt": 50,
+          "yPt": 580,
+          "widthPt": 495,
+          "heightPt": 220,
+          "anchorText": "5. Interventi per lo studente/essa: Percorsi A, B o C",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 4,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-04-dim-comunicazione",
+          "label": "Dimensione della Comunicazione e dei linguaggi",
+          "pageNumber": 4,
+          "xPt": 55,
+          "yPt": 80,
+          "widthPt": 490,
+          "heightPt": 200,
+          "anchorText": "Dimensione Comunicazione e linguaggi",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-04-dim-autonomia",
+          "label": "Dimensione dell’Autonomia e dell’orientamento",
+          "pageNumber": 4,
+          "xPt": 55,
+          "yPt": 310,
+          "widthPt": 490,
+          "heightPt": 200,
+          "anchorText": "Dimensione Autonomia e orientamento",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 5,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-04-dim-cognitiva",
+          "label": "Dimensione Cognitiva, neuropsicologica e dell’apprendimento",
+          "pageNumber": 5,
+          "xPt": 55,
+          "yPt": 80,
+          "widthPt": 490,
+          "heightPt": 140,
+          "anchorText": "Dimensione Cognitiva, neuropsicologica e dell'apprendimento",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-05-facilitatori-scelta",
+          "label": "Strumenti compensativi e mediatori didattici prioritari",
+          "pageNumber": 5,
+          "xPt": 50,
+          "yPt": 480,
+          "widthPt": 495,
+          "heightPt": 140,
+          "anchorText": "Strumenti compensativi, mediatori didattici e PCTO",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-06-barriere",
+          "label": "Fattori contestuali che costituiscono barriere (e1-e5 ICF)",
+          "pageNumber": 5,
+          "xPt": 55,
+          "yPt": 92,
+          "widthPt": 490,
+          "heightPt": 140,
+          "anchorText": "6. Osservazioni sul contesto: barriere e facilitatori",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-06-facilitatori",
+          "label": "Fattori contestuali che costituiscono facilitatori (e1-e5 ICF)",
+          "pageNumber": 5,
+          "xPt": 55,
+          "yPt": 240,
+          "widthPt": 490,
+          "heightPt": 140,
+          "anchorText": "Fattori che costituiscono facilitatori per la scuola secondaria di II grado",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-07-interventi",
+          "label": "Azioni programmate per l’accessibilità e l’inclusione ambientale",
+          "pageNumber": 5,
+          "xPt": 55,
+          "yPt": 410,
+          "widthPt": 490,
+          "heightPt": 180,
+          "anchorText": "7. Interventi sul contesto per realizzare un ambiente inclusivo",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 6,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-08-tipo-percorso",
+          "label": "Tipologia di percorso curricolare adottato",
+          "pageNumber": 6,
+          "xPt": 55,
+          "yPt": 90,
+          "widthPt": 490,
+          "heightPt": 45,
+          "anchorText": "8. Interventi sul percorso curricolare (Percorso Ordinario, Personalizzato o Differenziato)",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-08-adattamenti-discipline",
+          "label": "Modalità di svolgimento delle prove e discipline con programmazione personalizzata",
+          "pageNumber": 6,
+          "xPt": 55,
+          "yPt": 150,
+          "widthPt": 490,
+          "heightPt": 260,
+          "anchorText": "Discipline con programmazione differenziata o personalizzata",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 7,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": []
+    },
+    {
+      "pageNumber": 8,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-09-ore-sostegno",
+          "label": "Ore settimanali di sostegno didattico assegnate",
+          "pageNumber": 8,
+          "xPt": 350,
+          "yPt": 420,
+          "widthPt": 180,
+          "heightPt": 22,
+          "anchorText": "Ore settimanali di sostegno didattico assegnate",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 9,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-09-ore-assistenza",
+          "label": "Ore settimanali di assistenza all’autonomia e comunicazione",
+          "pageNumber": 9,
+          "xPt": 350,
+          "yPt": 180,
+          "widthPt": 180,
+          "heightPt": 22,
+          "anchorText": "Ore settimanali di assistenza specialistica all'autonomia",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-09-totale-ore",
+          "label": "Totale monte ore di supporto settimanale",
+          "pageNumber": 9,
+          "xPt": 350,
+          "yPt": 240,
+          "widthPt": 180,
+          "heightPt": 22,
+          "anchorText": "Totale monte ore di supporto settimanale",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-09-presenza-altre-figure",
+          "label": "Altre figure e servizi di supporto operativi",
+          "pageNumber": 9,
+          "xPt": 55,
+          "yPt": 505,
+          "widthPt": 490,
+          "heightPt": 140,
+          "anchorText": "Interventi e attivita extrascolastiche attive",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 10,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-10-modalita-certificazione",
+          "label": "Adattamenti del modello ministeriale di certificazione",
+          "pageNumber": 10,
+          "xPt": 55,
+          "yPt": 90,
+          "widthPt": 490,
+          "heightPt": 80,
+          "anchorText": "10. Certificazione delle competenze e crediti formativi (II Grado)",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-10-note-certificazione",
+          "label": "Note esplicative sui livelli di competenza chiave",
+          "pageNumber": 10,
+          "xPt": 55,
+          "yPt": 185,
+          "widthPt": 490,
+          "heightPt": 190,
+          "anchorText": "Note esplicative sui livelli di competenza e prove equipollenti",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 11,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-11-esito-globale",
+          "label": "Valutazione globale dei progressi compiuti",
+          "pageNumber": 11,
+          "xPt": 55,
+          "yPt": 92,
+          "widthPt": 490,
+          "heightPt": 70,
+          "anchorText": "Verifica finale del PEI.",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-11-relazione-finale",
+          "label": "Relazione sintetica conclusiva del team docente e specialistico",
+          "pageNumber": 11,
+          "xPt": 55,
+          "yPt": 175,
+          "widthPt": 490,
+          "heightPt": 270,
+          "anchorText": "Relazione conclusiva del consiglio di classe e specialisti",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 12,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-11-data-verifica",
+          "label": "Data del GLO di verifica finale",
+          "pageNumber": 12,
+          "xPt": 265,
+          "yPt": 535,
+          "widthPt": 180,
+          "heightPt": 20,
+          "anchorText": "approvata dal GLO in data ______________",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 13,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-12-richiesta-ore-sostegno",
+          "label": "Proposta orario sostegno per il prossimo anno scolastico",
+          "pageNumber": 13,
+          "xPt": 350,
+          "yPt": 285,
+          "widthPt": 180,
+          "heightPt": 22,
+          "anchorText": "Ore di sostegno richieste per l'a. s. successivo ___________",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    },
+    {
+      "pageNumber": 14,
+      "widthPt": 595.32,
+      "heightPt": 841.92,
+      "fields": [
+        {
+          "fieldId": "f-12-richiesta-assistenza",
+          "label": "Proposta ore assistenza specialistica per il prossimo anno",
+          "pageNumber": 14,
+          "xPt": 350,
+          "yPt": 270,
+          "widthPt": 180,
+          "heightPt": 22,
+          "anchorText": "per N. ore_________________(1).",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        },
+        {
+          "fieldId": "f-12-avanzamento-globale",
+          "label": "Stato di completezza complessiva della redazione del PEI",
+          "pageNumber": 14,
+          "xPt": 55,
+          "yPt": 460,
+          "widthPt": 490,
+          "heightPt": 130,
+          "anchorText": "in data ______________ / Firme GLO",
+          "derivationMethod": "TEXT_ANCHOR",
+          "confidence": 0.95,
+          "status": "MAPPED"
+        }
+      ]
+    }
+  ]
+}

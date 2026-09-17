@@ -109,7 +109,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                 { code: 'CMP-02', name: 'Testo esteso', desc: 'Area descrittiva con supporto paragrafi e interlinea' },
                 { code: 'CMP-03', name: 'Testo assistito', desc: 'Integrazione con libreria contestuale e frasi suggerite' },
                 { code: 'CMP-04', name: 'Traccia guidata', desc: 'Percorso di domande strutturate con anteprima di composizione' },
-                { code: 'CMP-05', name: 'Scelta singola', desc: 'Radio o tendina con opzioni ministeriali certificate' },
+                { code: 'CMP-05', name: 'Scelta singola', desc: 'Radio o tendina con opzioni ministeriali ufficiali' },
                 { code: 'CMP-06', name: 'Scelta multipla', desc: 'Checkbox con limite selezioni e opzione altro' },
                 { code: 'CMP-07', name: 'Campo numerico', desc: 'Ore/settimana, range minimo/massimo e unità di misura' },
                 { code: 'CMP-08', name: 'Data o periodo', desc: 'Formato italiano GG/MM/AAAA con datepicker' },

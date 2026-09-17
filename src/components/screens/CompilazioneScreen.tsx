@@ -6,7 +6,7 @@ import type {
   SchoolOrder,
 } from '../../types/pei';
 import { MasterTree } from '../navigation/MasterTree';
-import { A4Sheet } from '../editor/A4Sheet';
+import { DocumentSurface } from '../document/DocumentSurface';
 import { ContextualPanel } from '../sidebars/ContextualPanel';
 import {
   ChevronLeft,
@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Clock,
+  Layers,
 } from 'lucide-react';
 
 interface CompilazioneScreenProps {
@@ -47,16 +48,26 @@ export const CompilazioneScreen: React.FC<CompilazioneScreenProps> = ({
   const currentSection =
     currentSectionIndex !== -1 ? sections[currentSectionIndex] : sections[0];
 
+  // Calculate page number corresponding to current section
+  const [selectedSubPage, setSelectedSubPage] = useState<number>(1);
+  const startPage = currentSection?.pageRange ? currentSection.pageRange[0] : currentSectionIndex + 1;
+  const endPage = currentSection?.pageRange ? currentSection.pageRange[1] : startPage;
+  const activePageNumber = Math.min(Math.max(startPage, selectedSubPage), endPage);
+
   const handlePrevSection = () => {
     if (currentSectionIndex > 0) {
-      onSelectSection(sections[currentSectionIndex - 1].id);
+      const prevSec = sections[currentSectionIndex - 1];
+      onSelectSection(prevSec.id);
+      setSelectedSubPage(prevSec.pageRange ? prevSec.pageRange[0] : currentSectionIndex);
       setActiveField(undefined);
     }
   };
 
   const handleNextSection = () => {
     if (currentSectionIndex < sections.length - 1) {
-      onSelectSection(sections[currentSectionIndex + 1].id);
+      const nextSec = sections[currentSectionIndex + 1];
+      onSelectSection(nextSec.id);
+      setSelectedSubPage(nextSec.pageRange ? nextSec.pageRange[0] : currentSectionIndex + 2);
       setActiveField(undefined);
     }
   };
@@ -66,6 +77,23 @@ export const CompilazioneScreen: React.FC<CompilazioneScreenProps> = ({
       const currentVal = document.values[activeField.id] || '';
       const newVal = currentVal ? `${currentVal}\n${text}` : text;
       onFieldValueChange(activeField.id, newVal);
+    }
+  };
+
+  const handleFieldFocusFromSurface = (fieldId: string) => {
+    const found =
+      currentSection?.fields.find((f) => f.id === fieldId) ||
+      sections.flatMap((s) => s.fields).find((f) => f.id === fieldId);
+    if (found) {
+      setActiveField(found);
+    } else {
+      setActiveField({
+        id: fieldId,
+        code: fieldId,
+        label: fieldId,
+        componentType: 'CMP-01',
+        required: false,
+      });
     }
   };
 
@@ -83,25 +111,32 @@ export const CompilazioneScreen: React.FC<CompilazioneScreenProps> = ({
         <MasterTree
           sections={sections}
           activeSectionId={currentSection.id}
-          onSelectSection={onSelectSection}
+          onSelectSection={(secId) => {
+            onSelectSection(secId);
+            const sec = sections.find((s) => s.id === secId);
+            if (sec?.pageRange) {
+              setSelectedSubPage(sec.pageRange[0]);
+            }
+          }}
           fieldStatuses={document.fieldStatuses}
           schoolOrder={document.schoolOrder}
         />
       </aside>
 
-      {/* 2. Area Centrale: Foglio A4 Ministeriale */}
+      {/* 2. Area Centrale: Superficie Documentale di Produzione (L1 + L2 + L3) */}
       <main className="flex-1 flex flex-col h-full bg-[var(--app-bg)] overflow-hidden">
-        {/* Barra di Navigazione Sezioni (Superiore) */}
+        {/* Barra di Navigazione Sezioni e Pagine (Superiore) */}
         <div className="bg-[var(--chrome-bg)] border-b border-[var(--border)] px-4 py-2 flex items-center justify-between text-xs shrink-0 select-none">
           <div className="flex items-center gap-2">
             <button
               type="button"
+              id="btn-prev-section"
               onClick={handlePrevSection}
               disabled={currentSectionIndex === 0}
               className="p-1.5 rounded hover:bg-[var(--hover-bg)] disabled:text-[var(--text-disabled)] disabled:pointer-events-none text-[var(--text)] inline-flex items-center gap-1 font-semibold cursor-pointer transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
-              <span>Sez. precedente</span>
+              <span>Sez. prec.</span>
             </button>
             <span className="text-[var(--border)]">|</span>
             <span className="font-bold text-[var(--text-title)]">
@@ -109,13 +144,38 @@ export const CompilazioneScreen: React.FC<CompilazioneScreenProps> = ({
             </span>
             <button
               type="button"
+              id="btn-next-section"
               onClick={handleNextSection}
               disabled={currentSectionIndex === sections.length - 1}
               className="p-1.5 rounded hover:bg-[var(--hover-bg)] disabled:text-[var(--text-disabled)] disabled:pointer-events-none text-[var(--text)] inline-flex items-center gap-1 font-semibold cursor-pointer transition-colors"
             >
-              <span>Sez. successiva</span>
+              <span>Sez. succ.</span>
               <ChevronRight className="w-4 h-4" />
             </button>
+
+            {/* Stepper multi-pagina per sezioni che coprono più fogli reali */}
+            {endPage > startPage && (
+              <div className="flex items-center gap-1 ml-3 bg-[var(--input-bg)] px-2 py-0.5 rounded border border-[var(--border)]">
+                <Layers className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
+                <span className="text-[11px] font-mono font-medium text-[var(--text-secondary)]">
+                  Pagina reale:
+                </span>
+                {Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setSelectedSubPage(p)}
+                    className={`px-1.5 py-0.5 text-xs font-mono font-bold rounded cursor-pointer ${
+                      activePageNumber === p
+                        ? 'bg-amber-800 text-white'
+                        : 'text-[var(--text)] hover:bg-[var(--hover-bg)]'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
@@ -135,6 +195,7 @@ export const CompilazioneScreen: React.FC<CompilazioneScreenProps> = ({
 
             <button
               type="button"
+              id="btn-go-to-preview"
               onClick={onGoToPreview}
               className="px-2.5 py-1 text-xs font-bold bg-[var(--badge-bg)] hover:bg-[var(--hover-bg)] text-[var(--text)] rounded border border-[var(--border)] inline-flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
               title="Passa all'anteprima di stampa completa"
@@ -145,16 +206,21 @@ export const CompilazioneScreen: React.FC<CompilazioneScreenProps> = ({
           </div>
         </div>
 
-        {/* Scrollable A4 Sheet Container */}
+        {/* Superficie Documentale Reale (PDF.js L1 + Campi L2 + Editing L3) */}
         <div className="flex-1 overflow-auto p-4 flex justify-center items-start">
-          <A4Sheet
-            section={currentSection}
+          <DocumentSurface
             document={document}
-            onFieldValueChange={onFieldValueChange}
+            schoolOrder={document.schoolOrder}
+            mode="EDIT"
+            zoomScale={zoomScale}
+            pageNumber={activePageNumber}
+            showAllPages={false}
             activeFieldId={activeField?.id}
-            onFieldFocus={(field) => setActiveField(field)}
-            scale={zoomScale}
-            currentPage={currentSectionIndex + 1}
+            onFieldFocus={handleFieldFocusFromSurface}
+            onFieldValueChange={onFieldValueChange}
+            onOpenCalibration={() => {
+              window.location.search = '?dev=geometry';
+            }}
           />
         </div>
       </main>

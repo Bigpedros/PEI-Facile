@@ -29,19 +29,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onSelectSavedDocument,
 }) => {
   return (
-    <div className="flex-1 overflow-y-auto w-full px-4 sm:px-6 md:px-10 lg:px-12 pt-8 pb-16 md:pt-12 md:pb-20">
-      <div className="w-full max-w-4xl mx-auto space-y-8">
-        {/* Titolo e Descrizione Home - Neutra rispetto al modello utilizzato */}
-        <div className="text-center space-y-3 pt-2 md:pt-4">
-          <h1 className="text-3xl md:text-4xl font-black font-serif tracking-tight text-[var(--text-title)]">
-            PEI <span className="text-[var(--accent)]">FACILE</span>
-          </h1>
-          <p className="text-sm md:text-base text-[var(--text-secondary)] max-w-2xl mx-auto leading-relaxed font-medium">
-            Redazione, verifica e stampa del Piano Educativo Individualizzato con supporto
-            a modelli ministeriali, territoriali e d&apos;istituto.
-          </p>
-        </div>
-
+    <div className="flex-1 overflow-y-auto w-full px-4 sm:px-6 md:px-10 lg:px-12 pt-4 pb-12 md:pt-6 md:pb-16">
+      <div className="w-full max-w-4xl mx-auto space-y-6">
         {/* Card Centrale: Cosa vuoi fare? */}
         <div className="bg-[var(--card-bg)] border border-[var(--border)] rounded-lg p-6 md:p-8 shadow-sm space-y-6">
           <div className="border-b border-[var(--border)] pb-3 flex items-center justify-between">
