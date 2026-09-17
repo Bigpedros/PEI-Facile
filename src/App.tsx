@@ -29,7 +29,7 @@ import { MasterTree } from './components/navigation/MasterTree';
 
 import { NewPeiModal } from './components/modals/NewPeiModal';
 import { OtherModelCatalogModal } from './components/modals/OtherModelCatalogModal';
-import { PdfIntakeModal } from './components/modals/PdfIntakeModal';
+import { AcquisitionModal, AcquisitionSuccessPayload } from './components/modals/AcquisitionModal';
 import { SettingsModal } from './components/modals/SettingsModal';
 import { HelpModal } from './components/modals/HelpModal';
 import { ShareModal } from './components/modals/ShareModal';
@@ -412,36 +412,50 @@ export default function App() {
     showToast('PEI chiuso. Ritorno alla schermata iniziale.');
   };
 
-  // Integrazione Intake PDF R3 completata
-  const handleIntakeImportSuccess = (imported: {
-    schoolOrder?: SchoolOrder;
-    extractedValues: Record<string, string>;
-    logs: string[];
-  }) => {
-    let order = imported.schoolOrder || document.schoolOrder;
-    setDocument((prev) => {
-      const mergedValues = { ...prev.values, ...imported.extractedValues };
-      const mergedStatuses = { ...prev.fieldStatuses };
-      Object.keys(imported.extractedValues).forEach((fId) => {
-        mergedStatuses[fId] = 'compilato';
-      });
-      const updated = {
-        ...prev,
-        schoolOrder: order,
-        values: mergedValues,
-        fieldStatuses: mergedStatuses,
-        updatedAt: new Date().toISOString(),
-      };
-      try {
-        localStorage.setItem('pei_facile_saved_doc', JSON.stringify(updated));
-      } catch {
-        // ignore
-      }
-      return updated;
+  // Acquisizione Documento PEI completata (Import = Nuovo Documento autonomo)
+  const handleAcquisitionSuccess = (payload: AcquisitionSuccessPayload) => {
+    const targetModelDef = payload.modelId
+      ? customModels.find((m) => m.id === payload.modelId)
+      : undefined;
+
+    const newDoc = createEmptyPeiDocument(
+      payload.schoolOrder,
+      payload.studentCode,
+      payload.schoolName,
+      payload.classOrSection,
+      targetModelDef
+    );
+
+    // Popola esclusivamente con i valori estratti e approvati nella coda di revisione
+    newDoc.values = {
+      ...newDoc.values,
+      ...payload.extractedValues,
+    };
+    if (payload.compilationDate) {
+      newDoc.lastModifiedDate = payload.compilationDate;
+      newDoc.values['f-01-data-redazione'] = payload.compilationDate;
+    }
+
+    // Segna i campi approvati come compilati
+    Object.keys(payload.extractedValues).forEach((fId) => {
+      newDoc.fieldStatuses[fId] = 'compilato';
     });
+
+    setDocument(newDoc);
     setHasOpenDocument(true);
+
+    try {
+      localStorage.setItem('pei_facile_saved_doc', JSON.stringify(newDoc));
+    } catch {
+      // ignore
+    }
+
+    const orderSections = filterSectionsForSchoolOrder(MASTER_PEI_SECTIONS, payload.schoolOrder);
+    setActiveSectionId(orderSections[0]?.id || 'sec1_quadro_informativo');
     setCurrentScreen('SCR-002');
-    showToast('Dati estratti dal PDF applicati con successo alle sezioni!');
+    showToast(
+      `Nuovo PEI creato da acquisizione (${payload.schoolOrder}) con ${Object.keys(payload.extractedValues).length} campi compilati!`
+    );
   };
 
   return (
@@ -561,10 +575,11 @@ export default function App() {
         onOpenCalibration={(model) => handleOpenCalibration(model)}
       />
 
-      <PdfIntakeModal
+      <AcquisitionModal
         isOpen={isPdfIntakeModalOpen}
         onClose={() => setIsPdfIntakeModalOpen(false)}
-        onImportSuccess={handleIntakeImportSuccess}
+        customModels={customModels}
+        onAcquisitionSuccess={handleAcquisitionSuccess}
       />
 
       <SettingsModal

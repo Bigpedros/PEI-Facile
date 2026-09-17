@@ -20,7 +20,9 @@ import {
   listAllCustomTemplates,
   getTemplatePdfBinary,
   getCustomTemplate,
+  findTemplateBySha256,
 } from '../../core/templateStorage';
+import { computeSha256 } from '../../core/templateSourceResolver';
 import type { CandidateFieldGeometry } from '../../core/templateAcquisitionTypes';
 import {
   saveTemplateSchema,
@@ -71,6 +73,18 @@ const BASELINE_MODELS: Record<string, ModelGeometry> = {
   A4: A4Data as unknown as ModelGeometry,
 };
 
+export type TemplateResolutionStatus = 'RESOLVING_TEMPLATE' | 'READY' | 'ERROR';
+export type TemplateWorkspaceErrorCode =
+  | 'TEMPLATE_SOURCE_MISSING'
+  | 'TEMPLATE_INTEGRITY_MISMATCH'
+  | 'PDF_RENDER_ERROR';
+
+export interface TemplateResolutionState {
+  status: TemplateResolutionStatus;
+  errorCode?: TemplateWorkspaceErrorCode;
+  message?: string;
+}
+
 export interface TemplateCalibrationWorkspaceProps {
   initialModelId?: string;
   initialModelDef?: PeiModelDefinition | null;
@@ -93,6 +107,8 @@ interface DragState {
   initialHeightPt: number;
 }
 
+const isMinisterialModel = (id: string) => ['A1', 'A2', 'A3', 'A4'].includes(id);
+
 export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspaceProps> = ({
   initialModelId = 'A1',
   initialModelDef,
@@ -112,6 +128,13 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
   const [modelState, setModelState] = useState<Record<string, ModelGeometry>>(BASELINE_MODELS);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [customBinaries, setCustomBinaries] = useState<Record<string, Uint8Array>>({});
+
+  const [resolutionState, setResolutionState] = useState<TemplateResolutionState>(() => {
+    const targetId = initialModelDef?.templateId || initialModelDef?.id || initialModelId;
+    return isMinisterialModel(targetId)
+      ? { status: 'READY' }
+      : { status: 'RESOLVING_TEMPLATE' };
+  });
 
   const [isAcquiring, setIsAcquiring] = useState<boolean>(false);
   const [bannerNotice, setBannerNotice] = useState<string | null>(
@@ -133,6 +156,10 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
   const [pdfLoading, setPdfLoading] = useState<boolean>(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
+  // Active rendering refs to prevent concurrency bugs
+  const activeRenderTaskRef = useRef<any>(null);
+  const cachedPdfDocRef = useRef<{ sourceKey: string; doc: any } | null>(null);
+
   // Drag & Resize state
   const [dragState, setDragState] = useState<DragState | null>(null);
 
@@ -141,16 +168,16 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Load saved custom templates from IndexedDB
+  // Load saved custom templates list from IndexedDB into modelState
   useEffect(() => {
     async function loadSavedTemplates() {
       try {
         const list = await listAllCustomTemplates();
         if (list && list.length > 0) {
-          const updated = { ...BASELINE_MODELS };
+          const updated: Record<string, ModelGeometry> = { ...BASELINE_MODELS };
           for (const item of list) {
             updated[item.templateId] = {
-              schemaVersion: item.schemaVersion,
+              schemaVersion: item.schemaVersion || '1.0.0',
               modelId: item.templateId,
               schoolOrder: item.schoolOrder,
               modelName: item.name,
@@ -160,7 +187,10 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
               pages: item.pages,
             };
           }
-          setModelState(updated);
+          setModelState((prev) => ({
+            ...prev,
+            ...updated,
+          }));
         }
       } catch (err) {
         console.warn('Could not load saved templates from IndexedDB:', err);
@@ -169,7 +199,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
     loadSavedTemplates();
   }, []);
 
-  // Update selected model if prop changes
+  // Update selected model if initialModelDef changes
   useEffect(() => {
     if (initialModelDef?.templateId || initialModelDef?.id) {
       const targetId = initialModelDef.templateId || initialModelDef.id;
@@ -179,8 +209,130 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
     }
   }, [initialModelDef]);
 
-  const currentModel = modelState[selectedModelId] || BASELINE_MODELS[selectedModelId] || BASELINE_MODELS.A1;
-  const pageData = currentModel.pages?.find((p) => p.pageNumber === currentPage);
+  // Deterministic Template Resolution Workflow (RESOLVING_TEMPLATE -> READY or ERROR)
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function resolveTemplate() {
+      if (isMinisterialModel(selectedModelId)) {
+        if (!modelState[selectedModelId] && BASELINE_MODELS[selectedModelId]) {
+          setModelState((prev) => ({
+            ...prev,
+            [selectedModelId]: BASELINE_MODELS[selectedModelId],
+          }));
+        }
+        setResolutionState({ status: 'READY' });
+        return;
+      }
+
+      setResolutionState({ status: 'RESOLVING_TEMPLATE' });
+
+      try {
+        const existingGeom = modelState[selectedModelId];
+        const existingBinary = customBinaries[selectedModelId];
+
+        let record = await getCustomTemplate(selectedModelId, true);
+        if (!record && initialModelDef) {
+          const lookupId = initialModelDef.templateId || initialModelDef.id;
+          if (lookupId && lookupId !== selectedModelId) {
+            record = await getCustomTemplate(lookupId, true);
+          }
+          if (!record && (initialModelDef.sourceHash || initialModelDef.sourceSha256)) {
+            record = await findTemplateBySha256(
+              initialModelDef.sourceSha256 || initialModelDef.sourceHash || ''
+            );
+          }
+        }
+
+        if (isCancelled) return;
+
+        if (!record && !existingGeom) {
+          setResolutionState({
+            status: 'ERROR',
+            errorCode: 'TEMPLATE_SOURCE_MISSING',
+            message: `Template sorgente "${selectedModelId}" non trovato nel database locale (IndexedDB).`,
+          });
+          return;
+        }
+
+        const geom: ModelGeometry = existingGeom || {
+          schemaVersion: record!.schemaVersion || '1.0.0',
+          modelId: record!.templateId,
+          schoolOrder: record!.schoolOrder,
+          modelName: record!.name,
+          sourcePdf: record!.sourceFileName,
+          sourcePdfSha256: record!.sourceSha256,
+          totalPages: record!.pageCount,
+          pages: record!.pages,
+        };
+
+        let binary = existingBinary || record?.pdfBinary;
+        if (!binary && geom.sourcePdfSha256) {
+          binary =
+            (await getTemplatePdfBinary(geom.sourcePdfSha256)) ||
+            (await getTemplatePdfBinary(geom.modelId)) ||
+            undefined;
+        }
+
+        if (isCancelled) return;
+
+        if (!binary || binary.byteLength === 0) {
+          setResolutionState({
+            status: 'ERROR',
+            errorCode: 'TEMPLATE_SOURCE_MISSING',
+            message: `File PDF binario non presente nel database per il modello "${geom.modelName}".`,
+          });
+          return;
+        }
+
+        // SHA-256 Cryptographic Integrity Check
+        if (geom.sourcePdfSha256) {
+          const actualSha = await computeSha256(binary);
+          if (isCancelled) return;
+          if (actualSha && geom.sourcePdfSha256 && actualSha !== geom.sourcePdfSha256) {
+            setResolutionState({
+              status: 'ERROR',
+              errorCode: 'TEMPLATE_INTEGRITY_MISMATCH',
+              message: `Integrità del file PDF compromessa per il modello "${geom.modelName}". Hash calcolato (${actualSha.slice(0, 10)}…) non corrisponde a quello registrato (${geom.sourcePdfSha256.slice(0, 10)}…).`,
+            });
+            return;
+          }
+        }
+
+        setModelState((prev) => ({
+          ...prev,
+          [geom.modelId]: geom,
+        }));
+        setCustomBinaries((prev) => ({
+          ...prev,
+          [geom.modelId]: binary,
+        }));
+
+        setResolutionState({ status: 'READY' });
+      } catch (err: any) {
+        if (!isCancelled) {
+          setResolutionState({
+            status: 'ERROR',
+            errorCode: 'TEMPLATE_SOURCE_MISSING',
+            message: err?.message || 'Errore nella risoluzione del template.',
+          });
+        }
+      }
+    }
+
+    resolveTemplate();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedModelId, initialModelDef]);
+
+  // Authoritative current model: NO silent fallback to A1 for missing custom models
+  const currentModel: ModelGeometry | null =
+    modelState[selectedModelId] ||
+    (BASELINE_MODELS[selectedModelId] ? BASELINE_MODELS[selectedModelId] : null);
+
+  const pageData = currentModel?.pages?.find((p) => p.pageNumber === currentPage);
   const fieldsOnPage = pageData ? pageData.fields.filter((f) => f.status === 'MAPPED') : [];
   const selectedField = fieldsOnPage.find((f) => f.fieldId === selectedFieldId);
 
@@ -195,46 +347,80 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
     );
   });
 
-  // Render official or custom PDF page via PDF.js on canvas (L1)
+  // Stable L1 PDF Rendering: depends strictly on source, page, zoom, and binary — NEVER on field geometry or drag state
+  const pdfSourceSha = currentModel?.sourcePdfSha256;
+  const pdfSourceFileName = currentModel?.sourcePdf;
+  const activeCustomBinary = customBinaries[selectedModelId];
+  const isReady = resolutionState.status === 'READY' && currentModel !== null;
+
   useEffect(() => {
     let isCancelled = false;
 
     async function renderPdfPage() {
-      if (!canvasRef.current) return;
+      if (!isReady || !currentModel || !canvasRef.current) return;
+
+      // Cancel previous in-flight render task if still executing
+      if (activeRenderTaskRef.current) {
+        try {
+          activeRenderTaskRef.current.cancel();
+        } catch {
+          // ignore cancellation
+        }
+      }
+
       setPdfLoading(true);
       setPdfError(null);
 
       try {
         const pdfjs = await import('pdfjs-dist');
-        let loadingTask: any;
+        const sourceKey = activeCustomBinary
+          ? `bin_${selectedModelId}_${activeCustomBinary.byteLength}`
+          : pdfSourceSha
+          ? `sha_${pdfSourceSha}`
+          : `path_${pdfSourceFileName}`;
 
-        if (customBinaries[selectedModelId]) {
-          loadingTask = pdfjs.getDocument({
-            data: customBinaries[selectedModelId],
-            standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/standard_fonts/',
-          });
-        } else if (currentModel.sourcePdfSha256) {
-          const dbBinary = await getTemplatePdfBinary(currentModel.sourcePdfSha256);
-          if (dbBinary) {
+        let doc =
+          cachedPdfDocRef.current?.sourceKey === sourceKey
+            ? cachedPdfDocRef.current.doc
+            : null;
+
+        if (!doc) {
+          let loadingTask: any;
+
+          if (activeCustomBinary) {
             loadingTask = pdfjs.getDocument({
-              data: dbBinary,
+              data: activeCustomBinary,
               standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/standard_fonts/',
             });
-          } else {
-            // Built-in ministerial standard path
+          } else if (pdfSourceSha) {
+            const dbBinary = await getTemplatePdfBinary(pdfSourceSha);
+            if (isCancelled) return;
+            if (dbBinary) {
+              loadingTask = pdfjs.getDocument({
+                data: dbBinary,
+                standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/standard_fonts/',
+              });
+            } else if (isMinisterialModel(selectedModelId)) {
+              loadingTask = pdfjs.getDocument({
+                url: `/models/${pdfSourceFileName || `${selectedModelId}.pdf`}`,
+                standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/standard_fonts/',
+              });
+            }
+          } else if (isMinisterialModel(selectedModelId)) {
             loadingTask = pdfjs.getDocument({
-              url: `/models/${currentModel.sourcePdf}`,
+              url: `/models/${pdfSourceFileName || `${selectedModelId}.pdf`}`,
               standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/standard_fonts/',
             });
           }
-        }
 
-        if (!loadingTask) {
-          throw new Error('Nessuna sorgente PDF disponibile per il rendering');
-        }
+          if (!loadingTask) {
+            throw new Error('TEMPLATE_SOURCE_MISSING: Nessuna sorgente PDF disponibile per il rendering');
+          }
 
-        const doc = await loadingTask.promise;
-        if (isCancelled) return;
+          doc = await loadingTask.promise;
+          if (isCancelled) return;
+          cachedPdfDocRef.current = { sourceKey, doc };
+        }
 
         const page = await doc.getPage(currentPage);
         if (isCancelled) return;
@@ -249,14 +435,17 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        await page.render({
+        const renderTask = page.render({
           canvasContext: ctx,
           viewport,
-        }).promise;
+        });
+
+        activeRenderTaskRef.current = renderTask;
+        await renderTask.promise;
       } catch (err: any) {
-        if (!isCancelled) {
+        if (!isCancelled && err?.name !== 'RenderingCancelledException') {
           console.warn('PDF render on canvas warning:', err);
-          setPdfError(err?.message || 'PDF render failed');
+          setPdfError(err?.message || 'PDF_RENDER_ERROR');
         }
       } finally {
         if (!isCancelled) {
@@ -269,8 +458,15 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
 
     return () => {
       isCancelled = true;
+      if (activeRenderTaskRef.current) {
+        try {
+          activeRenderTaskRef.current.cancel();
+        } catch {
+          // ignore
+        }
+      }
     };
-  }, [selectedModelId, currentPage, scale, currentModel, customBinaries]);
+  }, [selectedModelId, pdfSourceSha, pdfSourceFileName, activeCustomBinary, currentPage, scale, isReady]);
 
   // Handle uploading and acquiring a new custom PDF inside workspace
   const handleUploadCustomPdf = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -818,8 +1014,20 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
               </span>
             </div>
             <p className="text-[11px] text-stone-400 font-medium">
-              Modello: <strong className="text-stone-200">{currentModel.modelName}</strong> ({currentModel.schoolOrder}) • SHA-256:{' '}
-              <span className="font-mono text-emerald-400 font-bold">{currentModel.sourcePdfSha256?.slice(0, 10)}…</span>
+              {currentModel ? (
+                <>
+                  Modello: <strong className="text-stone-200">{currentModel.modelName}</strong> ({currentModel.schoolOrder}) • SHA-256:{' '}
+                  <span className="font-mono text-emerald-400 font-bold">{currentModel.sourcePdfSha256?.slice(0, 10)}…</span>
+                </>
+              ) : resolutionState.status === 'RESOLVING_TEMPLATE' ? (
+                <>
+                  Modello: <strong className="text-amber-300">Risoluzione in corso…</strong> ({selectedModelId})
+                </>
+              ) : (
+                <>
+                  Modello: <strong className="text-rose-400">Non disponibile</strong> ({selectedModelId})
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -840,8 +1048,9 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
           <button
             type="button"
             id="btn-toggle-parity-mode"
+            disabled={!currentModel}
             onClick={() => setIsParityMode(!isParityMode)}
-            className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 py-1.5 rounded font-semibold transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
               isParityMode
                 ? 'bg-amber-700 text-white ring-2 ring-amber-400 shadow-md'
                 : 'bg-stone-800 hover:bg-stone-700 text-stone-300 border border-stone-700'
@@ -855,8 +1064,9 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
           <button
             type="button"
             id="btn-save-draft"
+            disabled={!currentModel}
             onClick={saveDraftToIndexedDb}
-            className="px-3 py-1.5 rounded bg-stone-800 hover:bg-stone-700 text-stone-200 font-semibold border border-stone-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="px-3 py-1.5 rounded bg-stone-800 hover:bg-stone-700 text-stone-200 font-semibold border border-stone-700 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             title="Salva lo stato corrente in bozza (REVIEW_REQUIRED)"
           >
             <Save className="w-3.5 h-3.5 text-blue-400" />
@@ -866,8 +1076,9 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
           <button
             type="button"
             id="btn-approve-calibrated"
+            disabled={!currentModel}
             onClick={approveAndCalibrateModel}
-            className="px-4 py-1.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-bold shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+            className="px-4 py-1.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-bold shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             title="Approva e marca il modello come CALIBRATED (visualReviewStatus = COMPLETED)"
           >
             <Check className="w-4 h-4" />
@@ -877,8 +1088,9 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
           <button
             type="button"
             id="btn-copy-geometry-json"
+            disabled={!currentModel}
             onClick={copyUpdatedJson}
-            className="p-1.5 rounded bg-stone-800 hover:bg-stone-700 text-stone-300 border border-stone-700 transition-colors cursor-pointer"
+            className="p-1.5 rounded bg-stone-800 hover:bg-stone-700 text-stone-300 border border-stone-700 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             title="Esporta JSON Geometria"
           >
             <Copy className="w-4 h-4" />
@@ -954,7 +1166,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
           <div className="flex items-center gap-1.5 bg-stone-800/80 px-2 py-0.5 rounded border border-stone-700">
             <button
               type="button"
-              disabled={currentPage <= 1}
+              disabled={!currentModel || currentPage <= 1}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               className="p-1 rounded hover:bg-stone-700 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
               title="Pagina precedente"
@@ -963,12 +1175,12 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
             </button>
             <span className="text-stone-300 font-medium px-1">
               Pagina <strong className="text-white font-bold">{currentPage}</strong> di{' '}
-              {currentModel.totalPages || 12}
+              {currentModel?.totalPages || 12}
             </span>
             <button
               type="button"
-              disabled={currentPage >= (currentModel.totalPages || 12)}
-              onClick={() => setCurrentPage((p) => Math.min(currentModel.totalPages || 12, p + 1))}
+              disabled={!currentModel || currentPage >= (currentModel?.totalPages || 12)}
+              onClick={() => setCurrentPage((p) => Math.min(currentModel?.totalPages || 12, p + 1))}
               className="p-1 rounded hover:bg-stone-700 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
               title="Pagina successiva"
             >
@@ -1015,8 +1227,9 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
           <button
             type="button"
             id="btn-add-candidate-field"
+            disabled={!currentModel}
             onClick={addNewCandidateField}
-            className="px-2.5 py-1 rounded bg-blue-700 hover:bg-blue-600 text-white font-semibold shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
+            className="px-2.5 py-1 rounded bg-blue-700 hover:bg-blue-600 text-white font-semibold shadow-xs transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Aggiungi Campo</span>
@@ -1054,7 +1267,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
 
             <span
               className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold border flex items-center gap-1 ${
-                currentModel.validationStatus === 'CALIBRATED'
+                (currentModel as any)?.validationStatus === 'CALIBRATED'
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                   : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
               }`}
@@ -1062,7 +1275,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
             >
               <Eye className="w-3 h-3" />
               <span>
-                {currentModel.validationStatus === 'CALIBRATED'
+                {(currentModel as any)?.validationStatus === 'CALIBRATED'
                   ? 'HUMAN REVIEW: OK'
                   : 'HUMAN REVIEW: REQ'}
               </span>
@@ -1079,6 +1292,65 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
           className="flex-1 overflow-auto bg-stone-950 p-8 flex justify-center items-start relative"
           onClick={() => setSelectedFieldId(null)}
         >
+          {/* Resolution Loading State Overlay */}
+          {resolutionState.status === 'RESOLVING_TEMPLATE' && (
+            <div className="absolute inset-0 flex items-center justify-center bg-stone-950/85 text-white z-30">
+              <div className="flex flex-col items-center gap-3 p-6 bg-stone-900 border border-stone-800 rounded-xl shadow-2xl">
+                <div className="w-8 h-8 border-3 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm font-semibold tracking-wide">Caricamento modello...</p>
+                <p className="text-xs text-stone-400 font-mono">{selectedModelId}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Resolution Error State Overlay */}
+          {resolutionState.status === 'ERROR' && (
+            <div className="absolute inset-0 flex items-center justify-center bg-stone-950/90 text-white z-30 p-8">
+              <div className="max-w-md bg-stone-900 border border-rose-800/80 rounded-xl p-6 text-center space-y-4 shadow-2xl">
+                <div className="w-12 h-12 mx-auto rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/30">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-rose-300 font-mono tracking-wide uppercase">
+                    {resolutionState.errorCode || 'TEMPLATE_ERROR'}
+                  </h2>
+                  <p className="text-xs text-stone-300 mt-2">
+                    {resolutionState.message || 'Impossibile caricare il modello richiesto.'}
+                  </p>
+                  {resolutionState.errorCode === 'TEMPLATE_SOURCE_MISSING' && (
+                    <p className="text-[11px] text-stone-400 mt-1">
+                      Il file PDF sorgente o la definizione del template non sono presenti nel database locale (IndexedDB).
+                    </p>
+                  )}
+                  {resolutionState.errorCode === 'TEMPLATE_INTEGRITY_MISMATCH' && (
+                    <p className="text-[11px] text-stone-400 mt-1">
+                      L&apos;impronta crittografica SHA-256 del binario non corrisponde alla definizione registrata.
+                    </p>
+                  )}
+                </div>
+                <div className="pt-2 flex justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-4 py-2 rounded bg-amber-700 hover:bg-amber-600 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Carica PDF sorgente</span>
+                  </button>
+                  {onClose && (
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="px-4 py-2 rounded bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-semibold border border-stone-700 cursor-pointer"
+                    >
+                      Chiudi Workspace
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div
             className="relative bg-white shadow-2xl transition-all select-none"
             style={{ width: `${canvasWidthPx}px`, height: `${canvasHeightPx}px` }}
@@ -1089,7 +1361,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
 
             {/* Loading & Error Overlays */}
             {pdfLoading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-stone-950/70 backdrop-blur-xs text-white text-xs font-semibold">
+              <div className="absolute inset-0 flex items-center justify-center bg-stone-950/70 backdrop-blur-xs text-white text-xs font-semibold z-20">
                 <div className="flex flex-col items-center gap-2">
                   <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
                   <span>Rendering PDF Pagina {currentPage}…</span>
@@ -1098,13 +1370,16 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
             )}
 
             {pdfError && !pdfLoading && (
-              <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-stone-600 text-xs">
-                <div className="bg-stone-100 p-4 rounded-lg border border-stone-300 shadow">
-                  <p className="font-bold text-stone-800">
-                    PDF Canvas: Visualizzazione geometrica attiva
+              <div className="absolute inset-0 flex items-center justify-center p-6 text-center z-20 bg-stone-950/80">
+                <div className="bg-stone-900 text-white p-5 rounded-lg border border-rose-800 shadow-xl max-w-sm">
+                  <div className="w-8 h-8 mx-auto rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mb-2">
+                    <AlertTriangle className="w-4 h-4" />
+                  </div>
+                  <p className="font-bold text-rose-300 font-mono text-xs">
+                    PDF_RENDER_ERROR
                   </p>
-                  <p className="text-[11px] mt-1 text-stone-500">
-                    A4 Canonico: {A4_WIDTH_PT} × {A4_HEIGHT_PT} pt (Scale: {scale})
+                  <p className="text-[11px] mt-1 text-stone-400">
+                    {pdfError}
                   </p>
                 </div>
               </div>

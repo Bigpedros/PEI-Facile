@@ -7,6 +7,7 @@ import {
   Upload,
   Clock,
   ArrowRight,
+  FileText,
 } from 'lucide-react';
 
 interface HomeScreenProps {
@@ -88,24 +89,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               </div>
             </div>
 
-            {/* 3. Importa PDF */}
+            {/* 3. Acquisizione PEI */}
             <div
               onClick={onOpenPdfIntake}
               className="p-4 rounded-lg border-2 border-[var(--border)] hover:border-amber-800 bg-[var(--card-sub-bg)] hover:bg-[var(--hover-bg)] transition-all cursor-pointer group flex flex-col justify-between"
             >
               <div className="space-y-2">
-                <div className="w-10 h-10 rounded-md bg-sky-100 text-sky-900 dark:bg-sky-950/70 dark:text-sky-200 dark:border-sky-700/70 flex items-center justify-center group-hover:scale-105 transition-transform border border-sky-300">
-                  <Upload className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-md bg-amber-900/10 text-amber-800 flex items-center justify-center group-hover:scale-105 transition-transform border border-amber-800/30">
+                  <FileText className="w-5 h-5" />
                 </div>
                 <h3 className="font-bold text-[var(--text-title)] text-sm group-hover:text-amber-800 dark:group-hover:text-[var(--accent-paglierino)]">
-                  Importa PDF
+                  Acquisizione PEI
                 </h3>
                 <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-normal">
-                  Carica un file PDF scannerizzato o compilato: il motore OCR integrato estrae testo ed elementi per popolare le sezioni.
+                  Acquisisci un PEI compilato da PDF, immagini o Word per creare un nuovo documento.
                 </p>
               </div>
               <div className="pt-3 flex items-center gap-1 text-xs font-bold text-amber-800 dark:text-[var(--accent-paglierino)] group-hover:translate-x-1 transition-transform">
-                <span>Apri modulo di importazione</span>
+                <span>Avvia acquisizione</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </div>
             </div>

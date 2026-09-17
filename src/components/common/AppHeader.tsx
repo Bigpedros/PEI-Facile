@@ -155,8 +155,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                     }}
                     className="w-full text-left px-3 py-1.5 hover:bg-[var(--hover-bg)] flex items-center gap-2"
                   >
-                    <Upload className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
-                    <span>Importa PDF (Intake R3)...</span>
+                    <FileText className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
+                    <span>Acquisisci PEI…</span>
                   </button>
                   <div className="border-t border-[var(--border)] my-1" />
                   <button
