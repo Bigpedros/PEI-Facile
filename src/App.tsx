@@ -52,7 +52,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   teacherSurname: '',
   teacherRole: 'Docente di Sostegno',
   defaultSchoolOrder: 'A2',
-  theme: 'navy',
+  theme: 'verde_prato',
 };
 
 export default function App() {
@@ -139,7 +139,7 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenId>('SCR-001');
 
   // 3. Stato del Tema
-  const [currentTheme, setCurrentTheme] = useState<ThemeType>(settings.theme || 'navy');
+  const [currentTheme, setCurrentTheme] = useState<ThemeType>(settings.theme || 'verde_prato');
 
   // 4. Documento PEI Corrente (Inizialmente senza documento aperto, o caricato da salvataggio locale)
   const [document, setDocument] = useState<PeiDocument>(() => {
@@ -157,14 +157,34 @@ export default function App() {
     return !!localStorage.getItem('pei_facile_saved_doc');
   });
 
-  const savedDocument = (() => {
+  const [savedDocument, setSavedDocument] = useState<PeiDocument | null>(() => {
     try {
       const s = localStorage.getItem('pei_facile_saved_doc');
       return s ? JSON.parse(s) : null;
     } catch {
       return null;
     }
-  })();
+  });
+
+  const handleDeleteSavedDocument = () => {
+    try {
+      localStorage.removeItem('pei_facile_saved_doc');
+    } catch {
+      // ignore
+    }
+    setSavedDocument(null);
+    setHasOpenDocument(false);
+    setDocument(
+      createEmptyPeiDocument(
+        settings.defaultSchoolOrder || 'A2',
+        '',
+        settings.schoolName,
+        settings.building
+      )
+    );
+    setCurrentScreen('SCR-001');
+    showToast('Documento eliminato con successo dalla memoria locale.');
+  };
 
   // 5. Sezione Attiva nella compilazione
   const [activeSectionId, setActiveSectionId] = useState<string>('sec1_quadro_informativo');
@@ -283,6 +303,7 @@ export default function App() {
       };
       try {
         localStorage.setItem('pei_facile_saved_doc', JSON.stringify(updated));
+        setSavedDocument(updated);
       } catch {
         // ignore
       }
@@ -308,6 +329,7 @@ export default function App() {
       };
       try {
         localStorage.setItem('pei_facile_saved_doc', JSON.stringify(updated));
+        setSavedDocument(updated);
       } catch {
         // ignore
       }
@@ -342,6 +364,7 @@ export default function App() {
       };
       try {
         localStorage.setItem('pei_facile_saved_doc', JSON.stringify(updated));
+        setSavedDocument(updated);
       } catch {
         // ignore
       }
@@ -365,6 +388,7 @@ export default function App() {
     const newDoc = createEmptyPeiDocument(order, studentCode, schoolName, classSec, modelDef);
     setDocument(newDoc);
     setHasOpenDocument(true);
+    setSavedDocument(newDoc);
     try {
       localStorage.setItem('pei_facile_saved_doc', JSON.stringify(newDoc));
     } catch {
@@ -384,6 +408,7 @@ export default function App() {
         const doc = JSON.parse(s);
         setDocument(doc);
         setHasOpenDocument(true);
+        setSavedDocument(doc);
         const orderSections = filterSectionsForSchoolOrder(MASTER_PEI_SECTIONS, doc.schoolOrder);
         setActiveSectionId(orderSections[0]?.id || 'sec1_quadro_informativo');
         setCurrentScreen('SCR-002');
@@ -400,6 +425,7 @@ export default function App() {
   const handleSaveDocument = () => {
     try {
       localStorage.setItem('pei_facile_saved_doc', JSON.stringify(document));
+      setSavedDocument(document);
       showToast('PEI salvato con successo nella memoria locale.');
     } catch {
       showToast('Errore durante il salvataggio locale.');
@@ -443,6 +469,7 @@ export default function App() {
 
     setDocument(newDoc);
     setHasOpenDocument(true);
+    setSavedDocument(newDoc);
 
     try {
       localStorage.setItem('pei_facile_saved_doc', JSON.stringify(newDoc));
@@ -486,7 +513,7 @@ export default function App() {
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
         onOpenHelpModal={() => setIsHelpModalOpen(true)}
         onOpenShareModal={() => setIsShareModalOpen(true)}
-        onOpenCalibration={() => handleOpenCalibration()}
+        onOpenCalibration={() => handleOpenCalibration(currentModelDef)}
         currentModelDef={currentModelDef}
         customModels={customModels}
         onOpenOtherModelCatalog={() => setIsOtherModelCatalogOpen(true)}
@@ -513,6 +540,7 @@ export default function App() {
               onOpenSavedPei={handleOpenSavedPei}
               savedDocument={savedDocument}
               onSelectSavedDocument={handleOpenSavedPei}
+              onDeleteSavedDocument={handleDeleteSavedDocument}
               onOpenHelpModal={() => setIsHelpModalOpen(true)}
               currentSchoolOrder={document.schoolOrder}
               currentDocument={hasOpenDocument ? document : null}
@@ -532,6 +560,7 @@ export default function App() {
             zoomScale={zoomScale}
             onSave={handleSaveDocument}
             onGoToPreview={() => setCurrentScreen('SCR-003')}
+            onOpenCalibration={() => handleOpenCalibration(currentModelDef)}
           />
         )}
 
@@ -544,6 +573,7 @@ export default function App() {
             zoomScale={zoomScale}
             onChangeZoom={setZoomScale}
             onOpenShareModal={() => setIsShareModalOpen(true)}
+            onOpenCalibration={() => handleOpenCalibration(currentModelDef)}
           />
         )}
       </div>

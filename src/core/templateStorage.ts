@@ -45,13 +45,62 @@ function openDatabase(): Promise<IDBDatabase> {
 }
 
 /**
+ * Creates an independent, defensive copy of the binary data and validates integrity.
+ * Ensures that the buffer is not detached, byteLength > 0, and memory is decoupled.
+ */
+export function createDefensiveBinaryCopy(input?: Uint8Array | ArrayBuffer | ArrayBufferView | null): Uint8Array {
+  if (!input) {
+    throw new Error('Dati binari non forniti: payload nullo o non definito');
+  }
+
+  let sourceView: Uint8Array;
+  let sourceBuffer: ArrayBufferLike;
+
+  if (input instanceof Uint8Array) {
+    sourceView = input;
+    sourceBuffer = input.buffer;
+  } else if (input instanceof ArrayBuffer) {
+    sourceView = new Uint8Array(input);
+    sourceBuffer = input;
+  } else if (ArrayBuffer.isView(input)) {
+    const view = input as ArrayBufferView;
+    sourceView = new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
+    sourceBuffer = view.buffer;
+  } else {
+    throw new Error('Formato binario non valido: atteso Uint8Array o ArrayBuffer');
+  }
+
+  // Check if underlying buffer is detached
+  if (sourceBuffer && 'detached' in sourceBuffer && (sourceBuffer as any).detached === true) {
+    throw new Error('Buffer binario non valido: ArrayBuffer is detached');
+  }
+
+  if (sourceView.byteLength === 0) {
+    throw new Error('Buffer binario non valido: byteLength è 0 (buffer vuoto o detached)');
+  }
+
+  // Allocate fresh backing ArrayBuffer and copy bytes
+  const copyBuffer = new ArrayBuffer(sourceView.byteLength);
+  const copyView = new Uint8Array(copyBuffer);
+  copyView.set(sourceView);
+
+  return copyView;
+}
+
+/**
  * Persists a complete template record and its raw PDF binary into IndexedDB.
  */
 export async function saveCustomTemplate(
   record: PersistedTemplateRecord,
   pdfBinary?: Uint8Array
 ): Promise<void> {
-  const binaryToSave = pdfBinary || record.pdfBinary;
+  const binaryInput = pdfBinary || record.pdfBinary;
+  let binaryToSave: Uint8Array | undefined;
+
+  if (binaryInput) {
+    binaryToSave = createDefensiveBinaryCopy(binaryInput);
+  }
+
   const metadataOnly: PersistedTemplateRecord = {
     ...record,
     pdfBinary: undefined, // strip binary from metadata record
@@ -62,6 +111,7 @@ export async function saveCustomTemplate(
     memoryTemplateStore.set(record.templateId, metadataOnly);
     if (binaryToSave) {
       memoryBinaryStore.set(record.templateId, binaryToSave);
+      memoryBinaryStore.set(record.sourceSha256, binaryToSave);
       memoryBinaryStore.set(`hash_${record.sourceSha256}`, binaryToSave);
     }
     return;
@@ -77,6 +127,7 @@ export async function saveCustomTemplate(
 
     if (binaryToSave) {
       binaryStore.put(binaryToSave, record.templateId);
+      binaryStore.put(binaryToSave, record.sourceSha256);
       binaryStore.put(binaryToSave, `hash_${record.sourceSha256}`);
     }
 
@@ -87,6 +138,10 @@ export async function saveCustomTemplate(
     tx.onerror = () => {
       db.close();
       reject(tx.error || new Error('Failed to save template to IndexedDB'));
+    };
+    tx.onabort = () => {
+      db.close();
+      reject(tx.error || new Error('IndexedDB transaction aborted'));
     };
   });
 }
@@ -187,15 +242,24 @@ export async function findTemplateBySha256(
 export async function getTemplatePdfBinary(
   identifier: string
 ): Promise<Uint8Array | null> {
+  if (!identifier) return null;
+  const cleanKey = identifier.startsWith('hash_') ? identifier.replace(/^hash_/, '') : identifier;
+  const hashKey = `hash_${cleanKey}`;
+
   if (!isIndexedDbAvailable()) {
-    return memoryBinaryStore.get(identifier) || memoryBinaryStore.get(`hash_${identifier}`) || null;
+    return (
+      memoryBinaryStore.get(cleanKey) ||
+      memoryBinaryStore.get(hashKey) ||
+      memoryBinaryStore.get(identifier) ||
+      null
+    );
   }
 
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_BINARIES, 'readonly');
     const store = tx.objectStore(STORE_BINARIES);
-    const req = store.get(identifier);
+    const req = store.get(cleanKey);
 
     req.onsuccess = () => {
       if (req.result) {
@@ -203,7 +267,7 @@ export async function getTemplatePdfBinary(
         return resolve(req.result as Uint8Array);
       }
       // Check secondary hash key
-      const hashReq = store.get(`hash_${identifier}`);
+      const hashReq = store.get(hashKey);
       hashReq.onsuccess = () => {
         db.close();
         resolve((hashReq.result as Uint8Array) || null);
@@ -272,5 +336,49 @@ export async function clearAllCustomTemplates(): Promise<void> {
     });
   } catch {
     // ignore
+  }
+}
+
+/**
+ * Removes a custom template record and its associated binaries from IndexedDB and memory stores.
+ */
+export async function deleteCustomTemplate(
+  templateId: string,
+  sourceSha256?: string
+): Promise<void> {
+  memoryTemplateStore.delete(templateId);
+  memoryBinaryStore.delete(templateId);
+  if (sourceSha256) {
+    memoryBinaryStore.delete(sourceSha256);
+    memoryBinaryStore.delete(`hash_${sourceSha256}`);
+  }
+
+  if (!isIndexedDbAvailable()) return;
+
+  try {
+    const db = await openDatabase();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([STORE_TEMPLATES, STORE_BINARIES], 'readwrite');
+      const templateStore = tx.objectStore(STORE_TEMPLATES);
+      const binaryStore = tx.objectStore(STORE_BINARIES);
+
+      templateStore.delete(templateId);
+      binaryStore.delete(templateId);
+      if (sourceSha256) {
+        binaryStore.delete(sourceSha256);
+        binaryStore.delete(`hash_${sourceSha256}`);
+      }
+
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+      tx.onerror = () => {
+        db.close();
+        reject(tx.error || new Error('Failed to delete template from IndexedDB'));
+      };
+    });
+  } catch (err) {
+    console.warn('deleteCustomTemplate error:', err);
   }
 }

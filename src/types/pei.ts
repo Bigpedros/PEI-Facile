@@ -1,6 +1,6 @@
 export type SchoolOrder = 'A1' | 'A2' | 'A3' | 'A4';
 
-export type ThemeType = 'sabbia' | 'navy' | 'antracite';
+export type ThemeType = 'sabbia' | 'navy' | 'verde_prato' | 'antracite';
 
 export type ScreenId = 'SCR-001' | 'SCR-002' | 'SCR-003';
 

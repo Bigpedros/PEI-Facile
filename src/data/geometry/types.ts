@@ -14,9 +14,29 @@ export type GeometryDerivationMethod =
 
 export type FieldGeometryStatus = 'MAPPED' | 'UNMAPPED' | 'REVIEW_REQUIRED';
 
+export type FieldBackgroundMode = 'TRANSPARENT' | 'OPAQUE_WHITE';
+
+export type FieldCalibrationStatus = 'PROPOSED' | 'CONFIRMED' | 'MODIFIED' | 'REJECTED';
+
+export type FieldDetectionSource =
+  | 'PDF_VECTOR'
+  | 'TEXT_LAYER'
+  | 'ACROFORM'
+  | 'GEOMETRY'
+  | 'TABLE_STRUCTURE'
+  | 'COMBINED';
+
 export interface FieldGeometry {
   fieldId: string;
   label?: string;
+  semanticKey?: string | null;
+  backgroundMode?: FieldBackgroundMode;
+  calibrationStatus?: FieldCalibrationStatus;
+  detectionSource?: FieldDetectionSource | string;
+  suggestedLabel?: string;
+  suggestedSemanticKey?: string | null;
+  fieldType?: string;
+  isModifiedAfterProposal?: boolean;
   pageNumber: number;
   /** Distance from left edge of PDF page in standard points (72 pt = 1 inch, A4 width = 595.32 pt) */
   xPt: number;

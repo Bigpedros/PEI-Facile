@@ -136,8 +136,9 @@ export const DocumentSurface: React.FC<DocumentSurfaceProps> = ({
           ).toString();
         }
 
+        const pdfJsBytes = new Uint8Array(source.sourceBinary).slice();
         const loadingTask = pdfjs.getDocument({
-          data: source.sourceBinary,
+          data: pdfJsBytes,
           standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/standard_fonts/',
         });
 

@@ -21,6 +21,7 @@ interface AnteprimaScreenProps {
   zoomScale: number;
   onChangeZoom: (scale: number) => void;
   onOpenShareModal: () => void;
+  onOpenCalibration?: () => void;
 }
 
 export const AnteprimaScreen: React.FC<AnteprimaScreenProps> = ({
@@ -30,6 +31,7 @@ export const AnteprimaScreen: React.FC<AnteprimaScreenProps> = ({
   zoomScale,
   onChangeZoom,
   onOpenShareModal,
+  onOpenCalibration,
 }) => {
   const modelMeta = SCHOOL_ORDERS_METADATA[document.schoolOrder];
 
@@ -122,9 +124,9 @@ export const AnteprimaScreen: React.FC<AnteprimaScreenProps> = ({
           mode="PREVIEW"
           zoomScale={zoomScale}
           showAllPages={true}
-          onOpenCalibration={() => {
+          onOpenCalibration={onOpenCalibration || (() => {
             window.location.search = '?dev=geometry';
-          }}
+          })}
         />
       </div>
     </div>

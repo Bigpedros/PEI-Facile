@@ -28,6 +28,7 @@ interface CompilazioneScreenProps {
   zoomScale: number;
   onSave: () => void;
   onGoToPreview: () => void;
+  onOpenCalibration?: () => void;
 }
 
 export const CompilazioneScreen: React.FC<CompilazioneScreenProps> = ({
@@ -39,6 +40,7 @@ export const CompilazioneScreen: React.FC<CompilazioneScreenProps> = ({
   zoomScale,
   onSave,
   onGoToPreview,
+  onOpenCalibration,
 }) => {
   const [activeField, setActiveField] = useState<PeiFieldDefinition | undefined>(undefined);
   const [isContextPanelOpen, setIsContextPanelOpen] = useState(true);
@@ -218,9 +220,9 @@ export const CompilazioneScreen: React.FC<CompilazioneScreenProps> = ({
             activeFieldId={activeField?.id}
             onFieldFocus={handleFieldFocusFromSurface}
             onFieldValueChange={onFieldValueChange}
-            onOpenCalibration={() => {
+            onOpenCalibration={onOpenCalibration || (() => {
               window.location.search = '?dev=geometry';
-            }}
+            })}
           />
         </div>
       </main>

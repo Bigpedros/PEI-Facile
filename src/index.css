@@ -1,69 +1,91 @@
 @import "tailwindcss";
 
 :root {
-  --app-bg: #C3CEDD;
-  --chrome-bg: #FFFFFF;
-  --surface: #FFFFFF;
-  --card-bg: #FFFFFF;
-  --card-sub-bg: #F0F4F9;
-  --input-bg: #F0F4F9;
-  --border: #A8B8CC;
-  --border-subtle: #C5D2E0;
-  --text: #1F2C3A;
-  --text-secondary: #4F6074;
-  --text-tertiary: #6A7A8E;
-  --text-title: #182330;
-  --text-disabled: #78889C;
-  --badge-bg: #E2EAF3;
-  --badge-text: #1F2C3A;
-  --hover-bg: #E8EEF5;
-  --active-bg: #D5E1F0;
-  --active-fg: #182330;
-  --accent: #B45309;
+  --app-bg: #1B2E24;
+  --chrome-bg: #13221B;
+  --surface: #1E352A;
+  --card-bg: #233C30;
+  --card-sub-bg: #2C4B3C;
+  --input-bg: #355847;
+  --border: #476E5B;
+  --border-subtle: #335042;
+  --text: #F0F7F4;
+  --text-secondary: #C0D8CC;
+  --text-tertiary: #94B6A4;
+  --text-title: #FFFFFF;
+  --text-disabled: #6D8F7F;
+  --badge-bg: #315141;
+  --badge-text: #F0F7F4;
+  --hover-bg: #365947;
+  --active-bg: #416B56;
+  --active-fg: #FFFFFF;
+  --accent: #D97706;
+}
+
+:root[data-theme='verde_prato'] {
+  --app-bg: #1B2E24;
+  --chrome-bg: #13221B;
+  --surface: #1E352A;
+  --card-bg: #233C30;
+  --card-sub-bg: #2C4B3C;
+  --input-bg: #355847;
+  --border: #476E5B;
+  --border-subtle: #335042;
+  --text: #F0F7F4;
+  --text-secondary: #C0D8CC;
+  --text-tertiary: #94B6A4;
+  --text-title: #FFFFFF;
+  --text-disabled: #6D8F7F;
+  --badge-bg: #315141;
+  --badge-text: #F0F7F4;
+  --hover-bg: #365947;
+  --active-bg: #416B56;
+  --active-fg: #FFFFFF;
+  --accent: #D97706;
 }
 
 :root[data-theme='sabbia'] {
-  --app-bg: #F3EBD9;
-  --chrome-bg: #FAF5E9;
-  --surface: #FFFDF7;
-  --card-bg: #FFFDF7;
-  --card-sub-bg: #F4ECE0;
-  --input-bg: #F8F1E3;
-  --border: #C8B796;
-  --border-subtle: #DCD0B7;
-  --text: #292721;
-  --text-secondary: #5E584D;
-  --text-tertiary: #7A7265;
-  --text-title: #1F1D19;
-  --text-disabled: #8C8477;
-  --badge-bg: #E8DECA;
-  --badge-text: #292721;
-  --hover-bg: #EAE1CD;
-  --active-bg: #D4C3A3;
-  --active-fg: #1F1D19;
+  --app-bg: #EFE4CF;
+  --chrome-bg: #E8DCBE;
+  --surface: #E4D7B9;
+  --card-bg: #E2D3B8;
+  --card-sub-bg: #FAF6ED;
+  --input-bg: #FAF6ED;
+  --border: #A3916F;
+  --border-subtle: #C1B192;
+  --text: #2B241C;
+  --text-secondary: #4E4233;
+  --text-tertiary: #6E5F4C;
+  --text-title: #1E1914;
+  --text-disabled: #857561;
+  --badge-bg: #D7C6A3;
+  --badge-text: #231C14;
+  --hover-bg: #D8C7A4;
+  --active-bg: #C6B38C;
+  --active-fg: #1B1610;
   --accent: #8A4B1A;
 }
 
 :root[data-theme='navy'] {
-  --app-bg: #C3CEDD;
-  --chrome-bg: #FFFFFF;
-  --surface: #FFFFFF;
-  --card-bg: #FFFFFF;
-  --card-sub-bg: #F0F4F9;
-  --input-bg: #F0F4F9;
-  --border: #A8B8CC;
-  --border-subtle: #C5D2E0;
-  --text: #1F2C3A;
-  --text-secondary: #4F6074;
-  --text-tertiary: #6A7A8E;
-  --text-title: #182330;
-  --text-disabled: #78889C;
-  --badge-bg: #E2EAF3;
-  --badge-text: #1F2C3A;
-  --hover-bg: #E8EEF5;
-  --active-bg: #D5E1F0;
-  --active-fg: #182330;
-  --accent: #B45309;
+  --app-bg: #1A2A3C;
+  --chrome-bg: #132030;
+  --surface: #1E3146;
+  --card-bg: #22374E;
+  --card-sub-bg: #2C4563;
+  --input-bg: #345274;
+  --border: #46678E;
+  --border-subtle: #334D6B;
+  --text: #F0F4F8;
+  --text-secondary: #C0D3E5;
+  --text-tertiary: #98B5D0;
+  --text-title: #FFFFFF;
+  --text-disabled: #708FA8;
+  --badge-bg: #324D6E;
+  --badge-text: #F0F4F8;
+  --hover-bg: #365478;
+  --active-bg: #416590;
+  --active-fg: #FFFFFF;
+  --accent: #D97706;
 }
 
 :root[data-theme='antracite'] {
@@ -125,7 +147,7 @@
 
 input::placeholder,
 textarea::placeholder {
-  color: #6B7280;
+  color: var(--text-tertiary, #6B7280);
   opacity: 1;
 }
 

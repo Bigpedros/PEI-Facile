@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { SchoolOrder, PeiDocument } from '../../types/pei';
 import type { CustomPeiModel } from '../modals/CustomModelManager';
 import {
@@ -8,6 +8,7 @@ import {
   Clock,
   ArrowRight,
   FileText,
+  Trash2,
 } from 'lucide-react';
 
 interface HomeScreenProps {
@@ -16,6 +17,7 @@ interface HomeScreenProps {
   onOpenSavedPei: () => void;
   savedDocument: PeiDocument | null;
   onSelectSavedDocument: () => void;
+  onDeleteSavedDocument?: () => void;
   onOpenHelpModal: () => void;
   currentSchoolOrder?: SchoolOrder;
   currentDocument?: PeiDocument | null;
@@ -28,7 +30,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onOpenSavedPei,
   savedDocument,
   onSelectSavedDocument,
+  onDeleteSavedDocument,
 }) => {
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+
   return (
     <div className="flex-1 overflow-y-auto w-full px-4 sm:px-6 md:px-10 lg:px-12 pt-4 pb-12 md:pt-6 md:pb-16">
       <div className="w-full max-w-4xl mx-auto space-y-6">
@@ -143,13 +148,32 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectSavedDocument();
+                    }}
                     className="px-2.5 py-1 text-xs font-bold bg-amber-800 hover:bg-amber-900 text-white rounded transition-colors cursor-pointer shadow-xs"
                   >
                     Continua Modifica
                   </button>
+                  {onDeleteSavedDocument && (
+                    <button
+                      type="button"
+                      id="btn-delete-saved-doc"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsConfirmingDelete(true);
+                      }}
+                      aria-label="Elimina documento recente"
+                      title="Elimina documento recente"
+                      className="p-1.5 text-stone-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 rounded transition-colors cursor-pointer border border-transparent hover:border-red-200 dark:hover:border-red-800"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -159,6 +183,79 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </div>
           )}
         </div>
+
+        {/* Modale di Conferma Eliminazione Documento Recente */}
+        {isConfirmingDelete && savedDocument && (
+          <div
+            id="confirm-delete-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-delete-title"
+            className="fixed inset-0 bg-black/60 backdrop-blur-2xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150"
+            onClick={() => setIsConfirmingDelete(false)}
+          >
+            <div
+              className="bg-[var(--card-bg)] rounded-lg border border-[var(--border)] shadow-2xl max-w-md w-full overflow-hidden text-xs p-5 space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/70 text-red-700 dark:text-red-400 flex items-center justify-center shrink-0 border border-red-300 dark:border-red-800">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div className="space-y-1 flex-1">
+                  <h3 id="confirm-delete-title" className="text-sm font-bold text-[var(--text-title)]">
+                    Eliminare il documento locale?
+                  </h3>
+                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                    Sei sicuro di voler eliminare definitivamente questo PEI salvato nella memoria locale per{' '}
+                    <strong className="text-[var(--text)]">
+                      {savedDocument.schoolName} — Alunno {savedDocument.studentCode}
+                    </strong>
+                    ? L&apos;operazione non può essere annullata.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-2.5 bg-[var(--card-sub-bg)] rounded border border-[var(--border)] text-[11px] text-[var(--text-secondary)] space-y-1">
+                <div>
+                  Ordine:{' '}
+                  <span className="font-semibold text-[var(--text)]">{savedDocument.schoolOrder}</span> •
+                  Classe:{' '}
+                  <span className="font-semibold text-[var(--text)]">{savedDocument.classOrSection}</span>
+                </div>
+                <div>
+                  Ultima modifica:{' '}
+                  <span className="font-mono">
+                    {new Date(savedDocument.lastModifiedDate).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]">
+                <button
+                  type="button"
+                  id="btn-cancel-delete"
+                  onClick={() => setIsConfirmingDelete(false)}
+                  className="px-3 py-1.5 border border-[var(--border)] rounded font-semibold text-[var(--text)] hover:bg-[var(--hover-bg)] transition-colors cursor-pointer"
+                >
+                  Annulla
+                </button>
+                <button
+                  type="button"
+                  id="btn-confirm-delete"
+                  onClick={() => {
+                    setIsConfirmingDelete(false);
+                    onDeleteSavedDocument?.();
+                  }}
+                  className="px-3.5 py-1.5 bg-red-700 hover:bg-red-800 text-white rounded font-bold transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Elimina Documento</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Avviso Privacy e Footer Informativo */}
         <div className="text-center text-xs text-[var(--text-secondary)] space-y-1 pt-2">

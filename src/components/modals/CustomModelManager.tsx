@@ -3,7 +3,7 @@ import type { SchoolOrder, PeiModelDefinition, ModelOriginType } from '../../typ
 import { getModelOriginDisplayLabel } from '../../data/peiModelRegistry';
 import { FileText, Upload, Check, Trash2, Archive, AlertCircle, Building, Shield, Star, CheckSquare, Sparkles, AlertTriangle, Compass } from 'lucide-react';
 import { acquirePdfTemplate } from '../../core/templateAcquisitionService';
-import { saveCustomTemplate } from '../../core/templateStorage';
+import { saveCustomTemplate, getTemplatePdfBinary, deleteCustomTemplate } from '../../core/templateStorage';
 import type { TemplateAcquisitionResult } from '../../core/templateAcquisitionTypes';
 import { createTemplateSchemaFromCandidates, saveTemplateSchema } from '../../core/templateSchemaService';
 import type { TemplateCalibrationStatus } from '../../core/templateSchemaTypes';
@@ -69,11 +69,13 @@ export const CustomModelManager: React.FC<CustomModelManagerProps> = ({
 
     setIsAcquiring(true);
     try {
-      const buffer = await file.arrayBuffer();
-      const rawBytes = new Uint8Array(buffer);
-      setSelectedFileBytes(rawBytes);
+      const sourceBuffer = await file.arrayBuffer();
+      // R05: Create physically independent copies
+      const analysisBytes = new Uint8Array(sourceBuffer).slice();
+      const persistenceBytes = new Uint8Array(sourceBuffer).slice();
+      setSelectedFileBytes(persistenceBytes);
 
-      const result = await acquirePdfTemplate(rawBytes, file.name);
+      const result = await acquirePdfTemplate(analysisBytes, file.name);
       setAcquisitionResult(result);
 
       if (result.status === 'FAILED') {
@@ -132,8 +134,18 @@ export const CustomModelManager: React.FC<CustomModelManagerProps> = ({
       confirmationText: "Confermo che il modello è vuoto e che ne ho verificato l'adozione/idoneità presso l'istituzione competente.",
     };
 
-    // Save to IndexedDB
+    // R05 Transactional Gate:
+    // 1. Lettura / verifica byte di persistenza
+    // 2. Salvataggio PDF binario + metadati in IndexedDB
+    // 3. Verifica successo persistenza
+    // 4. Salvataggio TemplateSchema iniziale
+    // 5. SOLO SE TUTTO HA SUCCESSO: onAddCustomModel(newModel)
+    // 6. SOLO DOPO: onOpenCalibration(newModel)
     try {
+      if (!selectedFileBytes || selectedFileBytes.byteLength === 0) {
+        throw new Error('Sorgente binaria PDF non disponibile o vuota.');
+      }
+
       await saveCustomTemplate(
         {
           templateId: acquisitionResult.templateId,
@@ -152,6 +164,12 @@ export const CustomModelManager: React.FC<CustomModelManagerProps> = ({
         selectedFileBytes
       );
 
+      // Verifica successo persistenza binaria
+      const verifiedBinary = await getTemplatePdfBinary(acquisitionResult.sourceSha256);
+      if (!verifiedBinary || verifiedBinary.byteLength === 0) {
+        throw new Error('Verifica persistenza fallita: binario non recuperabile da IndexedDB');
+      }
+
       // Generate and save initial TemplateSchema
       const calibStatus: TemplateCalibrationStatus =
         newModel.calibrationStatus === 'CALIBRATED' ? 'CALIBRATED' : 'REVIEW_REQUIRED';
@@ -166,8 +184,20 @@ export const CustomModelManager: React.FC<CustomModelManagerProps> = ({
         schoolOrder
       );
       await saveTemplateSchema(initialSchema);
-    } catch (err) {
-      console.warn('Errore salvataggio IndexedDB:', err);
+    } catch (err: any) {
+      console.error('Errore persistenza binaria modello custom:', err);
+      // Rollback di eventuali record parziali in IndexedDB
+      try {
+        await deleteCustomTemplate(acquisitionResult.templateId, acquisitionResult.sourceSha256);
+      } catch (cleanupErr) {
+        console.warn('Errore cleanup rollback:', cleanupErr);
+      }
+
+      const userErrorMessage =
+        'Il modello non è stato acquisito perché non è stato possibile salvare il PDF sorgente. Nessun modello è stato registrato. Riprova l\'acquisizione.';
+      setDocxErrorNotice(userErrorMessage);
+      showToast(userErrorMessage);
+      return; // STOP BLOCCANTE: non registrare modello, non aprire calibratore
     }
 
     onAddCustomModel(newModel);
@@ -206,16 +236,16 @@ export const CustomModelManager: React.FC<CustomModelManagerProps> = ({
       </div>
 
       {/* Lista Modelli Personalizzati Esistenti */}
-      <div className="border border-[var(--border)] rounded-lg overflow-hidden bg-[var(--card-bg)]">
-        <table className="w-full text-left border-collapse">
+      <div className="border border-[var(--border)] rounded-lg overflow-x-auto bg-[var(--card-bg)] shadow-xs">
+        <table className="w-full text-left border-collapse min-w-[760px]">
           <thead>
             <tr className="bg-[var(--chrome-bg)] text-[var(--text-title)] text-[11px] border-b border-[var(--border)]">
-              <th className="p-2.5 font-bold">Nome Modello</th>
-              <th className="p-2.5 font-bold">Ordine</th>
-              <th className="p-2.5 font-bold">Ente / Origine</th>
-              <th className="p-2.5 font-bold">Versione</th>
-              <th className="p-2.5 font-bold">Stato</th>
-              <th className="p-2.5 font-bold text-right">Azioni</th>
+              <th className="p-2.5 font-bold min-w-[200px]">Nome Modello</th>
+              <th className="p-2.5 font-bold w-20 text-center">Ordine</th>
+              <th className="p-2.5 font-bold min-w-[160px]">Ente / Origine</th>
+              <th className="p-2.5 font-bold w-20 text-center">Versione</th>
+              <th className="p-2.5 font-bold min-w-[120px]">Stato</th>
+              <th className="p-2.5 font-bold text-right min-w-[210px] sticky right-0 bg-[var(--chrome-bg)] shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]">Azioni</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border)] text-xs">
@@ -229,20 +259,20 @@ export const CustomModelManager: React.FC<CustomModelManagerProps> = ({
               customModels.map((m) => {
                 const isCurrentDefault = defaultModelId === m.id || m.isDefault;
                 return (
-                  <tr key={m.id} className="hover:bg-[var(--hover-bg)] transition-colors">
+                  <tr key={m.id} className="hover:bg-[var(--hover-bg)] transition-colors group">
                     <td className="p-2.5 font-bold text-[var(--text)]">
-                      <div className="flex items-center gap-1.5">
-                        <FileText className="w-3.5 h-3.5 text-amber-800 dark:text-[var(--accent-paglierino)]" />
-                        <span>{m.name}</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <FileText className="w-3.5 h-3.5 text-amber-800 dark:text-[var(--accent-paglierino)] shrink-0" />
+                        <span className="break-words">{m.name}</span>
                         {isCurrentDefault && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 font-bold">
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 font-bold shrink-0">
                             <Star className="w-2.5 h-2.5 fill-current" /> Predefinito
                           </span>
                         )}
                       </div>
-                      {m.description && <div className="text-[10px] text-[var(--text-secondary)] font-medium">{m.description}</div>}
+                      {m.description && <div className="text-[10px] text-[var(--text-secondary)] font-medium mt-0.5">{m.description}</div>}
                     </td>
-                    <td className="p-2.5 text-[var(--text)] font-semibold">{m.schoolOrder}</td>
+                    <td className="p-2.5 text-[var(--text)] font-semibold text-center">{m.schoolOrder}</td>
                     <td className="p-2.5 text-[var(--text)] font-medium">
                       <div className="font-semibold">{getModelOriginDisplayLabel(m)}</div>
                       <div className="text-[10px] text-[var(--text-secondary)]">Ente dichiarato: {m.originName}</div>
@@ -252,7 +282,7 @@ export const CustomModelManager: React.FC<CustomModelManagerProps> = ({
                         </div>
                       )}
                     </td>
-                    <td className="p-2.5 text-[var(--text-secondary)] font-mono text-[11px] font-medium">{m.version}</td>
+                    <td className="p-2.5 text-[var(--text-secondary)] font-mono text-[11px] font-medium text-center">{m.version}</td>
                     <td className="p-2.5 space-y-1">
                       <div>
                         {m.status === 'archiviato' ? (
@@ -285,54 +315,56 @@ export const CustomModelManager: React.FC<CustomModelManagerProps> = ({
                         </span>
                       </div>
                     </td>
-                    <td className="p-2.5 text-right space-x-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (onOpenCalibration) {
-                            onOpenCalibration(m);
-                          } else {
-                            window.location.search = `?dev=geometry&model=${m.templateId || m.id}`;
-                          }
-                        }}
-                        title="Apri calibrazione geometrica per questo modello"
-                        className="px-2 py-1 bg-amber-800 hover:bg-amber-900 text-white rounded text-[11px] inline-flex items-center gap-1 font-semibold cursor-pointer shadow-2xs"
-                      >
-                        <Compass className="w-3 h-3" />
-                        <span>Calibra</span>
-                      </button>
+                    <td className="p-2.5 text-right whitespace-nowrap sticky right-0 bg-[var(--card-bg)] group-hover:bg-[var(--hover-bg)] shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]">
+                      <div className="inline-flex items-center gap-1.5 justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (onOpenCalibration) {
+                              onOpenCalibration(m);
+                            } else {
+                              window.location.search = `?dev=geometry&model=${m.templateId || m.id}`;
+                            }
+                          }}
+                          title="Apri calibrazione geometrica per questo modello"
+                          className="px-2.5 py-1 bg-amber-800 hover:bg-amber-900 text-white rounded text-[11px] inline-flex items-center gap-1 font-semibold cursor-pointer shadow-2xs"
+                        >
+                          <Compass className="w-3 h-3" />
+                          <span>Calibra</span>
+                        </button>
 
-                      {onSetDefaultModel && m.status === 'attivo' && !isCurrentDefault && (
-                        <button
-                          type="button"
-                          onClick={() => onSetDefaultModel(m.id)}
-                          title="Imposta come modello predefinito per questo ordine"
-                          className="px-2 py-1 bg-[var(--badge-bg)] hover:bg-[var(--hover-bg)] text-[var(--text)] rounded text-[11px] inline-flex items-center gap-1 border border-[var(--border)] font-semibold cursor-pointer"
-                        >
-                          <Star className="w-3 h-3 text-amber-600" />
-                          <span>Predefinito</span>
-                        </button>
-                      )}
-                      {m.status === 'attivo' ? (
-                        <button
-                          type="button"
-                          onClick={() => onUpdateModelStatus(m.id, 'archiviato')}
-                          title="Archivia modello (non sarà disponibile per nuovi PEI)"
-                          className="px-2 py-1 bg-[var(--badge-bg)] hover:bg-[var(--hover-bg)] text-[var(--text)] rounded text-[11px] inline-flex items-center gap-1 border border-[var(--border)] font-semibold cursor-pointer"
-                        >
-                          <Archive className="w-3 h-3 text-[var(--text-secondary)]" />
-                          <span>Archivia</span>
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => onUpdateModelStatus(m.id, 'attivo')}
-                          title="Riattiva modello"
-                          className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded text-[11px] font-bold border border-emerald-300 cursor-pointer"
-                        >
-                          Riattiva
-                        </button>
-                      )}
+                        {onSetDefaultModel && m.status === 'attivo' && !isCurrentDefault && (
+                          <button
+                            type="button"
+                            onClick={() => onSetDefaultModel(m.id)}
+                            title="Imposta come modello predefinito per questo ordine"
+                            className="px-2 py-1 bg-[var(--badge-bg)] hover:bg-[var(--hover-bg)] text-[var(--text)] rounded text-[11px] inline-flex items-center gap-1 border border-[var(--border)] font-semibold cursor-pointer"
+                          >
+                            <Star className="w-3 h-3 text-amber-600" />
+                            <span>Predefinito</span>
+                          </button>
+                        )}
+                        {m.status === 'attivo' ? (
+                          <button
+                            type="button"
+                            onClick={() => onUpdateModelStatus(m.id, 'archiviato')}
+                            title="Archivia modello (non sarà disponibile per nuovi PEI)"
+                            className="px-2 py-1 bg-[var(--badge-bg)] hover:bg-[var(--hover-bg)] text-[var(--text)] rounded text-[11px] inline-flex items-center gap-1 border border-[var(--border)] font-semibold cursor-pointer"
+                          >
+                            <Archive className="w-3 h-3 text-[var(--text-secondary)]" />
+                            <span>Archivia</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onUpdateModelStatus(m.id, 'attivo')}
+                            title="Riattiva modello"
+                            className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded text-[11px] font-bold border border-emerald-300 cursor-pointer"
+                          >
+                            Riattiva
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

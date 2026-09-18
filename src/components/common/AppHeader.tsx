@@ -343,48 +343,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           </nav>
         </div>
 
-        {/* Destra: Switcher Temi e Modalità Demo */}
+        {/* Destra: Spazio libero pulito */}
         <div className="flex items-center gap-3">
-          {/* Selettore Tema */}
-          <div className="flex items-center gap-1 border border-[var(--border)] rounded p-0.5 bg-[var(--input-bg)]">
-            <Palette className="w-3 h-3 text-[var(--text-secondary)] ml-1" />
-            <button
-              type="button"
-              onClick={() => onChangeTheme('sabbia')}
-              className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
-                currentTheme === 'sabbia'
-                  ? 'bg-[#F3EBD9] text-[#1F1D19] shadow-2xs font-bold border border-[#C8B796]'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text)]'
-              }`}
-              title="Tema Chiaro - Sabbia (#F3EBD9)"
-            >
-              Sabbia
-            </button>
-            <button
-              type="button"
-              onClick={() => onChangeTheme('navy')}
-              className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
-                currentTheme === 'navy'
-                  ? 'bg-[#C3CEDD] text-[#182330] shadow-2xs font-bold border border-[#A8B8CC]'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text)]'
-              }`}
-              title="Tema Default - Blu Navy 35% (#C3CEDD)"
-            >
-              Blu Navy
-            </button>
-            <button
-              type="button"
-              onClick={() => onChangeTheme('antracite')}
-              className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
-                currentTheme === 'antracite'
-                  ? 'bg-[#222528] text-[#FFFDF7] shadow-2xs font-bold border border-[#525862]'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text)]'
-              }`}
-              title="Tema Scuro - Antracite (#222528)"
-            >
-              Antracite
-            </button>
-          </div>
         </div>
       </div>
 

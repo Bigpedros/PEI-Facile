@@ -6,7 +6,15 @@
  */
 
 import type { SchoolOrder, PeiDocument } from '../types/pei';
-import type { ModelGeometry, PageGeometry } from '../data/geometry/types';
+import type {
+  ModelGeometry,
+  PageGeometry,
+  FieldBackgroundMode,
+  FieldCalibrationStatus,
+  FieldDetectionSource,
+} from '../data/geometry/types';
+
+export type { FieldBackgroundMode, FieldCalibrationStatus, FieldDetectionSource };
 
 export type TemplateFieldType =
   | 'TEXT_SHORT'
@@ -59,6 +67,13 @@ export interface TemplateSchemaField {
   pageNumber: number;
   geometry: TemplateFieldGeometry;
   label: string;
+  semanticKey?: string | null;
+  backgroundMode?: FieldBackgroundMode;
+  calibrationStatus?: FieldCalibrationStatus;
+  confidence?: number;
+  detectionSource?: FieldDetectionSource | string;
+  suggestedLabel?: string;
+  suggestedSemanticKey?: string | null;
   fieldType: TemplateFieldType;
   required: boolean;
   overflowPolicy: FieldOverflowPolicy;

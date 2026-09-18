@@ -6,7 +6,14 @@
  */
 
 import type { SchoolOrder } from '../types/pei';
-import type { ModelGeometry, PageGeometry, FieldGeometry } from '../data/geometry/types';
+import type {
+  ModelGeometry,
+  PageGeometry,
+  FieldGeometry,
+  FieldBackgroundMode,
+  FieldCalibrationStatus,
+  FieldDetectionSource,
+} from '../data/geometry/types';
 import type {
   TemplateSchema,
   TemplateSchemaField,
@@ -16,6 +23,7 @@ import type {
   GeometryValidationStatus,
   VisualReviewStatus,
 } from './templateSchemaTypes';
+import { generateFieldId } from './semanticCatalog';
 import { MASTER_SECTIONS } from '../data/masterPeiStructure';
 import {
   MINISTERIAL_CANONICAL_MAP,
@@ -119,6 +127,8 @@ export function buildMinisterialTemplateSchema(order: 'A1' | 'A2' | 'A3' | 'A4')
           heightPt: f.heightPt,
         },
         label: f.label || masterMeta?.label || f.fieldId,
+        semanticKey: f.semanticKey || null,
+        backgroundMode: f.backgroundMode === 'OPAQUE_WHITE' ? 'OPAQUE_WHITE' : 'TRANSPARENT',
         fieldType,
         required: masterMeta?.required ?? false,
         overflowPolicy: fieldType === 'TABLE' ? 'EXPANDABLE_OR_TABULAR' : 'RIGID',
@@ -213,6 +223,13 @@ export function createTemplateSchemaFromCandidates(
   candidates: Array<{
     fieldId: string;
     label?: string;
+    semanticKey?: string | null;
+    backgroundMode?: FieldBackgroundMode;
+    calibrationStatus?: FieldCalibrationStatus;
+    confidence?: number;
+    detectionSource?: FieldDetectionSource | string;
+    suggestedLabel?: string;
+    suggestedSemanticKey?: string | null;
     pageNumber: number;
     xPt: number;
     yPt: number;
@@ -226,7 +243,9 @@ export function createTemplateSchemaFromCandidates(
   calibrationStatus: TemplateCalibrationStatus = 'REVIEW_REQUIRED',
   schoolOrder?: SchoolOrder
 ): TemplateSchema {
-  const fields: TemplateSchemaField[] = candidates.map((c, idx) => {
+  const activeCandidates = candidates.filter((c) => c.calibrationStatus !== 'REJECTED');
+
+  const fields: TemplateSchemaField[] = activeCandidates.map((c, idx) => {
     const isMultiline = c.heightPt > 40;
     const fType: TemplateFieldType = c.fieldType
       ? mapComponentTypeToFieldType(c.fieldType, c.heightPt)
@@ -243,7 +262,7 @@ export function createTemplateSchemaFromCandidates(
     }
 
     return {
-      templateFieldId: c.fieldId || `cust_field_${c.pageNumber}_${idx + 1}`,
+      templateFieldId: c.fieldId || generateFieldId(),
       pageNumber: c.pageNumber,
       geometry: {
         xPt: c.xPt,
@@ -252,6 +271,13 @@ export function createTemplateSchemaFromCandidates(
         heightPt: c.heightPt,
       },
       label: c.label || `Campo Pag. ${c.pageNumber} (#${idx + 1})`,
+      semanticKey: c.semanticKey ?? null,
+      backgroundMode: c.backgroundMode === 'OPAQUE_WHITE' ? 'OPAQUE_WHITE' : 'TRANSPARENT',
+      calibrationStatus: c.calibrationStatus || (calibrationStatus === 'CALIBRATED' ? 'CONFIRMED' : undefined),
+      confidence: c.confidence,
+      detectionSource: c.detectionSource,
+      suggestedLabel: c.suggestedLabel,
+      suggestedSemanticKey: c.suggestedSemanticKey,
       fieldType: fType,
       required: c.required ?? false,
       overflowPolicy: policy,

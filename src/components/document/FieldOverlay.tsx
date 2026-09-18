@@ -51,7 +51,9 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
     return (
       <div
         id={`overlay-print-${field.templateFieldId}`}
-        className="absolute pointer-events-none select-none overflow-hidden font-sans text-stone-900 leading-tight"
+        className={`absolute pointer-events-none select-none overflow-hidden font-sans text-stone-900 leading-tight ${
+          field.backgroundMode === 'OPAQUE_WHITE' ? 'bg-white' : ''
+        }`}
         style={{
           left: `${vp.leftPx}px`,
           top: `${vp.topPx}px`,
@@ -71,7 +73,9 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
     return (
       <div
         id={`overlay-preview-${field.templateFieldId}`}
-        className="absolute pointer-events-none select-none overflow-hidden font-sans text-stone-900 leading-tight"
+        className={`absolute pointer-events-none select-none overflow-hidden font-sans text-stone-900 leading-tight ${
+          field.backgroundMode === 'OPAQUE_WHITE' ? 'bg-white' : ''
+        }`}
         style={{
           left: `${vp.leftPx}px`,
           top: `${vp.topPx}px`,
@@ -94,6 +98,8 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
     <div
       id={`overlay-container-${field.templateFieldId}`}
       className={`absolute transition-colors group ${
+        field.backgroundMode === 'OPAQUE_WHITE' ? 'bg-white' : ''
+      } ${
         isActive ? 'z-30' : 'z-10'
       }`}
       style={{
