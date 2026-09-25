@@ -14,6 +14,7 @@ interface NewPeiModalProps {
   onClose: () => void;
   settings: AppSettings;
   customModels?: PeiModelDefinition[];
+  initialModelId?: string | null;
   onConfirmCreate: (
     order: SchoolOrder,
     studentCode: string,
@@ -28,6 +29,7 @@ export const NewPeiModal: React.FC<NewPeiModalProps> = ({
   onClose,
   settings,
   customModels = [],
+  initialModelId,
   onConfirmCreate,
 }) => {
   // Catalogo unificato dei modelli attivi
@@ -39,11 +41,21 @@ export const NewPeiModal: React.FC<NewPeiModalProps> = ({
 
   // Modello iniziale risolto con logica deterministica di default
   const defaultResolved = useMemo(
-    () => resolveDefaultModel(allModels, settings.defaultSchoolOrder || 'A2', settings.defaultModelId),
-    [allModels, settings.defaultSchoolOrder, settings.defaultModelId]
+    () => resolveDefaultModel(allModels, settings.defaultModelId),
+    [allModels, settings.defaultModelId]
   );
 
-  const [selectedModelId, setSelectedModelId] = useState<string>(defaultResolved.id);
+  const getStartingModelId = () => {
+    if (initialModelId && allModels.some((m) => m.id === initialModelId)) {
+      return initialModelId;
+    }
+    if (defaultResolved) {
+      return defaultResolved.id;
+    }
+    return ministerialModels[0]?.id || allModels[0]?.id || 'MINISTERIAL_A1';
+  };
+
+  const [selectedModelId, setSelectedModelId] = useState<string>(getStartingModelId);
   const [studentCode, setStudentCode] = useState('');
   const [schoolName, setSchoolName] = useState(settings.schoolName || '');
   const [classSec, setClassSec] = useState(settings.building || '');
@@ -51,21 +63,20 @@ export const NewPeiModal: React.FC<NewPeiModalProps> = ({
   // Sincronizzazione con apertura del modale e impostazioni
   useEffect(() => {
     if (isOpen) {
-      const initial = resolveDefaultModel(
-        allModels,
-        settings.defaultSchoolOrder || 'A2',
-        settings.defaultModelId
-      );
-      setSelectedModelId(initial.id);
+      setSelectedModelId(getStartingModelId());
       setSchoolName(settings.schoolName || '');
       setClassSec(settings.building || '');
       setStudentCode('');
     }
-  }, [isOpen, settings, allModels]);
+  }, [isOpen, settings, allModels, initialModelId]);
 
   if (!isOpen) return null;
 
-  const selectedModel = allModels.find((m) => m.id === selectedModelId) || defaultResolved;
+  const selectedModel =
+    allModels.find((m) => m.id === selectedModelId) ||
+    defaultResolved ||
+    ministerialModels[0] ||
+    allModels[0];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,9 +133,7 @@ export const NewPeiModal: React.FC<NewPeiModalProps> = ({
                 {ministerialModels.map((m) => {
                   const meta = SCHOOL_ORDERS_METADATA[m.schoolOrder];
                   const isSelected = selectedModelId === m.id;
-                  const isPrefDefault =
-                    m.id === settings.defaultModelId ||
-                    (!settings.defaultModelId && m.schoolOrder === settings.defaultSchoolOrder);
+                  const isPrefDefault = m.id === settings.defaultModelId;
 
                   return (
                     <div

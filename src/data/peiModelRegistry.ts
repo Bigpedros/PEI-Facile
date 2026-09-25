@@ -326,33 +326,24 @@ export function getGroupedActiveModels(customModels: PeiModelDefinition[]) {
 /**
  * Trova il modello predefinito in base alle impostazioni dell'utente:
  * 1. Cerca se c'è un defaultModelId specificato nelle impostazioni che è ancora attivo
- * 2. Altrimenti cerca un modello con isDefault === true per il defaultSchoolOrder selezionato
- * 3. Fallback sul modello ministeriale per quell'ordine scolastico
+ * 2. Se nessun defaultModelId è stato configurato esplicitamente, restituisce null (Model Selection Gate).
+ * NOTA: defaultSchoolOrder NON deve fungere da fallback autonomo del default utente.
  */
 export function resolveDefaultModel(
   allModels: PeiModelDefinition[],
-  defaultSchoolOrder: SchoolOrder = 'A2',
-  preferredDefaultModelId?: string
-): PeiModelDefinition {
+  preferredDefaultModelId?: string | null
+): PeiModelDefinition | null {
+  if (!preferredDefaultModelId) return null;
   const activeModels = allModels.filter((m) => m.status === 'attivo');
 
-  if (preferredDefaultModelId) {
-    const foundPreferred = activeModels.find((m) => m.id === preferredDefaultModelId);
-    if (foundPreferred) return foundPreferred;
+  const foundPreferred = activeModels.find((m) => m.id === preferredDefaultModelId);
+  if (foundPreferred) return foundPreferred;
+
+  const order = resolveMinisterialOrder(preferredDefaultModelId);
+  if (order) {
+    const foundMin = activeModels.find((m) => m.schoolOrder === order && m.isMinisterial);
+    if (foundMin) return foundMin;
   }
 
-  // Cerca eventuale modello esplicitamente contrassegnato come predefinito per quell'ordine
-  const foundDefaultForOrder = activeModels.find(
-    (m) => m.schoolOrder === defaultSchoolOrder && m.isDefault
-  );
-  if (foundDefaultForOrder) return foundDefaultForOrder;
-
-  // Cerca il ministeriale per quell'ordine
-  const foundMinisterial = activeModels.find(
-    (m) => m.schoolOrder === defaultSchoolOrder && m.isMinisterial
-  );
-  if (foundMinisterial) return foundMinisterial;
-
-  // Ultimo fallback sul primo modello attivo disponibile
-  return activeModels[0] || MINISTERIAL_PEI_MODELS[1];
+  return null;
 }

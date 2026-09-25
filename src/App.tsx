@@ -51,7 +51,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   teacherName: '',
   teacherSurname: '',
   teacherRole: 'Docente di Sostegno',
-  defaultSchoolOrder: 'A2',
   theme: 'verde_prato',
 };
 
@@ -77,6 +76,9 @@ export default function App() {
       // ignore
     }
     setCurrentTheme(newSettings.theme);
+    if (!hasOpenDocument) {
+      setSelectedModelId(newSettings.defaultModelId || null);
+    }
     showToast('Impostazioni salvate con successo nella memoria locale.');
   };
 
@@ -166,6 +168,29 @@ export default function App() {
     }
   });
 
+  // Model Selection Gate: stato deterministico modello attivo/selezionato
+  const [selectedModelId, setSelectedModelId] = useState<string | null>(() => {
+    try {
+      const savedDoc = localStorage.getItem('pei_facile_saved_doc');
+      if (savedDoc) {
+        const parsed = JSON.parse(savedDoc);
+        return parsed.modelId || (parsed.schoolOrder ? `MINISTERIAL_${parsed.schoolOrder}` : null);
+      }
+    } catch {
+      // ignore
+    }
+    try {
+      const savedSettings = localStorage.getItem('pei_facile_settings_v1');
+      if (savedSettings) {
+        const parsed = JSON.parse(savedSettings);
+        if (parsed.defaultModelId) return parsed.defaultModelId;
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  });
+
   const handleDeleteSavedDocument = () => {
     try {
       localStorage.removeItem('pei_facile_saved_doc');
@@ -174,6 +199,7 @@ export default function App() {
     }
     setSavedDocument(null);
     setHasOpenDocument(false);
+    setSelectedModelId(settings.defaultModelId || null);
     setDocument(
       createEmptyPeiDocument(
         settings.defaultSchoolOrder || 'A2',
@@ -205,11 +231,17 @@ export default function App() {
 
   // Risoluzione deterministica del modello corrente per header e binding
   const currentModelDef = React.useMemo(() => {
-    return findModelDefinition(
-      document.modelId || document.customModelId || `MINISTERIAL_${document.schoolOrder}`,
-      customModels
-    );
-  }, [customModels, document.modelId, document.customModelId, document.schoolOrder]);
+    if (hasOpenDocument) {
+      return findModelDefinition(
+        document.modelId || document.customModelId || `MINISTERIAL_${document.schoolOrder}`,
+        customModels
+      );
+    }
+    if (selectedModelId) {
+      return findModelDefinition(selectedModelId, customModels);
+    }
+    return null;
+  }, [hasOpenDocument, document.modelId, document.customModelId, document.schoolOrder, selectedModelId, customModels]);
 
   const handleOpenCalibration = (model?: PeiModelDefinition | null, notice?: string) => {
     setCalibrationModel(model || null);
@@ -313,68 +345,18 @@ export default function App() {
 
   // Cambio ordine di scuola (A1 - A4)
   const handleChangeSchoolOrder = (newOrder: SchoolOrder) => {
+    if (hasOpenDocument) return; // Protected: open document model cannot be changed implicitly
     const canonical = getMinisterialCanonicalInfo(newOrder);
-    setDocument((prev) => {
-      const updated: PeiDocument = {
-        ...prev,
-        schoolOrder: newOrder,
-        modelId: canonical ? canonical.modelId : `MINISTERIAL_${newOrder}`,
-        modelVersion: 'D.I. 182/2020 - D.I. 153/2023',
-        modelOrigin: 'MINISTERIAL',
-        modelName: SCHOOL_ORDERS_METADATA[newOrder].officialAllegato,
-        customModelId: undefined,
-        customModelName: undefined,
-        customModelOrigin: undefined,
-        lastModifiedDate: new Date().toISOString(),
-      };
-      try {
-        localStorage.setItem('pei_facile_saved_doc', JSON.stringify(updated));
-        setSavedDocument(updated);
-      } catch {
-        // ignore
-      }
-      return updated;
-    });
-    const newSections = filterSectionsForSchoolOrder(MASTER_PEI_SECTIONS, newOrder);
-    if (!newSections.some((s) => s.id === activeSectionId)) {
-      setActiveSectionId(newSections[0].id);
-    }
-    showToast(`Modello ministeriale aggiornato ad ${newOrder} (${SCHOOL_ORDERS_METADATA[newOrder].officialAllegato})`);
+    const newModelId = canonical ? canonical.modelId : `MINISTERIAL_${newOrder}`;
+    setSelectedModelId(newModelId);
+    showToast(`Modello selezionato: ${SCHOOL_ORDERS_METADATA[newOrder].officialAllegato}`);
   };
 
   // Selezione modello personalizzato / non-ministeriale dal catalogo o dropdown
   const handleSelectCustomModel = (modelDef: PeiModelDefinition) => {
-    setDocument((prev) => {
-      const updated: PeiDocument = {
-        ...prev,
-        schoolOrder: modelDef.schoolOrder,
-        modelId: modelDef.id,
-        modelVersion: modelDef.version,
-        modelOrigin: modelDef.originType,
-        modelName: modelDef.name,
-        customModelId: modelDef.id,
-        customModelName: modelDef.name,
-        customModelOrigin:
-          modelDef.originType === 'TERRITORIAL'
-            ? 'territoriale'
-            : modelDef.originType === 'INSTITUTION'
-            ? 'istituto'
-            : 'altro',
-        lastModifiedDate: new Date().toISOString(),
-      };
-      try {
-        localStorage.setItem('pei_facile_saved_doc', JSON.stringify(updated));
-        setSavedDocument(updated);
-      } catch {
-        // ignore
-      }
-      return updated;
-    });
-    const newSections = filterSectionsForSchoolOrder(MASTER_PEI_SECTIONS, modelDef.schoolOrder);
-    if (!newSections.some((s) => s.id === activeSectionId)) {
-      setActiveSectionId(newSections[0].id);
-    }
-    showToast(`Modello impostato su: ${modelDef.name}`);
+    if (hasOpenDocument) return; // Protected: open document model cannot be changed implicitly
+    setSelectedModelId(modelDef.id);
+    showToast(`Modello selezionato: ${modelDef.name}`);
   };
 
   // Creazione nuovo PEI
@@ -389,6 +371,7 @@ export default function App() {
     setDocument(newDoc);
     setHasOpenDocument(true);
     setSavedDocument(newDoc);
+    setSelectedModelId(newDoc.modelId || `MINISTERIAL_${order}`);
     try {
       localStorage.setItem('pei_facile_saved_doc', JSON.stringify(newDoc));
     } catch {
@@ -409,6 +392,7 @@ export default function App() {
         setDocument(doc);
         setHasOpenDocument(true);
         setSavedDocument(doc);
+        setSelectedModelId(doc.modelId || (doc.schoolOrder ? `MINISTERIAL_${doc.schoolOrder}` : null));
         const orderSections = filterSectionsForSchoolOrder(MASTER_PEI_SECTIONS, doc.schoolOrder);
         setActiveSectionId(orderSections[0]?.id || 'sec1_quadro_informativo');
         setCurrentScreen('SCR-002');
@@ -434,6 +418,8 @@ export default function App() {
 
   // Chiusura PEI
   const handleClosePei = () => {
+    setHasOpenDocument(false);
+    setSelectedModelId(settings.defaultModelId || null);
     setCurrentScreen('SCR-001');
     showToast('PEI chiuso. Ritorno alla schermata iniziale.');
   };
@@ -470,6 +456,7 @@ export default function App() {
     setDocument(newDoc);
     setHasOpenDocument(true);
     setSavedDocument(newDoc);
+    setSelectedModelId(newDoc.modelId || `MINISTERIAL_${payload.schoolOrder}`);
 
     try {
       localStorage.setItem('pei_facile_saved_doc', JSON.stringify(newDoc));
@@ -494,7 +481,8 @@ export default function App() {
       <AppHeader
         currentScreen={currentScreen}
         onNavigate={setCurrentScreen}
-        schoolOrder={document.schoolOrder}
+        schoolOrder={currentModelDef?.schoolOrder || document.schoolOrder}
+        selectedModelId={selectedModelId}
         onChangeSchoolOrder={handleChangeSchoolOrder}
         currentTheme={currentTheme}
         onChangeTheme={(th) => {
@@ -531,6 +519,7 @@ export default function App() {
                 activeSectionId={activeSectionId}
                 schoolOrder={document.schoolOrder}
                 disabled={true}
+                hasOpenDocument={hasOpenDocument}
               />
             </aside>
 
@@ -592,6 +581,7 @@ export default function App() {
         onClose={() => setIsNewPeiModalOpen(false)}
         settings={settings}
         customModels={customModels}
+        initialModelId={selectedModelId}
         onConfirmCreate={handleConfirmCreateNewPei}
       />
 

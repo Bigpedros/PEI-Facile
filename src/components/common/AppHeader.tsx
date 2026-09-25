@@ -25,7 +25,8 @@ import {
 interface AppHeaderProps {
   currentScreen: ScreenId;
   onNavigate: (screen: ScreenId) => void;
-  schoolOrder: SchoolOrder;
+  schoolOrder?: SchoolOrder;
+  selectedModelId?: string | null;
   onChangeSchoolOrder: (order: SchoolOrder) => void;
   currentTheme: ThemeType;
   onChangeTheme: (theme: ThemeType) => void;
@@ -52,6 +53,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   currentScreen,
   onNavigate,
   schoolOrder,
+  selectedModelId,
   onChangeSchoolOrder,
   currentTheme,
   onChangeTheme,
@@ -395,13 +397,18 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             <span className="text-[var(--text-secondary)] text-[11px] font-semibold">Modello:</span>
             <select
               id="global-model-selector"
+              disabled={hasOpenDocument}
               value={
-                currentModelDef && !currentModelDef.isMinisterial && currentModelDef.originType !== 'MINISTERIAL'
+                !selectedModelId
+                  ? ''
+                  : currentModelDef && !currentModelDef.isMinisterial && currentModelDef.originType !== 'MINISTERIAL'
                   ? currentModelDef.id
-                  : schoolOrder
+                  : currentModelDef?.schoolOrder || schoolOrder || ''
               }
               onChange={(e) => {
+                if (hasOpenDocument) return;
                 const val = e.target.value;
+                if (!val) return;
                 if (val === '__ALTRO_MODELLO__') {
                   if (onOpenOtherModelCatalog) {
                     onOpenOtherModelCatalog();
@@ -417,9 +424,20 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   onSelectCustomModel(foundCustom);
                 }
               }}
-              className="px-2 py-1 text-xs font-semibold bg-[var(--input-bg)] border border-[var(--border)] rounded text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-amber-800 cursor-pointer max-w-[280px] truncate"
-              title="Seleziona modello PEI"
+              className={`px-2 py-1 text-xs font-semibold border border-[var(--border)] rounded max-w-[280px] truncate transition-colors ${
+                hasOpenDocument
+                  ? 'bg-[var(--card-sub-bg)] text-[var(--text)] opacity-90 cursor-not-allowed'
+                  : 'bg-[var(--input-bg)] text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-amber-800 cursor-pointer'
+              }`}
+              title={
+                hasOpenDocument
+                  ? 'Modello vincolato al documento aperto (non modificabile durante la compilazione)'
+                  : 'Seleziona modello PEI'
+              }
             >
+              {!selectedModelId && (
+                <option value="">— Nessun modello selezionato —</option>
+              )}
               <option value="A1">A1 — Infanzia</option>
               <option value="A2">A2 — Primaria</option>
               <option value="A3">A3 — Secondaria I Grado</option>
@@ -429,8 +447,16 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   {currentModelDef.name}
                 </option>
               )}
-              <option value="__ALTRO_MODELLO__">Altro modello…</option>
+              {!hasOpenDocument && <option value="__ALTRO_MODELLO__">Altro modello…</option>}
             </select>
+            {hasOpenDocument && (
+              <span
+                className="text-[10px] text-[var(--text-secondary)] font-medium hidden sm:inline"
+                title="Modello vincolato al documento corrente"
+              >
+                (vincolato)
+              </span>
+            )}
           </div>
 
           {/* Indicatore Sezione Attiva (in compilazione) */}

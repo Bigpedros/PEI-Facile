@@ -205,8 +205,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // Modello predefinito correntemente risolto
   const currentResolvedDefault = useMemo(
-    () => resolveDefaultModel(allModels, form.defaultSchoolOrder, form.defaultModelId),
-    [allModels, form.defaultSchoolOrder, form.defaultModelId]
+    () => resolveDefaultModel(allModels, form.defaultModelId),
+    [allModels, form.defaultModelId]
   );
 
   if (!isOpen) return null;
@@ -223,6 +223,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleSelectDefaultModel = (modelId: string) => {
+    if (!modelId) {
+      setForm((prev) => ({
+        ...prev,
+        defaultModelId: undefined,
+        defaultSchoolOrder: undefined,
+      }));
+      showToast('Nessun modello predefinito impostato (selezione manuale all’avvio).');
+      return;
+    }
     const selected = allModels.find((m) => m.id === modelId);
     if (selected) {
       setForm((prev) => ({
@@ -230,7 +239,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         defaultModelId: selected.id,
         defaultSchoolOrder: selected.schoolOrder,
       }));
-      onChangeDefaultSchoolOrder(selected.schoolOrder);
+      if (onChangeDefaultSchoolOrder) {
+        onChangeDefaultSchoolOrder(selected.schoolOrder);
+      }
       showToast(`Modello predefinito impostato a: ${selected.name}`);
     }
   };
@@ -394,7 +405,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-[10px] px-2 py-0.5 rounded font-semibold bg-[var(--badge-bg)] text-[var(--badge-text)] border border-[var(--border)]">
-                      {currentResolvedDefault.schoolOrder} Predefinito
+                      {currentResolvedDefault ? `${currentResolvedDefault.schoolOrder} Predefinito` : 'Nessun predefinito'}
                     </span>
                     <ChevronRight className="w-4 h-4 text-[var(--text-secondary)] group-hover:text-[var(--text)] group-hover:translate-x-0.5 transition-all" />
                   </div>
@@ -737,10 +748,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   Modello PEI predefinito per nuovi documenti
                 </label>
                 <select
-                  value={form.defaultModelId || `MINISTERIAL_${form.defaultSchoolOrder}`}
+                  value={form.defaultModelId || ''}
                   onChange={(e) => handleSelectDefaultModel(e.target.value)}
                   className="w-full p-2.5 border border-[var(--border)] rounded-lg bg-[var(--input-bg)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-amber-800 font-bold text-xs"
                 >
+                  <option value="">— Nessun modello predefinito (richiedi selezione) —</option>
                   <optgroup label="Modelli Ministeriali Ufficiali (D.I. 182/2020 e D.I. 153/2023)">
                     {ministerialModels.map((m) => (
                       <option key={m.id} value={m.id}>
@@ -760,8 +772,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </select>
                 <div className="flex items-center justify-between text-[11px] text-[var(--text-secondary)] font-medium pt-1">
                   <span>
-                    Attivo per default:{' '}
-                    <strong className="text-[var(--text)]">{currentResolvedDefault.name}</strong> ({currentResolvedDefault.schoolOrder})
+                    {currentResolvedDefault ? (
+                      <>
+                        Attivo per default:{' '}
+                        <strong className="text-[var(--text)]">{currentResolvedDefault.name}</strong> ({currentResolvedDefault.schoolOrder})
+                      </>
+                    ) : (
+                      <span className="italic text-[var(--text-secondary)]">Nessun modello predefinito (selezione al bisogno)</span>
+                    )}
                   </span>
                   <span className="italic">Non altera retroattivamente i PEI già compilati</span>
                 </div>
@@ -774,7 +792,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   onAddCustomModel={onAddCustomModel}
                   onUpdateModelStatus={onUpdateModelStatus}
                   onSetDefaultModel={handleSelectDefaultModel}
-                  defaultModelId={form.defaultModelId || currentResolvedDefault.id}
+                  defaultModelId={form.defaultModelId}
                   showToast={showToast}
                   onOpenCalibration={(model) => {
                     onClose();

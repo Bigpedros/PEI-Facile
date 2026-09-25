@@ -17,6 +17,7 @@ interface MasterTreeProps {
   fieldStatuses?: Record<string, FieldStatus>;
   disabled?: boolean;
   schoolOrder: SchoolOrder;
+  hasOpenDocument?: boolean;
 }
 
 export const MasterTree: React.FC<MasterTreeProps> = ({
@@ -26,6 +27,7 @@ export const MasterTree: React.FC<MasterTreeProps> = ({
   fieldStatuses = {},
   disabled = false,
   schoolOrder,
+  hasOpenDocument = true,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -45,6 +47,29 @@ export const MasterTree: React.FC<MasterTreeProps> = ({
     if (completedCount > 0) return 'partial';
     return 'empty';
   };
+
+  // Se nessun documento è realmente aperto, non mostrare alcun albero fittizio (R09 Gate)
+  if (!hasOpenDocument) {
+    return (
+      <div className="flex flex-col h-full bg-[var(--chrome-bg)] border-r border-[var(--border)] select-none p-4 text-xs">
+        <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] pb-2.5 border-b border-[var(--border)]">
+          <BookOpen className="w-4 h-4 text-[var(--text-secondary)]" />
+          <span>Struttura Documento</span>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center text-center p-4 space-y-2.5">
+          <div className="w-10 h-10 rounded-full bg-[var(--card-sub-bg)] border border-[var(--border)] flex items-center justify-center text-[var(--text-secondary)]">
+            <BookOpen className="w-5 h-5 opacity-60" />
+          </div>
+          <div className="font-bold text-[var(--text-title)] text-xs">
+            Nessun documento aperto
+          </div>
+          <p className="text-[11px] leading-relaxed text-[var(--text-secondary)]">
+            Crea un nuovo PEI o aprine uno salvato per visualizzare l&apos;albero delle sezioni ministeriali e iniziare la compilazione.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const filteredSections = sections.filter(
     (sec) =>

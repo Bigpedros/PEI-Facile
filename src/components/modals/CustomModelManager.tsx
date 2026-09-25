@@ -257,7 +257,7 @@ export const CustomModelManager: React.FC<CustomModelManagerProps> = ({
               </tr>
             ) : (
               customModels.map((m) => {
-                const isCurrentDefault = defaultModelId === m.id || m.isDefault;
+                const isCurrentDefault = defaultModelId === m.id;
                 return (
                   <tr key={m.id} className="hover:bg-[var(--hover-bg)] transition-colors group">
                     <td className="p-2.5 font-bold text-[var(--text)]">

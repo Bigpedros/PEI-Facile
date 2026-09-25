@@ -192,7 +192,7 @@ export interface AppSettings {
   teacherName: string;
   teacherSurname: string;
   teacherRole: string;
-  defaultSchoolOrder: SchoolOrder;
+  defaultSchoolOrder?: SchoolOrder;
   defaultModelId?: string;
   theme: ThemeType;
 }
