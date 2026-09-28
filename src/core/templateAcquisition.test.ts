@@ -260,15 +260,14 @@ describe('PEI FACILE — Phase 1B: Dynamic Template Acquisition Engine', () => {
     });
   });
 
-  // Test Scenario I: Classificazione onesta formati DOCX
-  describe('Scenario I: Honest DOCX Notice', () => {
-    it('rifiuta simulazioni arbitrarie DOCX e dichiara esplicitamente DOCX CANONICALIZATION: NOT IMPLEMENTED', async () => {
-      const dummyDocxBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04]); // Zip signature
-      const result = await acquirePdfTemplate(dummyDocxBytes, 'modello_scolastico.docx');
+  // Test Scenario I: Classificazione e gestione formati DOC / DOCX
+  describe('Scenario I: Format Intake DOC and DOCX', () => {
+    it('rifiuta formati DOC legacy richiedendo conversione in DOCX o PDF', async () => {
+      const dummyDocBytes = new Uint8Array([0xd0, 0xcf, 0x11, 0xe0]); // OLE signature
+      const result = await acquirePdfTemplate(dummyDocBytes, 'modello_legacy.doc');
 
       expect(result.status).toBe('FAILED');
-      expect(result.docxNotice).toBe('DOCX CANONICALIZATION: NOT IMPLEMENTED');
-      expect(result.warnings[0]).toContain('DOCX richiedono la preventiva normalizzazione in formato PDF canonico');
+      expect(result.warnings[0]).toContain('Formato DOC legacy non ancora supportato');
     });
   });
 });

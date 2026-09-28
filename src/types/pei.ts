@@ -143,6 +143,15 @@ export interface PeiModelDefinition {
   calibrationOrigin?: CalibrationOrigin;
   geometryValidationStatus?: 'PASS' | 'FAIL' | 'NOT_RUN';
   visualReviewStatus?: 'REQUIRED' | 'IN_PROGRESS' | 'COMPLETED';
+  // Hierarchical Model Properties
+  baselineId?: string;
+  baselineVersion?: string;
+  baselineDate?: string;
+  baselineValidFromSchoolYear?: string;
+  baselineValidToSchoolYear?: string;
+  derivedFromBaselineId?: string;
+  modelVersion?: string;
+  semanticSignature?: string[];
 }
 
 export interface PeiDocument {
@@ -160,9 +169,15 @@ export interface PeiDocument {
   notes: Record<string, string>;
   // Associazione vincolata al modello (Ministeriale o Territoriale/Istituto)
   modelId?: string;
+  templateId?: string;
   modelVersion?: string;
   modelOrigin?: ModelOriginType | string;
   modelName?: string;
+  modelDefinitionId?: string;
+  calibrationStatus?: string;
+  // CTE-FIX-01: Canonical Document binary for acquired / normalized workflows
+  sourcePdfBinary?: Uint8Array;
+  canonicalDocument?: Uint8Array;
   // Retrocompatibilità
   customModelId?: string;
   customModelName?: string;

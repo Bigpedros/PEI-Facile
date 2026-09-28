@@ -53,16 +53,16 @@ export const CustomModelManager: React.FC<CustomModelManagerProps> = ({
     setAcquisitionResult(null);
     setSelectedFileBytes(null);
 
-    // Mandated DOCX Check (Honest Classification)
-    if (file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.doc')) {
-      setFormat('DOCX');
+    // Check legacy DOC format
+    if (file.name.toLowerCase().endsWith('.doc') && !file.name.toLowerCase().endsWith('.docx')) {
+      setFormat('PDF');
       setDocxErrorNotice(
-        'DOCX CANONICALIZATION: NOT IMPLEMENTED — I modelli DOCX richiedono la preventiva normalizzazione ed esportazione in PDF canonico. PEI FACILE non simula il rendering DOCX per garantire l’integrità geometrica e giuridica del documento.'
+        'Formato DOC legacy non ancora supportato. Salvare o esportare il file in formato DOCX o PDF.'
       );
       return;
     }
 
-    setFormat('PDF');
+    setFormat(file.name.toLowerCase().endsWith('.docx') ? 'DOCX' : 'PDF');
     if (!modelName) {
       setModelName(file.name.replace(/\.[^/.]+$/, ''));
     }
@@ -416,7 +416,7 @@ export const CustomModelManager: React.FC<CustomModelManagerProps> = ({
                       {isAcquiring ? 'Acquisizione in corso…' : fileName || 'Clicca o trascina qui il file del modello'}
                     </span>
                     <span className="text-[10px] text-[var(--text-secondary)] font-medium">
-                      PDF canonico (AcroForm, Annotazioni, Vettoriale). I file DOCX richiedono esportazione PDF.
+                      Supporta file PDF (AcroForm, Annotazioni, Vettoriale) e modelli Word DOCX con normalizzazione canonica A4.
                     </span>
                   </div>
                 </div>

@@ -37,7 +37,10 @@ export interface AcquisitionSuccessPayload {
   compilationDate: string;
   extractedValues: Record<string, string>;
   evidenceList: MappingEvidence[];
+  sourcePdfBinary?: Uint8Array;
+  canonicalDocument?: Uint8Array;
   logs: string[];
+  schoolYear?: string;
 }
 
 interface AcquisitionModalProps {
@@ -67,11 +70,30 @@ export const AcquisitionModal: React.FC<AcquisitionModalProps> = ({
   // Result & Review Queue
   const [acquisitionResult, setAcquisitionResult] = useState<DocumentAcquisitionResult | null>(null);
   const [selectedSchoolOrder, setSelectedSchoolOrder] = useState<SchoolOrder>('A2');
+  const [selectedModelId, setSelectedModelId] = useState<string>('');
   const [editableEvidences, setEditableEvidences] = useState<MappingEvidence[]>([]);
   const [studentCodeInput, setStudentCodeInput] = useState<string>('');
   const [schoolNameInput, setSchoolNameInput] = useState<string>('');
   const [classInput, setClassInput] = useState<string>('');
   const [dateInput, setDateInput] = useState<string>('');
+
+  // Keep selectedModelId in sync with selectedSchoolOrder
+  useEffect(() => {
+    if (acquisitionResult) {
+      const modelsForOrder = [
+        { id: 'MINISTERIAL_A1', schoolOrder: 'A1' },
+        { id: 'MINISTERIAL_A2', schoolOrder: 'A2' },
+        { id: 'MINISTERIAL_A3', schoolOrder: 'A3' },
+        { id: 'MINISTERIAL_A4', schoolOrder: 'A4' },
+        ...customModels
+      ].filter((m) => m.schoolOrder === selectedSchoolOrder);
+
+      const exists = modelsForOrder.some((m) => m.id === selectedModelId);
+      if (!exists && modelsForOrder.length > 0) {
+        setSelectedModelId(modelsForOrder[0].id);
+      }
+    }
+  }, [selectedSchoolOrder, customModels, acquisitionResult, selectedModelId]);
 
   // Cleanup preview URLs on unmount
   useEffect(() => {
@@ -246,6 +268,7 @@ export const AcquisitionModal: React.FC<AcquisitionModalProps> = ({
       setAcquisitionResult(result);
       setEditableEvidences(result.evidenceList);
       setSelectedSchoolOrder(result.classification.detectedOrder || 'A2');
+      setSelectedModelId(result.classification.detectedModelId || `MINISTERIAL_${result.classification.detectedOrder || 'A2'}`);
       setStudentCodeInput(result.studentCode || 'ALU-ACQUISITO');
       setSchoolNameInput(result.schoolName || 'Istituzione Scolastica');
       setClassInput(result.classOrSection || 'Classe 1^');
@@ -300,21 +323,34 @@ export const AcquisitionModal: React.FC<AcquisitionModalProps> = ({
       }
     });
 
+    const allAvailableModels = [
+      { id: 'MINISTERIAL_A1', name: "Allegato A1 — Scuola dell'Infanzia" },
+      { id: 'MINISTERIAL_A2', name: 'Allegato A2 — Scuola Primaria' },
+      { id: 'MINISTERIAL_A3', name: 'Allegato A3 — Scuola Secondaria di I Grado' },
+      { id: 'MINISTERIAL_A4', name: 'Allegato A4 — Scuola Secondaria di II Grado' },
+      ...customModels
+    ];
+    const chosenModel = allAvailableModels.find((m) => m.id === selectedModelId);
+    const chosenModelName = chosenModel ? chosenModel.name : (acquisitionResult.classification.detectedModelName || 'Modello Selezionato');
+
     onAcquisitionSuccess({
       schoolOrder: selectedSchoolOrder,
-      modelId: acquisitionResult.classification.detectedModelId,
-      modelName: acquisitionResult.classification.detectedModelName,
+      modelId: selectedModelId,
+      modelName: chosenModelName,
       studentCode: studentCodeInput.trim() || 'ALU-ACQUISITO',
       schoolName: schoolNameInput.trim() || 'Istituzione Scolastica',
       classOrSection: classInput.trim() || 'Classe 1^',
       compilationDate: dateInput.trim() || new Date().toISOString().split('T')[0],
       extractedValues: finalValues,
       evidenceList: editableEvidences,
+      sourcePdfBinary: acquisitionResult.sourceBinary,
+      canonicalDocument: acquisitionResult.canonicalDocument || acquisitionResult.sourceBinary,
       logs: [
         `Acquisizione completata da file: ${acquisitionResult.fileName} (${acquisitionResult.detectedFormat})`,
-        `Pagine analizzate: ${acquisitionResult.totalPages}`,
+        `${acquisitionResult.detectedFormat === 'DOCX' ? 'Sezioni' : 'Pagine'} analizzate: ${acquisitionResult.totalPages}`,
         `Campi approvati e registrati nel nuovo PEI: ${Object.keys(finalValues).length}`,
       ],
+      schoolYear: acquisitionResult.classification.schoolYear,
     });
 
     onClose();
@@ -589,26 +625,55 @@ export const AcquisitionModal: React.FC<AcquisitionModalProps> = ({
                         </span>
                       )}
                       <span className="text-xs text-[var(--text-secondary)]">
-                        • {acquisitionResult.totalPages} pagine analizzate
+                        • {acquisitionResult.totalPages} {acquisitionResult.detectedFormat === 'DOCX' ? 'sezioni' : 'pagine'} analizzate
                       </span>
                     </div>
                   </div>
 
                   {/* Selettore Ordine / Modello per il nuovo PEI */}
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs font-semibold text-[var(--text)] whitespace-nowrap">
-                      Modello di destinazione:
-                    </label>
-                    <select
-                      value={selectedSchoolOrder}
-                      onChange={(e) => setSelectedSchoolOrder(e.target.value as SchoolOrder)}
-                      className="px-2.5 py-1 text-xs font-semibold bg-[var(--input-bg)] border border-[var(--border)] rounded text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-amber-800"
-                    >
-                      <option value="A1">A1 — Infanzia</option>
-                      <option value="A2">A2 — Primaria</option>
-                      <option value="A3">A3 — Secondaria I Grado</option>
-                      <option value="A4">A4 — Secondaria II Grado</option>
-                    </select>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-semibold text-[var(--text)] whitespace-nowrap">
+                        Ordine scuola:
+                      </label>
+                      <select
+                        value={selectedSchoolOrder}
+                        onChange={(e) => setSelectedSchoolOrder(e.target.value as SchoolOrder)}
+                        className="px-2.5 py-1 text-xs font-semibold bg-[var(--input-bg)] border border-[var(--border)] rounded text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-amber-800"
+                      >
+                        <option value="A1">A1 — Infanzia</option>
+                        <option value="A2">A2 — Primaria</option>
+                        <option value="A3">A3 — Secondaria I Grado</option>
+                        <option value="A4">A4 — Secondaria II Grado</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-semibold text-[var(--text)] whitespace-nowrap">
+                        Modello specifico:
+                      </label>
+                      <select
+                        value={selectedModelId}
+                        onChange={(e) => setSelectedModelId(e.target.value)}
+                        className="px-2.5 py-1 text-xs font-semibold bg-[var(--input-bg)] border border-[var(--border)] rounded text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-amber-800"
+                      >
+                        {[
+                          ...[
+                            { id: 'MINISTERIAL_A1', name: "Allegato A1 — Scuola dell'Infanzia", schoolOrder: 'A1' },
+                            { id: 'MINISTERIAL_A2', name: 'Allegato A2 — Scuola Primaria', schoolOrder: 'A2' },
+                            { id: 'MINISTERIAL_A3', name: 'Allegato A3 — Scuola Secondaria di I Grado', schoolOrder: 'A3' },
+                            { id: 'MINISTERIAL_A4', name: 'Allegato A4 — Scuola Secondaria di II Grado', schoolOrder: 'A4' },
+                          ],
+                          ...customModels
+                        ]
+                          .filter((m) => m.schoolOrder === selectedSchoolOrder)
+                          .map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.name}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
 

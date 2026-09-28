@@ -4,6 +4,7 @@ import type {
   PeiSectionDefinition,
   PeiFieldDefinition,
   SchoolOrder,
+  PeiModelDefinition,
 } from '../../types/pei';
 import { MasterTree } from '../navigation/MasterTree';
 import { DocumentSurface } from '../document/DocumentSurface';
@@ -29,6 +30,7 @@ interface CompilazioneScreenProps {
   onSave: () => void;
   onGoToPreview: () => void;
   onOpenCalibration?: () => void;
+  customModels?: PeiModelDefinition[];
 }
 
 export const CompilazioneScreen: React.FC<CompilazioneScreenProps> = ({
@@ -41,6 +43,7 @@ export const CompilazioneScreen: React.FC<CompilazioneScreenProps> = ({
   onSave,
   onGoToPreview,
   onOpenCalibration,
+  customModels = [],
 }) => {
   const [activeField, setActiveField] = useState<PeiFieldDefinition | undefined>(undefined);
   const [isContextPanelOpen, setIsContextPanelOpen] = useState(true);
@@ -213,6 +216,7 @@ export const CompilazioneScreen: React.FC<CompilazioneScreenProps> = ({
           <DocumentSurface
             document={document}
             schoolOrder={document.schoolOrder}
+            customModels={customModels}
             mode="EDIT"
             zoomScale={zoomScale}
             pageNumber={activePageNumber}

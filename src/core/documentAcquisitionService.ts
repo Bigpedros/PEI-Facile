@@ -18,6 +18,11 @@ import {
   classifyDocumentModel,
   extractSemanticFieldEvidences,
 } from './semanticAcquisitionEngine';
+import { normalizeInputData } from './pdfIntakeService';
+import { PdfDocumentAnalyzer } from './canonical-template-engine/analyzer/pdfDocumentAnalyzer';
+import { CanonicalTemplateMatcher } from './canonical-template-engine/matcher/canonicalTemplateMatcher';
+import { MATCH_THRESHOLDS } from './canonical-template-engine/matcher/thresholds';
+import { getTemplatePdfBinary } from './templateStorage';
 
 const pdfAdapter = new PdfFormatAdapter();
 const imageAdapter = new ImageFormatAdapter();
@@ -38,6 +43,17 @@ export async function processDocumentAcquisition(
   const mimeType = mainFile ? mainFile.type : undefined;
 
   const detectedFormat = detectDocumentFormat(effectiveFileName, mimeType);
+
+  let rawBytes: Uint8Array | undefined;
+  const isUint8Array = input instanceof Uint8Array || (input && (input as any).constructor && (input as any).constructor.name === 'Uint8Array');
+  if (mainFile instanceof File || input instanceof ArrayBuffer || isUint8Array || ArrayBuffer.isView(input)) {
+    try {
+      const tempBytes = await normalizeInputData(mainFile || (input as any));
+      rawBytes = new Uint8Array(tempBytes);
+    } catch (e) {
+      console.log('[DEBUG CTE] normalizeInputData error:', e);
+    }
+  }
 
   // Gestione esplicita e veritiera di DOC legacy
   if (detectedFormat === 'UNSUPPORTED_LEGACY_DOC') {
@@ -84,7 +100,59 @@ export async function processDocumentAcquisition(
   const fullText = rawPages.map((p) => p.text).join('\n\n');
 
   // 1. Model classification
-  const classification = classifyDocumentModel(fullText, options.customModels || []);
+  let classification = classifyDocumentModel(fullText, options.customModels || []);
+
+  // 1B. Fallback matching structurally using CanonicalTemplateMatcher
+  if (
+    !classification.isModelRecognized &&
+    detectedFormat === 'PDF' &&
+    rawBytes &&
+    rawBytes.byteLength > 0 &&
+    options.customModels &&
+    options.customModels.length > 0
+  ) {
+    try {
+      const analyzer = new PdfDocumentAnalyzer();
+      const docAnalysis = await analyzer.analyze(rawBytes.buffer);
+      const candidateFp = docAnalysis.structuralFingerprint;
+
+      const matcher = new CanonicalTemplateMatcher();
+      let bestMatch: { model: any; score: number } | null = null;
+
+      for (const cm of options.customModels) {
+        const hash = cm.sourceSha256 || cm.sourceHash;
+        if (hash) {
+          const tplBytes = await getTemplatePdfBinary(hash);
+          if (tplBytes && tplBytes.byteLength > 0) {
+            const tplAnalysis = await analyzer.analyze(tplBytes.buffer);
+            const tplFp = tplAnalysis.structuralFingerprint;
+            const matchResult = matcher.match(tplFp, candidateFp);
+
+            if (matchResult.similarityScore >= MATCH_THRESHOLDS.COMPATIBLE) {
+              if (!bestMatch || matchResult.similarityScore > bestMatch.score) {
+                bestMatch = { model: cm, score: matchResult.similarityScore };
+              }
+            }
+          }
+        }
+      }
+
+      if (bestMatch) {
+        const matchedModel = bestMatch.model;
+        classification = {
+          detectedOrder: matchedModel.schoolOrder,
+          detectedModelId: matchedModel.id,
+          detectedModelName: matchedModel.name,
+          isModelRecognized: true,
+          recognitionReason: `Corrispondenza di layout strutturale con modello personalizzato (similarità: ${bestMatch.score}%).`,
+          confidence: Math.round(bestMatch.score),
+        };
+      }
+    } catch (err) {
+      console.warn('Errore durante il fallback del matching strutturale:', err);
+    }
+  }
+
   const effectiveSchoolOrder = options.forcedSchoolOrder || classification.detectedOrder || 'A2';
 
   // 2. Field extraction based on real TemplateSchema field IDs
@@ -121,6 +189,8 @@ export async function processDocumentAcquisition(
     schoolName: schoolEv ? schoolEv.extractedValue : undefined,
     classOrSection: classEv ? classEv.extractedValue : undefined,
     compilationDate: dateEv ? dateEv.extractedValue : undefined,
+    sourceBinary: rawBytes,
+    canonicalDocument: rawBytes,
     processingTimeMs,
     warnings,
     logs,

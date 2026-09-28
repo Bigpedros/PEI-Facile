@@ -27,14 +27,33 @@ export { suggestSemanticKey, type SemanticSuggestionResult };
 import {
   clampFieldToPageBounds,
   pdfRectFromNativePdf,
+  isExplicitPrompt,
   A4_WIDTH_PT,
   A4_HEIGHT_PT,
 } from '../data/geometry/geometryTransform';
 import {
   clusterAndRefineCandidates,
+  isValidLabel,
   type RawLineCandidate,
   type RawRectCandidate,
 } from './fieldCandidateClustering';
+import { analyzeDocumentImage } from './ocrEngine';
+import { renderPdfPageToCanvas } from './pdfIntakeService';
+
+export interface DetectPageFieldsOptions {
+  canvasElement?: HTMLCanvasElement;
+  onDiagnostics?: (diagnostics: PageDetectionDiagnostics) => void;
+  customOcrRunner?: (canvas: HTMLCanvasElement) => Promise<{
+    words?: Array<{
+      text: string;
+      confidence: number;
+      bbox: { x0: number; y0: number; x1: number; y1: number };
+    }>;
+    text?: string;
+    rawText?: string;
+    confidence?: number;
+  }>;
+}
 
 export interface PageDetectionDiagnostics {
   textItemsCount: number;
@@ -51,6 +70,8 @@ export interface PageDetectionDiagnostics {
   finalProposalsCount: number;
   rasterFallbackUsed: boolean;
   ocrFallbackUsed: boolean;
+  rawOcrWordsCount?: number;
+  validOcrTextItemsCount?: number;
   // R08-R4 & R08-R6 Specific Counters
   rawLinesCount?: number;
   rawRectsCount?: number;
@@ -96,6 +117,26 @@ export function computeFieldFingerprint(
     .replace(/[^a-z0-9]/g, '')
     .slice(0, 16);
   return `p${field.pageNumber}_${normX}_${normY}_${normW}_${normH}_${normLabel}_${field.fieldType || 'TEXT'}`;
+}
+
+export type FieldProvenance = 'AUTO_DETECTED' | 'USER_CONFIRMED' | 'MANUAL_CREATED' | 'NATIVE_FORM';
+
+export function getFieldProvenance(field: FieldGeometry): FieldProvenance {
+  if (field.detectionSource === 'MANUAL_ENTRY') {
+    return 'MANUAL_CREATED';
+  }
+  if (field.derivationMethod === 'ACROFORM') {
+    return 'NATIVE_FORM';
+  }
+  if (
+    field.calibrationStatus === 'CONFIRMED' ||
+    field.calibrationStatus === 'MODIFIED' ||
+    field.isModifiedAfterProposal === true ||
+    field.status === 'MAPPED'
+  ) {
+    return 'USER_CONFIRMED';
+  }
+  return 'AUTO_DETECTED';
 }
 
 /**
@@ -240,20 +281,8 @@ export function suggestBackgroundMode(
 /**
  * Checks whether a text string represents a form label candidate in Italian educational forms.
  */
-function isLabelPrompt(str: string): boolean {
-  const clean = str.trim();
-  if (clean.length < 2 || clean.length > 80) return false;
-  if (clean.endsWith(':')) return true;
-
-  // Standard Italian form prompt tokens
-  const promptRegex = /\b(?:anno\s+scolastico|a\.s\.|bambin[oa]|alunn[oa]|alliev[oa]|student(?:e|essa)|cognome|nome|nominativo|codice|c\.f\.|nat[oa]|luogo|comune|classe|sez(?:ione)?|plesso|sede|scuola|istitut[o]|circolo|dirigente|docente|insegnante|profilo|diagnosi|redatto|verbale|delibera|glo|approvaz|firma|ore|oepac|aec|scadenza|rivedibilit[aà]|interventi|obiettivi)\b/i;
-  if (promptRegex.test(clean)) return true;
-
-  // Semantic suggestion match
-  const suggestion = suggestSemanticKey(clean);
-  if (suggestion.semanticKey !== null) return true;
-
-  return false;
+export function isLabelPrompt(str: string): boolean {
+  return isExplicitPrompt(str);
 }
 
 /**
@@ -262,7 +291,8 @@ function isLabelPrompt(str: string): boolean {
 async function extractVectorGraphics(
   pdfPage: any,
   pageWidthPt: number,
-  pageHeightPt: number
+  pageHeightPt: number,
+  viewport?: any
 ): Promise<{
   lines: Array<{ x1: number; y: number; x2: number }>;
   boxes: Array<{ x: number; y: number; w: number; h: number; isCheckbox: boolean }>;
@@ -342,9 +372,19 @@ async function extractVectorGraphics(
 
             // Horizontal line detection (PDF coords: bottom-up)
             if (Math.abs(nextY - currentY) < 2.5 && Math.abs(nextX - currentX) >= 25) {
-              const x1 = Math.min(currentX, nextX);
-              const x2 = Math.max(currentX, nextX);
-              const yTop = pageHeightPt - currentY;
+              const nativeX1 = Math.min(currentX, nextX);
+              const nativeX2 = Math.max(currentX, nextX);
+              const nativeY = currentY;
+
+              const canonical = pdfRectFromNativePdf(
+                [nativeX1, nativeY, nativeX2, nativeY],
+                pageHeightPt,
+                viewport
+              );
+
+              const x1 = canonical.xPt;
+              const x2 = canonical.xPt + canonical.widthPt;
+              const yTop = canonical.yPt;
 
               // Enforce bounds: discard vector lines outside the visible page
               if (x1 >= -2 && x2 <= pageWidthPt + 2 && yTop >= -2 && yTop <= pageHeightPt + 2) {
@@ -369,10 +409,21 @@ async function extractVectorGraphics(
             const rawRh = coords[cIdx++] || 0;
             const [p1x, p1y] = applyCtm(rawRx, rawRy);
             const [p2x, p2y] = applyCtm(rawRx + rawRw, rawRy + rawRh);
-            const rx = Math.min(p1x, p2x);
-            const wPt = Math.abs(p2x - p1x);
-            const hPt = Math.abs(p2y - p1y);
-            const yTop = pageHeightPt - Math.max(p1y, p2y);
+            const minX = Math.min(p1x, p2x);
+            const maxX = Math.max(p1x, p2x);
+            const minY = Math.min(p1y, p2y);
+            const maxY = Math.max(p1y, p2y);
+
+            const canonical = pdfRectFromNativePdf(
+              [minX, minY, maxX, maxY],
+              pageHeightPt,
+              viewport
+            );
+
+            const rx = canonical.xPt;
+            const yTop = canonical.yPt;
+            const wPt = canonical.widthPt;
+            const hPt = canonical.heightPt;
 
             const isCheckbox = wPt >= 8 && wPt <= 24 && hPt >= 8 && hPt <= 24;
             // Enforce bounds: discard rectangles outside the visible page
@@ -404,10 +455,21 @@ async function extractVectorGraphics(
         const [rawRx, rawRy, rawRw, rawRh] = arg;
         const [p1x, p1y] = applyCtm(rawRx, rawRy);
         const [p2x, p2y] = applyCtm(rawRx + rawRw, rawRy + rawRh);
-        const rx = Math.min(p1x, p2x);
-        const wPt = Math.abs(p2x - p1x);
-        const hPt = Math.abs(p2y - p1y);
-        const yTop = pageHeightPt - Math.max(p1y, p2y);
+        const minX = Math.min(p1x, p2x);
+        const maxX = Math.max(p1x, p2x);
+        const minY = Math.min(p1y, p2y);
+        const maxY = Math.max(p1y, p2y);
+
+        const canonical = pdfRectFromNativePdf(
+          [minX, minY, maxX, maxY],
+          pageHeightPt,
+          viewport
+        );
+
+        const rx = canonical.xPt;
+        const yTop = canonical.yPt;
+        const wPt = canonical.widthPt;
+        const hPt = canonical.heightPt;
         const isCheckbox = wPt >= 8 && wPt <= 24 && hPt >= 8 && hPt <= 24;
 
         if (
@@ -434,7 +496,7 @@ async function extractVectorGraphics(
         }
       }
     }
-  } catch (err) {
+  } catch {
     // Non-fatal if operator list cannot be parsed
   }
 
@@ -443,7 +505,8 @@ async function extractVectorGraphics(
 
 /**
  * Detects visual lines and boxes from a canvas element (or fallback visual structural analysis).
- * Scans rows for dark pixels to find printed compilation lines and rectangular bounding boxes.
+ * Scans rows and columns for dark pixels to find printed compilation lines, vertical separators,
+ * rectangular bounding boxes, table grid cells, and checkboxes.
  */
 export function detectVisualLinesFromCanvas(
   canvas: HTMLCanvasElement,
@@ -452,65 +515,249 @@ export function detectVisualLinesFromCanvas(
 ): {
   lines: Array<{ x1: number; y: number; x2: number }>;
   boxes: Array<{ x: number; y: number; w: number; h: number; isCheckbox: boolean }>;
+  verticalLines?: Array<{ x: number; y1: number; y2: number }>;
 } {
   const lines: Array<{ x1: number; y: number; x2: number }> = [];
+  const verticalLines: Array<{ x: number; y1: number; y2: number }> = [];
   const boxes: Array<{ x: number; y: number; w: number; h: number; isCheckbox: boolean }> = [];
 
   try {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) return { lines, boxes };
+    if (!ctx) return { lines, boxes, verticalLines };
 
     const width = canvas.width;
     const height = canvas.height;
-    if (width <= 0 || height <= 0) return { lines, boxes };
+    if (width <= 0 || height <= 0) return { lines, boxes, verticalLines };
 
     const scaleX = width / pageWidthPt;
     const scaleY = height / pageHeightPt;
     const imgData = ctx.getImageData(0, 0, width, height);
     const data = imgData.data;
 
-    const minLineLenPx = Math.round(35 * scaleX);
+    // Helper: test if pixel is dark (ink/border)
+    const isDarkAt = (px: number, py: number): boolean => {
+      if (px < 0 || px >= width || py < 0 || py >= height) return false;
+      const idx = (py * width + px) * 4;
+      const a = data[idx + 3];
+      if (a < 90) return false;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+      // Fast integer luminance: (0.299R + 0.587G + 0.114B) < 155
+      return (r * 299 + g * 587 + b * 114) < 155000;
+    };
+
+    const minHorizLineLenPx = Math.max(10, Math.round(18 * scaleX));
     const stepY = Math.max(1, Math.round(2 * scaleY));
+    const stepX = Math.max(1, Math.round(1.5 * scaleX));
 
-    // Scan horizontal lines: sequences of dark pixels with light background
-    for (let py = 10; py < height - 10; py += stepY) {
+    // 1. Scan horizontal line segments
+    const rawH: Array<{ x1: number; y: number; x2: number }> = [];
+    for (let py = 4; py < height - 4; py += stepY) {
       let startX = -1;
-      for (let px = 10; px < width - 10; px += 2) {
-        const idx = (py * width + px) * 4;
-        const r = data[idx];
-        const g = data[idx + 1];
-        const b = data[idx + 2];
-        const a = data[idx + 3];
-        const isDark = a > 120 && (0.299 * r + 0.587 * g + 0.114 * b) < 140;
-
-        if (isDark) {
+      for (let px = 4; px < width - 4; px += stepX) {
+        if (isDarkAt(px, py)) {
           if (startX === -1) startX = px;
         } else {
           if (startX !== -1) {
             const len = px - startX;
-            if (len >= minLineLenPx) {
-              const x1Pt = Math.round((startX / scaleX) * 10) / 10;
-              const x2Pt = Math.round((px / scaleX) * 10) / 10;
-              const yPt = Math.round((py / scaleY) * 10) / 10;
-              lines.push({ x1: x1Pt, y: yPt, x2: x2Pt });
+            if (len >= minHorizLineLenPx) {
+              rawH.push({
+                x1: Math.round((startX / scaleX) * 10) / 10,
+                y: Math.round((py / scaleY) * 10) / 10,
+                x2: Math.round((px / scaleX) * 10) / 10,
+              });
             }
             startX = -1;
           }
         }
       }
-      if (startX !== -1 && width - 10 - startX >= minLineLenPx) {
-        lines.push({
+      if (startX !== -1 && (width - 4 - startX) >= minHorizLineLenPx) {
+        rawH.push({
           x1: Math.round((startX / scaleX) * 10) / 10,
           y: Math.round((py / scaleY) * 10) / 10,
-          x2: Math.round(((width - 10) / scaleX) * 10) / 10,
+          x2: Math.round(((width - 4) / scaleX) * 10) / 10,
         });
+      }
+    }
+
+    // 2. Scan vertical line segments
+    const minVertLineLenPx = Math.max(10, Math.round(14 * scaleY));
+    const stepX_v = Math.max(1, Math.round(2 * scaleX));
+    const stepY_v = Math.max(1, Math.round(1.5 * scaleY));
+
+    const rawV: Array<{ x: number; y1: number; y2: number }> = [];
+    for (let px = 4; px < width - 4; px += stepX_v) {
+      let startY = -1;
+      for (let py = 4; py < height - 4; py += stepY_v) {
+        if (isDarkAt(px, py)) {
+          if (startY === -1) startY = py;
+        } else {
+          if (startY !== -1) {
+            const len = py - startY;
+            if (len >= minVertLineLenPx) {
+              rawV.push({
+                x: Math.round((px / scaleX) * 10) / 10,
+                y1: Math.round((startY / scaleY) * 10) / 10,
+                y2: Math.round((py / scaleY) * 10) / 10,
+              });
+            }
+            startY = -1;
+          }
+        }
+      }
+      if (startY !== -1 && (height - 4 - startY) >= minVertLineLenPx) {
+        rawV.push({
+          x: Math.round((px / scaleX) * 10) / 10,
+          y1: Math.round((startY / scaleY) * 10) / 10,
+          y2: Math.round(((height - 4) / scaleY) * 10) / 10,
+        });
+      }
+    }
+
+    // Merge colinear horizontal segments
+    const sortedH = [...rawH].sort((a, b) => (Math.abs(a.y - b.y) <= 2.5 ? a.x1 - b.x1 : a.y - b.y));
+    const mergedH: Array<{ x1: number; y: number; x2: number }> = [];
+    for (const seg of sortedH) {
+      const last = mergedH[mergedH.length - 1];
+      if (last && Math.abs(last.y - seg.y) <= 2.5 && seg.x1 <= last.x2 + 16) {
+        last.x2 = Math.max(last.x2, seg.x2);
+      } else {
+        mergedH.push({ ...seg });
+      }
+    }
+    for (const h of mergedH) {
+      if (h.x2 - h.x1 >= 25) {
+        lines.push(h);
+      }
+    }
+
+    // Merge colinear vertical segments
+    const sortedV = [...rawV].sort((a, b) => (Math.abs(a.x - b.x) <= 2.5 ? a.y1 - b.y1 : a.x - b.x));
+    const mergedV: Array<{ x: number; y1: number; y2: number }> = [];
+    for (const seg of sortedV) {
+      const last = mergedV[mergedV.length - 1];
+      if (last && Math.abs(last.x - seg.x) <= 2.5 && seg.y1 <= last.y2 + 16) {
+        last.y2 = Math.max(last.y2, seg.y2);
+      } else {
+        mergedV.push({ ...seg });
+      }
+    }
+    for (const v of mergedV) {
+      if (v.y2 - v.y1 >= 14) {
+        verticalLines.push(v);
+      }
+    }
+
+    // 3. Assemble Boxes / Cells / Checkboxes
+    const candidateBoxes: Array<{ x: number; y: number; w: number; h: number; isCheckbox: boolean }> = [];
+
+    // Method A: Intersection of horizontal lines and vertical lines (Grid & Cell Detection)
+    for (let i = 0; i < mergedH.length; i++) {
+      const topL = mergedH[i];
+      for (let j = i + 1; j < mergedH.length; j++) {
+        const botL = mergedH[j];
+        const dy = botL.y - topL.y;
+        if (dy < 8) continue;
+        if (dy > 350) break;
+
+        const xOverlapStart = Math.max(topL.x1, botL.x1);
+        const xOverlapEnd = Math.min(topL.x2, botL.x2);
+        if (xOverlapEnd - xOverlapStart < 8) continue;
+
+        const matchingV = mergedV.filter(
+          (v) =>
+            v.x >= xOverlapStart - 8 &&
+            v.x <= xOverlapEnd + 8 &&
+            v.y1 <= topL.y + 8 &&
+            v.y2 >= botL.y - 8
+        );
+
+        if (matchingV.length >= 2) {
+          matchingV.sort((a, b) => a.x - b.x);
+          for (let k = 0; k < matchingV.length - 1; k++) {
+            const vLeft = matchingV[k];
+            const vRight = matchingV[k + 1];
+            const cellW = vRight.x - vLeft.x;
+            if (cellW >= 8 && cellW <= 650) {
+              const isCheckbox = cellW <= 28 && dy <= 28;
+              candidateBoxes.push({
+                x: Math.round(vLeft.x * 10) / 10,
+                y: Math.round(topL.y * 10) / 10,
+                w: Math.round(cellW * 10) / 10,
+                h: Math.round(dy * 10) / 10,
+                isCheckbox,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Method B: Rectangular border confirmation from horizontal line pairs with dark edge pixels
+    for (let i = 0; i < mergedH.length; i++) {
+      const topL = mergedH[i];
+      for (let j = i + 1; j < mergedH.length; j++) {
+        const botL = mergedH[j];
+        const dy = botL.y - topL.y;
+        if (dy < 10) continue;
+        if (dy > 250) break;
+
+        const xA = Math.max(topL.x1, botL.x1);
+        const xB = Math.min(topL.x2, botL.x2);
+        const w = xB - xA;
+        if (w < 10) continue;
+
+        const isAligned = Math.abs(topL.x1 - botL.x1) <= 15 && Math.abs(topL.x2 - botL.x2) <= 15;
+        if (isAligned) {
+          let darkLeft = 0;
+          let darkRight = 0;
+          const samples = 4;
+          for (let s = 1; s <= samples; s++) {
+            const sy = Math.round((topL.y + (s / (samples + 1)) * dy) * scaleY);
+            if (isDarkAt(Math.round(xA * scaleX), sy)) darkLeft++;
+            if (isDarkAt(Math.round(xB * scaleX), sy)) darkRight++;
+          }
+
+          if ((darkLeft >= 1 && darkRight >= 1) || (w <= 35 && dy <= 35)) {
+            const isCheckbox = w <= 28 && dy <= 28;
+            candidateBoxes.push({
+              x: Math.round(xA * 10) / 10,
+              y: Math.round(topL.y * 10) / 10,
+              w: Math.round(w * 10) / 10,
+              h: Math.round(dy * 10) / 10,
+              isCheckbox,
+            });
+          }
+        }
+      }
+    }
+
+    // Deduplicate candidate boxes
+    candidateBoxes.sort((a, b) => b.w * b.h - a.w * a.h);
+    for (const cand of candidateBoxes) {
+      if (cand.x < 0 || cand.y < 0 || cand.x + cand.w > pageWidthPt + 2 || cand.y + cand.h > pageHeightPt + 2) {
+        continue;
+      }
+      const duplicate = boxes.some((existing) => {
+        const x1 = Math.max(cand.x, existing.x);
+        const y1 = Math.max(cand.y, existing.y);
+        const x2 = Math.min(cand.x + cand.w, existing.x + existing.w);
+        const y2 = Math.min(cand.y + cand.h, existing.y + existing.h);
+        if (x2 <= x1 || y2 <= y1) return false;
+        const inter = (x2 - x1) * (y2 - y1);
+        const union = cand.w * cand.h + existing.w * existing.h - inter;
+        return union > 0 && inter / union >= 0.55;
+      });
+      if (!duplicate) {
+        boxes.push(cand);
       }
     }
   } catch {
     // Non-fatal if canvas pixels cannot be accessed
   }
 
-  return { lines, boxes };
+  return { lines, boxes, verticalLines };
 }
 
 /**
@@ -672,7 +919,7 @@ export async function detectFieldsOnPdfPage(
   }
 
   // 2. Extract Vector Graphics from OperatorList
-  const vectorData = await extractVectorGraphics(pdfPage, pageWidthPt, pageHeightPt);
+  const vectorData = await extractVectorGraphics(pdfPage, pageWidthPt, pageHeightPt, viewport);
   vectorCandidatesCount = vectorData.lines.length + vectorData.boxes.length;
   for (const vl of vectorData.lines) {
     rawLines.push({ x1: vl.x1, y: vl.y, x2: vl.x2, source: 'VECTOR' });
@@ -681,7 +928,43 @@ export async function detectFieldsOnPdfPage(
     rawRects.push({ x: vb.x, y: vb.y, w: vb.w, h: vb.h, isCheckbox: vb.isCheckbox, source: 'VECTOR' });
   }
 
-  // 3. Extract Text Layer
+  // 2B. Visual Lines and Boxes from Rendered Canvas (Raster / Scanned support)
+  let scannedCanvasData: {
+    lines: Array<{ x1: number; y: number; x2: number }>;
+    boxes: Array<{ x: number; y: number; w: number; h: number; isCheckbox: boolean }>;
+    verticalLines?: Array<{ x: number; y1: number; y2: number }>;
+  } = { lines: [], boxes: [], verticalLines: [] };
+
+  let effectiveCanvas = opts.canvasElement;
+  if (!effectiveCanvas && typeof document !== 'undefined' && pdfPage.render) {
+    try {
+      effectiveCanvas = await renderPdfPageToCanvas(pdfPage, 2.0);
+    } catch {
+      // non-blocking
+    }
+  }
+
+  if (effectiveCanvas) {
+    try {
+      scannedCanvasData = detectVisualLinesFromCanvas(effectiveCanvas, pageWidthPt, pageHeightPt);
+      if (scannedCanvasData.lines.length > 0 || scannedCanvasData.boxes.length > 0) {
+        rasterFallbackUsed = true;
+        for (const sl of scannedCanvasData.lines) {
+          rawLines.push({ x1: sl.x1, y: sl.y, x2: sl.x2, source: 'CANVAS' });
+        }
+        for (const vl of scannedCanvasData.verticalLines || []) {
+          rawLines.push({ x1: vl.x, y: vl.y1, x2: vl.x, y2: vl.y2, isVertical: true, source: 'CANVAS' });
+        }
+        for (const sb of scannedCanvasData.boxes) {
+          rawRects.push({ x: sb.x, y: sb.y, w: sb.w, h: sb.h, isCheckbox: sb.isCheckbox, source: 'CANVAS' });
+        }
+      }
+    } catch {
+      // Ignore canvas access errors
+    }
+  }
+
+  // 3. Extract Text Layer (Native PDF or Local OCR Fallback)
   let rawItems: any[] = [];
   try {
     const textContent = await pdfPage.getTextContent();
@@ -691,27 +974,184 @@ export async function detectFieldsOnPdfPage(
     // Text layer might be absent in scanned documents
   }
 
-  // Normalize text items to top-down coordinates
-  const textItems = rawItems
-    .map((item) => {
+  let ocrWords: Array<{ text: string; confidence: number; bbox: { x0: number; y0: number; x1: number; y1: number } }> = [];
+  let rawOcrWordsCount = 0;
+  let validOcrTextItemsCount = 0;
+
+  // OCR Fallback for Scanned / Raster Pages
+  if (rawItems.length === 0 && effectiveCanvas) {
+    try {
+      if (opts.customOcrRunner) {
+        const ocrRes = await opts.customOcrRunner(effectiveCanvas);
+        ocrWords = ocrRes.words || [];
+        if (!ocrWords.length && (ocrRes.text || ocrRes.rawText)) {
+          const raw = ocrRes.text || ocrRes.rawText || '';
+          const cW = effectiveCanvas.width || pageWidthPt;
+          const cH = effectiveCanvas.height || pageHeightPt;
+          const lines = raw.split('\n').filter((l) => l.trim().length > 0);
+          lines.forEach((lStr, lIdx) => {
+            const toks = lStr.trim().split(/\s+/);
+            let curX = 50;
+            const curY = 80 + lIdx * 35;
+            toks.forEach((tok) => {
+              const tW = Math.max(16, tok.length * 8);
+              ocrWords.push({
+                text: tok,
+                confidence: ocrRes.confidence || 85,
+                bbox: {
+                  x0: (curX / pageWidthPt) * cW,
+                  y0: (curY / pageHeightPt) * cH,
+                  x1: ((curX + tW) / pageWidthPt) * cW,
+                  y1: ((curY + 14) / pageHeightPt) * cH,
+                },
+              });
+              curX += tW + 8;
+            });
+          });
+        }
+        rawOcrWordsCount = ocrWords.length;
+        ocrFallbackUsed = true;
+      } else if (typeof window !== 'undefined' && effectiveCanvas.toDataURL) {
+        const dataUrl = effectiveCanvas.toDataURL('image/png');
+        if (dataUrl && dataUrl.startsWith('data:image/png')) {
+          const arr = dataUrl.split(',');
+          const bstr = atob(arr[1] || '');
+          let n = bstr.length;
+          const u8arr = new Uint8Array(n);
+          while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+          }
+          const file = new File([u8arr], `page-${pageNumber}-ocr.png`, { type: 'image/png' });
+          const ocrRes = await analyzeDocumentImage(file);
+          ocrWords = ocrRes.words || [];
+          rawOcrWordsCount = ocrWords.length;
+          ocrFallbackUsed = true;
+        }
+      }
+    } catch (ocrErr) {
+      console.warn(`[AssistedFieldDetection] OCR fallback warning on page ${pageNumber}:`, ocrErr);
+    }
+  }
+
+  // Populate textItems from native or OCR
+  const textItems: Array<{ x: number; yTop: number; w: number; h: number; str: string }> = [];
+
+  if (rawItems.length > 0) {
+    for (const item of rawItems) {
       const str = item.str.trim();
       const x = item.transform ? item.transform[4] : 0;
       const yBottom = item.transform ? item.transform[5] : 0;
       const w = item.width || 0;
       const h = item.height || (item.transform ? Math.abs(item.transform[0]) || Math.abs(item.transform[3]) : 10);
       const canonical = pdfRectFromNativePdf([x, yBottom, x + w, yBottom + h], pageHeightPt, viewport);
-      return {
-        x: canonical.xPt,
-        yTop: canonical.yPt,
-        w: canonical.widthPt,
-        h: canonical.heightPt,
-        str,
-      };
-    })
-    .filter((it) => it.x >= -2 && it.x < pageWidthPt + 2 && it.yTop >= -2 && it.yTop < pageHeightPt + 2);
+      if (canonical.xPt >= -2 && canonical.xPt < pageWidthPt + 2 && canonical.yPt >= -2 && canonical.yPt < pageHeightPt + 2) {
+        textItems.push({
+          x: canonical.xPt,
+          yTop: canonical.yPt,
+          w: canonical.widthPt,
+          h: canonical.heightPt,
+          str,
+        });
+      }
+    }
+  } else if (ocrWords.length > 0) {
+    const cWidth = effectiveCanvas?.width || pageWidthPt;
+    const cHeight = effectiveCanvas?.height || pageHeightPt;
+
+    const wordsConverted = ocrWords
+      .filter((w) => w.text && w.text.trim().length > 0 && w.bbox)
+      .map((w) => {
+        const x = (w.bbox.x0 / cWidth) * pageWidthPt;
+        const yTop = (w.bbox.y0 / cHeight) * pageHeightPt;
+        const widthPt = ((w.bbox.x1 - w.bbox.x0) / cWidth) * pageWidthPt;
+        const heightPt = ((w.bbox.y1 - w.bbox.y0) / cHeight) * pageHeightPt;
+        return {
+          x: Math.round(x * 10) / 10,
+          yTop: Math.round(yTop * 10) / 10,
+          w: Math.max(6, Math.round(widthPt * 10) / 10),
+          h: Math.max(8, Math.round(heightPt * 10) / 10),
+          str: w.text.trim(),
+        };
+      })
+      .filter((it) => it.x >= -2 && it.x < pageWidthPt + 2 && it.yTop >= -2 && it.yTop < pageHeightPt + 2);
+
+    wordsConverted.sort((a, b) => (Math.abs(a.yTop - b.yTop) < 6 ? a.x - b.x : a.yTop - b.yTop));
+
+    // Also assemble adjacent words on the same baseline into phrases
+    const phrases: Array<{ x: number; yTop: number; w: number; h: number; str: string }> = [];
+    let currentPhrase: { x: number; yTop: number; w: number; h: number; str: string } | null = null;
+
+    for (const word of wordsConverted) {
+      textItems.push(word);
+
+      if (!currentPhrase) {
+        currentPhrase = { ...word };
+      } else {
+        const isSameLine = Math.abs(word.yTop - currentPhrase.yTop) <= Math.max(6, currentPhrase.h * 0.5);
+        const gapX = word.x - (currentPhrase.x + currentPhrase.w);
+        if (isSameLine && gapX >= -2 && gapX <= 24) {
+          currentPhrase.str = `${currentPhrase.str} ${word.str}`;
+          currentPhrase.w = Math.round((word.x + word.w - currentPhrase.x) * 10) / 10;
+          currentPhrase.h = Math.max(currentPhrase.h, word.h);
+        } else {
+          if (currentPhrase.str.includes(' ')) {
+            phrases.push(currentPhrase);
+          }
+          currentPhrase = { ...word };
+        }
+      }
+    }
+    if (currentPhrase && currentPhrase.str.includes(' ')) {
+      phrases.push(currentPhrase);
+    }
+
+    textItems.push(...phrases);
+    validOcrTextItemsCount = textItems.length;
+    textItemsCount = textItems.length;
+  }
+
+  // Sort and perform baseline-merge on all textItems to reconstruct full phrases and avoid fragment labels!
+  const rawTextItems = [...textItems];
+  const mergedTextItems: Array<{ x: number; yTop: number; w: number; h: number; str: string }> = [];
+  if (rawTextItems.length > 0) {
+    // Sort first to ensure left-to-right order on each line
+    rawTextItems.sort((a, b) => (Math.abs(a.yTop - b.yTop) < 5 ? a.x - b.x : a.yTop - b.yTop));
+    
+    let current = { ...rawTextItems[0] };
+    for (let i = 1; i < rawTextItems.length; i++) {
+      const next = rawTextItems[i];
+      const isSameLine = Math.abs(next.yTop - current.yTop) < 6;
+      const gapX = next.x - (current.x + current.w);
+      
+      // If they are on the same line and the horizontal gap is small (e.g. < 16 pt), merge them!
+      if (isSameLine && gapX >= -4 && gapX <= 16) {
+        current.str = `${current.str} ${next.str}`;
+        current.w = next.x + next.w - current.x;
+        current.h = Math.max(current.h, next.h);
+      } else {
+        mergedTextItems.push(current);
+        current = { ...next };
+      }
+    }
+    mergedTextItems.push(current);
+  }
+
+  // Use the merged textItems
+  textItems.length = 0;
+  textItems.push(...mergedTextItems);
 
   // Sort text items visually top-to-bottom, left-to-right
   textItems.sort((a, b) => (Math.abs(a.yTop - b.yTop) < 6 ? a.x - b.x : a.yTop - b.yTop));
+
+  // Combined geometric features for Step 5 matching
+  const allAvailableLines = [
+    ...vectorData.lines,
+    ...scannedCanvasData.lines.map((l) => ({ x1: l.x1, y: l.y, x2: l.x2 })),
+  ];
+  const allAvailableBoxes = [
+    ...vectorData.boxes,
+    ...scannedCanvasData.boxes.map((b) => ({ x: b.x, y: b.y, w: b.w, h: b.h, isCheckbox: b.isCheckbox })),
+  ];
 
   // 4. Process Checkbox / Radio Symbols in Text Layer
   for (const item of textItems) {
@@ -783,40 +1223,71 @@ export async function detectFieldsOnPdfPage(
 
     // Heuristic 5B: Separate Label item (e.g. "Anno Scolastico", "BAMBINO/A", "Sezione", "Nome:", "Data:")
     if (isLabelPrompt(str)) {
-      labelCandidatesCount++;
       const cleanLabel = str.replace(/:$/, '').trim();
+
+      // Short generic token check
+      const lowerLabel = cleanLabel.toLowerCase();
+      const isShortGeneric = ['di', 'data', 'personale', 'rivedibilità'].includes(lowerLabel);
+      if (isShortGeneric) {
+        // If it belongs to a larger sentence on the same line, skip it as an autonomous field!
+        const hasNeighbor = textItems.some(
+          (it) => it.str !== item.str && Math.abs(it.yTop - item.yTop) < 8 && Math.abs(it.x - item.x) < 120
+        );
+        if (hasNeighbor) {
+          continue;
+        }
+      }
+
+      labelCandidatesCount++;
       const suggestion = suggestSemanticKey(cleanLabel);
 
       // Check if this is a date field
       const isDatePrompt = /data|nato\s+il|roma,\s*lì|data\s+verifica/i.test(cleanLabel);
 
-      // 1. Look for matching vector line to the right on the same line band
-      const matchingVectorLineRight = vectorData.lines.find(
-        (vl) => Math.abs(vl.y - (item.yTop + item.h)) < 10 && vl.x2 > item.x + item.w
+      // 1. Look for matching vector or visual line to the right on the same line band (allowing typographic baseline variations)
+      const matchingVectorLineRight = allAvailableLines.find(
+        (vl) =>
+          vl.y >= item.yTop - 4 &&
+          vl.y <= item.yTop + item.h + 16 &&
+          vl.x2 > item.x + item.w * 0.7 &&
+          vl.x1 <= item.x + item.w + 50 &&
+          vl.x2 - Math.max(vl.x1, item.x + item.w) >= 30
       );
 
-      // 2. Look for matching vector line directly BELOW the label (multi-line or section box)
-      const matchingVectorLineBelow = vectorData.lines.find(
+      // 2. Look for matching vector or visual box/cell to the right of the label
+      const matchingVectorBoxRight = allAvailableBoxes.find(
+        (vb) =>
+          !vb.isCheckbox &&
+          vb.y <= item.yTop + item.h + 6 &&
+          vb.y + vb.h >= item.yTop - 4 &&
+          vb.x >= item.x + item.w - 8 &&
+          vb.x <= item.x + item.w + 60 &&
+          vb.w >= 30
+      );
+
+      // 3. Look for matching vector or visual line directly BELOW the label (underline input area)
+      const matchingVectorLineBelow = allAvailableLines.find(
         (vl) =>
           vl.y > item.yTop + item.h &&
-          vl.y <= item.yTop + item.h + 30 &&
-          vl.x1 <= item.x + 30 &&
-          vl.x2 >= item.x + item.w * 0.4
+          vl.y <= item.yTop + item.h + 20 &&
+          vl.x1 <= item.x + 25 &&
+          vl.x2 >= item.x + item.w + 25
       );
 
-      // 3. Look for separate underline/dots text item to the right
+      // 4. Look for separate underline/dots text item to the right
       const matchingTextUnderline = textItems.find(
-        (it) => it !== item && Math.abs(it.yTop - item.yTop) < 8 && it.x >= item.x + item.w - 4 && /[_—\.]{3,}/.test(it.str)
+        (it) => it !== item && Math.abs(it.yTop - item.yTop) < 10 && it.x >= item.x + item.w - 6 && /[_—\.]{3,}/.test(it.str)
       );
 
-      // 4. Look for adjacent text item on the same horizontal line (e.g. "Classe: [___] Sezione: [___]")
+      // 5. Look for adjacent text item on the same horizontal line (e.g. "Classe: [___] Sezione: [___]")
       const nextItemOnSameLine = textItems.find(
-        (it) => it !== item && Math.abs(it.yTop - item.yTop) < 8 && it.x > item.x + item.w
+        (it) => it !== item && Math.abs(it.yTop - item.yTop) < 10 && it.x > item.x + item.w
       );
 
-      let xField = Math.round((item.x + item.w + 6) * 10) / 10;
-      let yField = Math.max(0, Math.round((item.yTop - 3) * 10) / 10);
-      let widthField = isDatePrompt ? 110 : 150;
+      let matchedGeometry = false;
+      let xField = 0;
+      let yField = 0;
+      let widthField = 0;
       let heightField = suggestion.suggestedFieldType === 'TEXT_LONG' ? 55 : 22;
       let bgMode: FieldBackgroundMode = 'TRANSPARENT';
       let confidence = suggestion.confidence || 0.82;
@@ -825,11 +1296,36 @@ export async function detectFieldsOnPdfPage(
 
       if (matchingVectorLineRight) {
         xField = Math.round(Math.max(item.x + item.w + 4, matchingVectorLineRight.x1) * 10) / 10;
-        widthField = Math.max(50, Math.round((matchingVectorLineRight.x2 - xField) * 10) / 10);
+        let rightLimit = matchingVectorLineRight.x2;
+        // Clip rightLimit at the start of any other alphabetic text item on the same line band
+        const nextText = textItems.find(
+          (it) =>
+            it !== item &&
+            Math.abs(it.yTop - item.yTop) < 10 &&
+            it.x > item.x + item.w &&
+            it.x < rightLimit + 10 &&
+            /[a-zA-ZàèìòùéÀÈÌÒÙÉ]/.test(it.str)
+        );
+        if (nextText) {
+          rightLimit = Math.min(rightLimit, nextText.x - 4);
+        }
+        widthField = Math.max(30, Math.round((rightLimit - xField) * 10) / 10);
+        yField = Math.max(0, Math.round((matchingVectorLineRight.y - 18) * 10) / 10);
         bgMode = 'OPAQUE_WHITE';
         confidence = 0.94;
         derivationMethod = 'VECTOR_BOUNDARY';
         detectionSource = 'COMBINED';
+        matchedGeometry = true;
+      } else if (matchingVectorBoxRight) {
+        xField = Math.round((matchingVectorBoxRight.x + 2) * 10) / 10;
+        yField = Math.round((matchingVectorBoxRight.y + 2) * 10) / 10;
+        widthField = Math.max(30, Math.round((matchingVectorBoxRight.w - 4) * 10) / 10);
+        heightField = Math.max(18, Math.round((matchingVectorBoxRight.h - 4) * 10) / 10);
+        bgMode = 'OPAQUE_WHITE';
+        confidence = 0.95;
+        derivationMethod = 'TABLE_CELL';
+        detectionSource = 'COMBINED';
+        matchedGeometry = true;
       } else if (matchingVectorLineBelow) {
         xField = Math.round(matchingVectorLineBelow.x1 * 10) / 10;
         yField = Math.round((item.yTop + item.h + 2) * 10) / 10;
@@ -839,34 +1335,35 @@ export async function detectFieldsOnPdfPage(
         confidence = 0.93;
         derivationMethod = 'VECTOR_BOUNDARY';
         detectionSource = 'COMBINED';
+        matchedGeometry = true;
       } else if (matchingTextUnderline) {
         xField = Math.round(Math.max(item.x + item.w + 4, matchingTextUnderline.x) * 10) / 10;
-        widthField = Math.max(50, Math.round(matchingTextUnderline.w * 10) / 10);
+        let rightLimit = matchingTextUnderline.x + matchingTextUnderline.w;
+        // Clip rightLimit at the start of any other alphabetic text item on the same line band
+        const nextText = textItems.find(
+          (it) =>
+            it !== item &&
+            it !== matchingTextUnderline &&
+            Math.abs(it.yTop - item.yTop) < 10 &&
+            it.x > item.x + item.w &&
+            it.x < rightLimit + 10 &&
+            /[a-zA-ZàèìòùéÀÈÌÒÙÉ]/.test(it.str)
+        );
+        if (nextText) {
+          rightLimit = Math.min(rightLimit, nextText.x - 4);
+        }
+        widthField = Math.max(30, Math.round((rightLimit - xField) * 10) / 10);
+        yField = Math.max(0, Math.round((item.yTop - 3) * 10) / 10);
         bgMode = 'OPAQUE_WHITE';
         confidence = 0.92;
         detectionSource = 'TEXT_LAYER';
-      } else if (nextItemOnSameLine) {
-        const rightLimit = nextItemOnSameLine.x - 6;
-        widthField = Math.max(45, Math.round((rightLimit - xField) * 10) / 10);
-        bgMode = suggestBackgroundMode({ xPt: xField, yPt: yField, widthPt: widthField, heightPt: heightField }, textItems);
-      } else {
-        const rightLimit = pageWidthPt - 30;
-        if (xField + 50 > pageWidthPt) {
-          // Label is near the right edge: position field below the label if there is vertical space
-          xField = Math.max(20, item.x);
-          yField = Math.round((item.yTop + item.h + 2) * 10) / 10;
-          widthField = Math.min(240, Math.max(40, Math.round((pageWidthPt - xField - 20) * 10) / 10));
-          bgMode = suggestBackgroundMode({ xPt: xField, yPt: yField, widthPt: widthField, heightPt: heightField }, textItems);
-        } else {
-          widthField = Math.min(260, Math.max(40, Math.round((rightLimit - xField) * 10) / 10));
-          if (xField + widthField > pageWidthPt - 10) {
-            widthField = Math.round((pageWidthPt - 10 - xField) * 10) / 10;
-          }
-          bgMode = suggestBackgroundMode({ xPt: xField, yPt: yField, widthPt: widthField, heightPt: heightField }, textItems);
-        }
+        matchedGeometry = true;
       }
 
-      if (widthField >= 40) {
+      // STRICT DISCRIMINATION: A prompt label WITHOUT geometric support (line, box, underline)
+      // must NEVER generate a field! It is purely static form text / label.
+      if (matchedGeometry && widthField >= 30) {
+        labelCandidatesCount++;
         textLayerCandidates.push({
           fieldId: generateFieldId(),
           label: suggestion.suggestedLabel || cleanLabel,
@@ -891,25 +1388,7 @@ export async function detectFieldsOnPdfPage(
     }
   }
 
-  // 6. Vector and Raster Visual Detection (Lines and Boxes across whole page)
-  if (opts.canvasElement) {
-    try {
-      const scanned = detectVisualLinesFromCanvas(opts.canvasElement, pageWidthPt, pageHeightPt);
-      if (scanned.lines.length > 0 || scanned.boxes.length > 0) {
-        rasterFallbackUsed = true;
-        for (const sl of scanned.lines) {
-          rawLines.push({ x1: sl.x1, y: sl.y, x2: sl.x2, source: 'CANVAS' });
-        }
-        for (const sb of scanned.boxes) {
-          rawRects.push({ x: sb.x, y: sb.y, w: sb.w, h: sb.h, isCheckbox: sb.isCheckbox, source: 'CANVAS' });
-        }
-      }
-    } catch {
-      // Ignore canvas access errors
-    }
-  }
-
-  // 7. Master Candidate Clustering, Over-detection Reduction & Field Segmentation Refinement
+  // 6. Master Candidate Clustering, Over-detection Reduction & Field Segmentation Refinement
   const { proposedFields: clusteredFields, diagnostics: clusteringDiagnostics } = clusterAndRefineCandidates({
     pageNumber,
     pageWidthPt,
@@ -943,6 +1422,8 @@ export async function detectFieldsOnPdfPage(
     finalProposalsCount: proposedFields.length,
     rasterFallbackUsed,
     ocrFallbackUsed,
+    rawOcrWordsCount,
+    validOcrTextItemsCount,
     rawLinesCount: clusteringDiagnostics.rawLinesCount,
     rawRectsCount: clusteringDiagnostics.rawRectsCount,
     rawTextCount: clusteringDiagnostics.rawTextCount,
@@ -983,6 +1464,583 @@ UNDER_DETECTION_SUSPECTED: ${diagnostics.underDetectionSuspected ? 'YES' : 'NO'}
 }
 
 /**
+ * Full Runtime Diagnostic Trace Interface (CTE-FIX-02C).
+ * Captures real browser data from PDF.js, text items, vector graphics, raster lines, and pipeline transformations.
+ */
+export interface PageRuntimeDiagnosticTrace {
+  timestamp: string;
+  renderedFieldGeometry?: any[];
+  persistedGeometryRevalidation?: any;
+  document: {
+    modelId: string;
+    modelName: string;
+    pageNumber: number;
+    pageWidthPt: number;
+    pageHeightPt: number;
+    viewport: {
+      scale: number;
+      rotation: number;
+      offsetX: number;
+      offsetY: number;
+      width: number;
+      height: number;
+      viewBox?: number[];
+      transform?: number[];
+    };
+    rotation: number;
+    mediaBox?: number[] | null;
+    cropBox?: number[] | null;
+    view?: number[] | null;
+  };
+  textItems: Array<{
+    text: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    rawTransform?: number[];
+    fontName?: string;
+  }>;
+  vectorLines: Array<{
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    source: string;
+    isVertical?: boolean;
+  }>;
+  vectorBoxes: Array<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    isCheckbox: boolean;
+    source: string;
+  }>;
+  rasterVisualLines: Array<{
+    x1: number;
+    y: number;
+    x2: number;
+    source: string;
+  }>;
+  rasterBoxes: Array<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    isCheckbox: boolean;
+    source: string;
+  }>;
+  rawCandidates: Array<{
+    id: string;
+    type: string;
+    bbox: { x: number; y: number; w: number; h: number };
+    source: string;
+    associatedLabel: string;
+    confidence: number;
+  }>;
+  pipelineTrace: {
+    steps: Array<{
+      step: string;
+      description: string;
+      counts: Record<string, any>;
+      details?: any;
+    }>;
+    discarded: Array<{
+      candidateId?: string;
+      discardedAt: string;
+      discardedReason: string;
+      relevantValues: Record<string, any>;
+    }>;
+  };
+  finalProposedFields: Array<{
+    fieldId: string;
+    label: string;
+    semanticKey: string | null;
+    fieldType: string;
+    bbox: { xPt: number; yPt: number; widthPt: number; heightPt: number };
+    confidence?: number;
+    derivationMethod?: string;
+    detectionSource?: string;
+    sourceCandidateIds?: string[];
+  }>;
+}
+
+/**
+ * Collects complete real-time runtime diagnostics from the browser on the active PDF page (CTE-FIX-02C / CTE-FIX-02D).
+ */
+export async function collectPageRuntimeDiagnostics(
+  pdfPage: any,
+  opts: {
+    canvasElement?: HTMLCanvasElement | null;
+    modelId?: string;
+    modelName?: string;
+    pageNumber?: number;
+    existingFields?: FieldGeometry[];
+    customOcrRunner?: (canvas: HTMLCanvasElement) => Promise<{
+      words?: Array<{
+        text: string;
+        confidence: number;
+        bbox: { x0: number; y0: number; x1: number; y1: number };
+      }>;
+      text?: string;
+      rawText?: string;
+      confidence?: number;
+    }>;
+  }
+): Promise<PageRuntimeDiagnosticTrace> {
+  const pageNumber = opts.pageNumber || pdfPage.pageNumber || 1;
+  const viewport = pdfPage.getViewport({ scale: 1.0 });
+  const pageWidthPt = viewport.width || 595.32;
+  const pageHeightPt = viewport.height || 841.92;
+  const existingFields = opts.existingFields || [];
+
+  const discardedList: Array<{
+    candidateId?: string;
+    discardedAt: string;
+    discardedReason: string;
+    relevantValues: Record<string, any>;
+  }> = [];
+
+  const rawCandidatesList: Array<{
+    id: string;
+    type: string;
+    bbox: { x: number; y: number; w: number; h: number };
+    source: string;
+    associatedLabel: string;
+    confidence: number;
+  }> = [];
+
+  const traceSteps: Array<{
+    step: string;
+    description: string;
+    counts: Record<string, any>;
+    details?: any;
+  }> = [];
+
+  // 1. OperatorList Vector Graphics
+  const vectorData = await extractVectorGraphics(pdfPage, pageWidthPt, pageHeightPt, viewport);
+  traceSteps.push({
+    step: 'extractVectorGraphics',
+    description: 'Extracted vector lines and boxes from PDF OperatorList with viewport transform',
+    counts: {
+      vectorLines: vectorData.lines.length,
+      vectorBoxes: vectorData.boxes.length,
+    },
+    details: {
+      linesSample: vectorData.lines.slice(0, 5),
+      boxesSample: vectorData.boxes.slice(0, 5),
+    },
+  });
+
+  // Effective canvas for visual scanning and OCR fallback
+  let effectiveCanvas = opts.canvasElement;
+  if (!effectiveCanvas && typeof document !== 'undefined' && pdfPage.render) {
+    try {
+      effectiveCanvas = await renderPdfPageToCanvas(pdfPage, 2.0);
+    } catch {
+      // non-blocking
+    }
+  }
+
+  // 2. Text Content Extraction (Native PDF or Local OCR Fallback)
+  let rawItems: any[] = [];
+  try {
+    const textContent = await pdfPage.getTextContent();
+    rawItems = (textContent.items || []).filter((it: any) => it.str && it.str.trim().length > 0) as any[];
+  } catch (err: any) {
+    discardedList.push({
+      discardedAt: 'getTextContent',
+      discardedReason: 'TEXT_EXTRACTION_ERROR',
+      relevantValues: { error: err?.message },
+    });
+  }
+
+  let textItems: Array<{
+    x: number;
+    yTop: number;
+    w: number;
+    h: number;
+    str: string;
+    rawTransform?: number[];
+    fontName?: string;
+  }> = [];
+
+  if (rawItems.length > 0) {
+    textItems = rawItems
+      .map((item) => {
+        const str = item.str.trim();
+        const x = item.transform ? item.transform[4] : 0;
+        const yBottom = item.transform ? item.transform[5] : 0;
+        const w = item.width || 0;
+        const h = item.height || (item.transform ? Math.abs(item.transform[0]) || Math.abs(item.transform[3]) : 10);
+        const canonical = pdfRectFromNativePdf([x, yBottom, x + w, yBottom + h], pageHeightPt, viewport);
+        return {
+          x: canonical.xPt,
+          yTop: canonical.yPt,
+          w: canonical.widthPt,
+          h: canonical.heightPt,
+          str,
+          rawTransform: item.transform,
+          fontName: item.fontName,
+        };
+      })
+      .filter((it) => it.x >= -2 && it.x < pageWidthPt + 2 && it.yTop >= -2 && it.yTop < pageHeightPt + 2);
+
+    textItems.sort((a, b) => (Math.abs(a.yTop - b.yTop) < 6 ? a.x - b.x : a.yTop - b.yTop));
+
+    traceSteps.push({
+      step: 'getTextContent',
+      description: 'Extracted raw text items transformed to canonical coordinates',
+      counts: {
+        rawItemsCount: rawItems.length,
+        validTextItemsCount: textItems.length,
+      },
+      details: {
+        textSample: textItems.slice(0, 10).map((t) => ({ str: t.str, x: t.x, y: t.yTop, w: t.w, h: t.h })),
+      },
+    });
+  } else if (effectiveCanvas) {
+    // OCR Extraction Fallback for Scanned / Raster Page
+    let ocrWords: Array<{ text: string; confidence: number; bbox: { x0: number; y0: number; x1: number; y1: number } }> = [];
+    let ocrConfidence = 0;
+
+    try {
+      if (opts.customOcrRunner) {
+        const ocrRes = await opts.customOcrRunner(effectiveCanvas);
+        ocrWords = ocrRes.words || [];
+        ocrConfidence = ocrRes.confidence || 85;
+        if (!ocrWords.length && (ocrRes.text || ocrRes.rawText)) {
+          const raw = ocrRes.text || ocrRes.rawText || '';
+          const cW = effectiveCanvas.width || pageWidthPt;
+          const cH = effectiveCanvas.height || pageHeightPt;
+          const lines = raw.split('\n').filter((l) => l.trim().length > 0);
+          lines.forEach((lStr, lIdx) => {
+            const toks = lStr.trim().split(/\s+/);
+            let curX = 50;
+            const curY = 80 + lIdx * 35;
+            toks.forEach((tok) => {
+              const tW = Math.max(16, tok.length * 8);
+              ocrWords.push({
+                text: tok,
+                confidence: ocrRes.confidence || 85,
+                bbox: {
+                  x0: (curX / pageWidthPt) * cW,
+                  y0: (curY / pageHeightPt) * cH,
+                  x1: ((curX + tW) / pageWidthPt) * cW,
+                  y1: ((curY + 14) / pageHeightPt) * cH,
+                },
+              });
+              curX += tW + 8;
+            });
+          });
+        }
+      } else if (typeof window !== 'undefined' && effectiveCanvas.toDataURL) {
+        const dataUrl = effectiveCanvas.toDataURL('image/png');
+        if (dataUrl && dataUrl.startsWith('data:image/png')) {
+          const arr = dataUrl.split(',');
+          const bstr = atob(arr[1] || '');
+          let n = bstr.length;
+          const u8arr = new Uint8Array(n);
+          while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+          }
+          const file = new File([u8arr], `page-${pageNumber}-ocr.png`, { type: 'image/png' });
+          const ocrRes = await analyzeDocumentImage(file);
+          ocrWords = ocrRes.words || [];
+          ocrConfidence = ocrRes.confidence;
+        }
+      }
+    } catch (ocrErr: any) {
+      discardedList.push({
+        discardedAt: 'ocrExtraction',
+        discardedReason: 'OCR_EXTRACTION_ERROR',
+        relevantValues: { error: ocrErr?.message },
+      });
+    }
+
+    const cWidth = effectiveCanvas.width || pageWidthPt;
+    const cHeight = effectiveCanvas.height || pageHeightPt;
+
+    const wordsConverted = ocrWords
+      .filter((w) => w.text && w.text.trim().length > 0 && w.bbox)
+      .map((w) => {
+        const x = (w.bbox.x0 / cWidth) * pageWidthPt;
+        const yTop = (w.bbox.y0 / cHeight) * pageHeightPt;
+        const widthPt = ((w.bbox.x1 - w.bbox.x0) / cWidth) * pageWidthPt;
+        const heightPt = ((w.bbox.y1 - w.bbox.y0) / cHeight) * pageHeightPt;
+        return {
+          x: Math.round(x * 10) / 10,
+          yTop: Math.round(yTop * 10) / 10,
+          w: Math.max(6, Math.round(widthPt * 10) / 10),
+          h: Math.max(8, Math.round(heightPt * 10) / 10),
+          str: w.text.trim(),
+          fontName: 'ocr_recognized',
+        };
+      })
+      .filter((it) => it.x >= -2 && it.x < pageWidthPt + 2 && it.yTop >= -2 && it.yTop < pageHeightPt + 2);
+
+    wordsConverted.sort((a, b) => (Math.abs(a.yTop - b.yTop) < 6 ? a.x - b.x : a.yTop - b.yTop));
+
+    const phrases: Array<{ x: number; yTop: number; w: number; h: number; str: string; fontName?: string }> = [];
+    let currentPhrase: { x: number; yTop: number; w: number; h: number; str: string; fontName?: string } | null = null;
+
+    for (const word of wordsConverted) {
+      textItems.push(word);
+
+      if (!currentPhrase) {
+        currentPhrase = { ...word };
+      } else {
+        const isSameLine = Math.abs(word.yTop - currentPhrase.yTop) <= Math.max(6, currentPhrase.h * 0.5);
+        const gapX = word.x - (currentPhrase.x + currentPhrase.w);
+        if (isSameLine && gapX >= -2 && gapX <= 24) {
+          currentPhrase.str = `${currentPhrase.str} ${word.str}`;
+          currentPhrase.w = Math.round((word.x + word.w - currentPhrase.x) * 10) / 10;
+          currentPhrase.h = Math.max(currentPhrase.h, word.h);
+        } else {
+          if (currentPhrase.str.includes(' ')) {
+            phrases.push(currentPhrase);
+          }
+          currentPhrase = { ...word };
+        }
+      }
+    }
+    if (currentPhrase && currentPhrase.str.includes(' ')) {
+      phrases.push(currentPhrase);
+    }
+    textItems.push(...phrases);
+
+    traceSteps.push({
+      step: 'ocrExtraction',
+      description: 'Extracted OCR text items and word groupings from rendered canvas',
+      counts: {
+        rawOcrWordsCount: ocrWords.length,
+        validOcrTextItemsCount: textItems.length,
+        ocrConfidence,
+      },
+      details: {
+        textSample: textItems.slice(0, 10).map((t) => ({ str: t.str, x: t.x, y: t.yTop, w: t.w, h: t.h })),
+      },
+    });
+  }
+
+  // 3. Raster/Visual Canvas Scan
+  const rasterLines: Array<{ x1: number; y: number; x2: number; source: string }> = [];
+  let scannedCanvasData: {
+    lines: Array<{ x1: number; y: number; x2: number }>;
+    boxes: Array<{ x: number; y: number; w: number; h: number; isCheckbox: boolean }>;
+    verticalLines?: Array<{ x: number; y1: number; y2: number }>;
+  } = { lines: [], boxes: [], verticalLines: [] };
+
+  if (effectiveCanvas) {
+    try {
+      scannedCanvasData = detectVisualLinesFromCanvas(effectiveCanvas, pageWidthPt, pageHeightPt);
+      for (const sl of scannedCanvasData.lines) {
+        rasterLines.push({ ...sl, source: 'CANVAS' });
+      }
+      traceSteps.push({
+        step: 'detectVisualLinesFromCanvas',
+        description: 'Scanned rendered canvas for raster visual lines, vertical separators, and boxes',
+        counts: {
+          rasterLinesCount: scannedCanvasData.lines.length,
+          rasterVerticalLinesCount: scannedCanvasData.verticalLines?.length || 0,
+          rasterBoxesCount: scannedCanvasData.boxes.length,
+          rasterCheckboxesCount: scannedCanvasData.boxes.filter((b) => b.isCheckbox).length,
+        },
+      });
+    } catch (err: any) {
+      discardedList.push({
+        discardedAt: 'detectVisualLinesFromCanvas',
+        discardedReason: 'CANVAS_SCAN_FAILED',
+        relevantValues: { error: err?.message },
+      });
+    }
+  }
+
+  // 4. Run standard page detection with diagnostics feedback
+  let lastDiagnostics: PageDetectionDiagnostics | undefined;
+  const proposedFields = await detectFieldsOnPdfPage(pdfPage, pageNumber, existingFields, {
+    canvasElement: effectiveCanvas || undefined,
+    customOcrRunner: opts.customOcrRunner,
+    onDiagnostics: (d) => {
+      lastDiagnostics = d;
+    },
+  });
+
+  // 5. Build raw candidates list for trace
+  for (const box of vectorData.boxes) {
+    rawCandidatesList.push({
+      id: `vector-box-${box.x}-${box.y}`,
+      type: box.isCheckbox ? 'CHECKBOX' : 'BOX_CELL',
+      bbox: { x: box.x, y: box.y, w: box.w, h: box.h },
+      source: 'VECTOR_BOX',
+      associatedLabel: '',
+      confidence: box.isCheckbox ? 0.95 : 0.85,
+    });
+  }
+
+  for (const line of vectorData.lines) {
+    rawCandidatesList.push({
+      id: `vector-line-${line.x1}-${line.y}`,
+      type: 'LINE_FIELD',
+      bbox: { x: line.x1, y: line.y, w: line.x2 - line.x1, h: 20 },
+      source: 'VECTOR_LINE',
+      associatedLabel: '',
+      confidence: 0.88,
+    });
+  }
+
+  for (const box of scannedCanvasData.boxes) {
+    rawCandidatesList.push({
+      id: `raster-box-${box.x}-${box.y}`,
+      type: box.isCheckbox ? 'CHECKBOX' : 'BOX_CELL',
+      bbox: { x: box.x, y: box.y, w: box.w, h: box.h },
+      source: 'RASTER_BOX',
+      associatedLabel: '',
+      confidence: box.isCheckbox ? 0.92 : 0.85,
+    });
+  }
+
+  for (const line of scannedCanvasData.lines) {
+    rawCandidatesList.push({
+      id: `raster-line-${line.x1}-${line.y}`,
+      type: 'LINE_FIELD',
+      bbox: { x: line.x1, y: line.y, w: line.x2 - line.x1, h: 20 },
+      source: 'RASTER_LINE',
+      associatedLabel: '',
+      confidence: 0.85,
+    });
+  }
+
+  for (const pf of proposedFields) {
+    rawCandidatesList.push({
+      id: pf.fieldId,
+      type: pf.fieldType,
+      bbox: { x: pf.xPt, y: pf.yPt, w: pf.widthPt, h: pf.heightPt },
+      source: pf.detectionSource || 'COMBINED',
+      associatedLabel: pf.label,
+      confidence: pf.confidence || 0.9,
+    });
+  }
+
+  // 6. Record discarded reasons breakdown from clustering
+  if (lastDiagnostics?.discardedReasons) {
+    for (const [reason, count] of Object.entries(lastDiagnostics.discardedReasons)) {
+      if (count > 0) {
+        discardedList.push({
+          candidateId: undefined,
+          discardedAt: 'clusterAndRefineCandidates',
+          discardedReason: reason,
+          relevantValues: { count },
+        });
+      }
+    }
+  }
+
+  traceSteps.push({
+    step: 'fieldDiscriminationAndClustering',
+    description: 'Applied semantic and geometric discrimination: label exclusion, static text filtering, and structure anchoring',
+    counts: {
+      rawTotalCount: lastDiagnostics?.rawTotalCount || 0,
+      rawLinesCount: lastDiagnostics?.rawLinesCount || 0,
+      rawRectsCount: lastDiagnostics?.rawRectsCount || 0,
+      rawTextCount: lastDiagnostics?.rawTextCount || 0,
+      rawCheckboxCount: lastDiagnostics?.rawCheckboxCount || 0,
+      clustersCount: lastDiagnostics?.clustersCount || 0,
+      mergedCount: lastDiagnostics?.mergedCount || 0,
+      filteredStructureCount: lastDiagnostics?.filteredStructureCount || 0,
+      filteredLowConfidenceCount: lastDiagnostics?.filteredLowConfidenceCount || 0,
+      finalProposalsCount: proposedFields.length,
+      overDetectionSuspected: lastDiagnostics?.overDetectionSuspected || false,
+    },
+    details: {
+      discardedReasons: lastDiagnostics?.discardedReasons || {},
+    },
+  });
+
+  const diagnosticTrace: PageRuntimeDiagnosticTrace = {
+    timestamp: new Date().toISOString(),
+    document: {
+      modelId: opts.modelId || 'CUSTOM_PDF',
+      modelName: opts.modelName || 'Documento Attivo',
+      pageNumber,
+      pageWidthPt,
+      pageHeightPt,
+      viewport: {
+        scale: viewport.scale || 1.0,
+        rotation: viewport.rotation || 0,
+        offsetX: viewport.offsetX || 0,
+        offsetY: viewport.offsetY || 0,
+        width: viewport.width,
+        height: viewport.height,
+        viewBox: viewport.viewBox,
+        transform: viewport.transform,
+      },
+      rotation: (pdfPage as any).rotate || 0,
+      mediaBox: (pdfPage as any).mediaBox || (pdfPage as any).view || null,
+      cropBox: (pdfPage as any).cropBox || null,
+      view: (pdfPage as any).view || null,
+    },
+    textItems: textItems.map((t) => ({
+      text: t.str,
+      x: t.x,
+      y: t.yTop,
+      width: t.w,
+      height: t.h,
+      rawTransform: t.rawTransform,
+      fontName: t.fontName,
+    })),
+    vectorLines: vectorData.lines.map((l) => ({
+      x1: l.x1,
+      y1: l.y,
+      x2: l.x2,
+      y2: l.y,
+      source: 'VECTOR',
+    })),
+    vectorBoxes: vectorData.boxes.map((b) => ({
+      x: b.x,
+      y: b.y,
+      width: b.w,
+      height: b.h,
+      isCheckbox: b.isCheckbox,
+      source: 'VECTOR',
+    })),
+    rasterVisualLines: rasterLines,
+    rasterBoxes: scannedCanvasData.boxes.map((b) => ({
+      x: b.x,
+      y: b.y,
+      width: b.w,
+      height: b.h,
+      isCheckbox: b.isCheckbox,
+      source: 'CANVAS',
+    })),
+    rawCandidates: rawCandidatesList,
+    pipelineTrace: {
+      steps: traceSteps,
+      discarded: discardedList,
+    },
+    finalProposedFields: proposedFields.map((f) => ({
+      fieldId: f.fieldId,
+      label: f.label,
+      semanticKey: f.semanticKey,
+      fieldType: f.fieldType,
+      bbox: {
+        xPt: f.xPt,
+        yPt: f.yPt,
+        widthPt: f.widthPt,
+        heightPt: f.heightPt,
+      },
+      confidence: f.confidence,
+      derivationMethod: f.derivationMethod,
+      detectionSource: f.detectionSource,
+      sourceCandidateIds: [f.fieldId],
+    })),
+  };
+
+  return diagnosticTrace;
+}
+
+/**
  * Detects fields across all pages of a PDF document page by page.
  * Non-blocking, cancellable via AbortSignal, reporting real progress.
  */
@@ -1016,12 +2074,26 @@ export async function detectFieldsOnEntireDocument(
 
     try {
       const pageProxy = await pdfDoc.getPage(pageNum);
-      const detected = await detectFieldsOnPdfPage(pageProxy, pageNum, targetPage.fields);
-
-      if (detected.length > 0) {
-        targetPage.fields.push(...detected);
-        totalProposed += detected.length;
+      let pageCanvas: HTMLCanvasElement | undefined;
+      try {
+        const textContent = await pageProxy.getTextContent();
+        if ((!textContent.items || textContent.items.length === 0) && typeof document !== 'undefined' && pageProxy.render) {
+          pageCanvas = await renderPdfPageToCanvas(pageProxy, 2.0);
+        }
+      } catch {
+        // non-blocking
       }
+      const protectedFields = targetPage.fields.filter((f) => {
+        const prov = getFieldProvenance(f);
+        return prov === 'USER_CONFIRMED' || prov === 'MANUAL_CREATED' || prov === 'NATIVE_FORM';
+      });
+
+      const detected = await detectFieldsOnPdfPage(pageProxy, pageNum, protectedFields, {
+        canvasElement: pageCanvas,
+      });
+
+      targetPage.fields = [...protectedFields, ...detected];
+      totalProposed += detected.length;
     } catch (err) {
       console.warn(`Detection on page ${pageNum} encountered warning:`, err);
     }

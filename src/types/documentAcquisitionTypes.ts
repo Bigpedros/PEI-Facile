@@ -78,6 +78,7 @@ export interface ModelClassificationResult {
   isModelRecognized: boolean;
   recognitionReason: string;
   confidence: number;
+  schoolYear?: string;
 }
 
 /** Risultato complessivo dell'acquisizione del documento */
@@ -93,6 +94,8 @@ export interface DocumentAcquisitionResult {
   schoolName?: string;
   classOrSection?: string;
   compilationDate?: string;
+  sourceBinary?: Uint8Array;
+  canonicalDocument?: Uint8Array;
   processingTimeMs: number;
   warnings: string[];
   logs: string[];

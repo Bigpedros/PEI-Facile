@@ -39,6 +39,7 @@ export interface DocumentSurfaceProps {
   templateId?: string;
   modelDef?: PeiModelDefinition | null;
   schoolOrder: SchoolOrder;
+  customModels?: PeiModelDefinition[];
   sourcePdfUrl?: string;
   sourcePdfBinary?: Uint8Array | null;
   geometryMapping?: ModelGeometry | null;
@@ -59,6 +60,7 @@ export const DocumentSurface: React.FC<DocumentSurfaceProps> = ({
   templateId: propTemplateId,
   modelDef,
   schoolOrder,
+  customModels = [],
   sourcePdfUrl,
   sourcePdfBinary: propBinary,
   geometryMapping,
@@ -81,19 +83,47 @@ export const DocumentSurface: React.FC<DocumentSurfaceProps> = ({
     modelDef?.templateId ||
     schoolOrder;
 
-  const ministerialOrder =
-    resolveMinisterialOrder(effectiveTemplateId) ||
-    resolveMinisterialOrder(document.modelId) ||
-    resolveMinisterialOrder(schoolOrder) ||
-    resolveMinisterialOrder(modelDef?.schoolOrder);
+  const foundCustomModel = useMemo(() => {
+    if (!effectiveTemplateId) return null;
+    return customModels?.find(
+      (m) => m.id === effectiveTemplateId || m.templateId === effectiveTemplateId
+    ) || null;
+  }, [effectiveTemplateId, customModels]);
 
-  const isMinisterial =
-    Boolean(ministerialOrder) ||
-    Boolean(modelDef?.isMinisterial) ||
-    modelDef?.sourceKind === 'BUILT_IN' ||
-    modelDef?.originType === 'MINISTERIAL';
+  const effectiveModelDef = modelDef || foundCustomModel;
 
   const [resolvedSource, setResolvedSource] = useState<ResolvedTemplateSource | null>(null);
+
+  const isMinisterial = useMemo(() => {
+    if (resolvedSource) {
+      return resolvedSource.sourceKind === 'BUILT_IN';
+    }
+    if (effectiveModelDef) {
+      return (
+        effectiveModelDef.isMinisterial === true ||
+        effectiveModelDef.sourceKind === 'BUILT_IN' ||
+        effectiveModelDef.originType === 'MINISTERIAL'
+      );
+    }
+    if (effectiveTemplateId && effectiveTemplateId.startsWith('model_')) {
+      return false;
+    }
+    const order = resolveMinisterialOrder(effectiveTemplateId);
+    return Boolean(order);
+  }, [resolvedSource, effectiveModelDef, effectiveTemplateId]);
+
+  const ministerialOrder = useMemo(() => {
+    if (isMinisterial) {
+      return (
+        resolveMinisterialOrder(effectiveTemplateId) ||
+        resolveMinisterialOrder(document.modelId) ||
+        resolveMinisterialOrder(schoolOrder) ||
+        resolveMinisterialOrder(effectiveModelDef?.schoolOrder)
+      );
+    }
+    return null;
+  }, [isMinisterial, effectiveTemplateId, document.modelId, schoolOrder, effectiveModelDef]);
+
   const [schema, setSchema] = useState<TemplateSchema | null>(propSchema || null);
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
   const [loadingPdf, setLoadingPdf] = useState<boolean>(true);
@@ -114,11 +144,12 @@ export const DocumentSurface: React.FC<DocumentSurfaceProps> = ({
 
       try {
         const source = await resolveTemplateSource({
-          modelDef,
+          modelDef: effectiveModelDef,
           modelId: document.modelId,
           templateId: propTemplateId || document.templateId,
           schoolOrder: document.schoolOrder || schoolOrder,
-          providedBinary: propBinary,
+          customModels,
+          providedBinary: propBinary || document.sourcePdfBinary || document.canonicalDocument,
         });
 
         if (isCancelled) return;
@@ -180,9 +211,12 @@ export const DocumentSurface: React.FC<DocumentSurfaceProps> = ({
     document.modelId,
     document.schoolOrder,
     document.templateId,
+    document.sourcePdfBinary,
+    document.canonicalDocument,
     effectiveTemplateId,
     geometryMapping,
-    modelDef,
+    effectiveModelDef,
+    customModels,
     propBinary,
     propSchema,
     propTemplateId,

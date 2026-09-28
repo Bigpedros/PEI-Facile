@@ -47,11 +47,16 @@ import type {
   TemplateCalibrationStatus,
   VisualReviewStatus,
 } from '../../core/templateSchemaTypes';
-import type { PeiModelDefinition, SchoolOrder } from '../../types/pei';
+import type { PeiModelDefinition, SchoolOrder, PeiDocument } from '../../types/pei';
+import { reverseEngineerSchema } from '../../core/semanticReverseEngineering';
+import type { TemplateSchema, TemplateSchemaField } from '../../core/templateSchemaTypes';
 import {
   detectFieldsOnPdfPage,
   detectFieldsOnEntireDocument,
+  collectPageRuntimeDiagnostics,
+  getFieldProvenance,
 } from '../../core/assistedFieldDetectionService';
+import { isValidLabel } from '../../core/fieldCandidateClustering';
 import {
   Compass,
   Check,
@@ -120,6 +125,7 @@ export interface TemplateCalibrationWorkspaceProps {
   onApproved?: (calibratedModel: PeiModelDefinition) => void;
   onDraftSaved?: (savedModel: PeiModelDefinition) => void;
   instructionNotice?: string | null;
+  evidenceDocument?: PeiDocument;
 }
 
 type DragHandleType = 'move' | 'n' | 's' | 'e' | 'w' | 'nw' | 'ne' | 'sw' | 'se';
@@ -144,13 +150,14 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
   onApproved,
   onDraftSaved,
   instructionNotice,
+  evidenceDocument,
 }) => {
   const [selectedModelId, setSelectedModelId] = useState<string>(
     initialModelDef?.templateId || initialModelDef?.id || initialModelId
   );
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [scale, setScale] = useState<number>(1.2);
-  const [zoomMode, setZoomMode] = useState<'MANUAL' | 'FIT_PAGE' | 'FIT_WIDTH'>('MANUAL');
+  const [scale, setScale] = useState<number>(1.0);
+  const [zoomMode, setZoomMode] = useState<'MANUAL' | 'FIT_PAGE' | 'FIT_WIDTH'>('FIT_PAGE');
   const [snapToGrid, setSnapToGrid] = useState<boolean>(true);
   const [gridSizePt, setGridSizePt] = useState<number>(5);
 
@@ -198,6 +205,122 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [pdfLoading, setPdfLoading] = useState<boolean>(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
+
+  // --- SEMANTIC REVERSE ENGINEERING INTEGRATION (02S) ---
+  const [reverseEngineeringApplied, setReverseEngineeringApplied] = useState<boolean>(false);
+  const [diagnosticsState, setDiagnosticsState] = useState<{
+    reverseEngineeringAvailable: boolean;
+    reverseEngineeringUsed: boolean;
+    baselinePresent: boolean;
+    evidencePresent: boolean;
+    reverseEngineeredFields: number;
+    reverseEngineeredMappings: number;
+    reverseEngineeredOpaqueFields: number;
+    reverseEngineeredTransparentFields: number;
+  }>({
+    reverseEngineeringAvailable: false,
+    reverseEngineeringUsed: false,
+    baselinePresent: false,
+    evidencePresent: false,
+    reverseEngineeredFields: 0,
+    reverseEngineeredMappings: 0,
+    reverseEngineeredOpaqueFields: 0,
+    reverseEngineeredTransparentFields: 0,
+  });
+
+  const modelGeometryToTemplateSchema = (model: ModelGeometry): TemplateSchema => {
+    const fields: TemplateSchemaField[] = [];
+    if (model.pages) {
+      model.pages.forEach((p) => {
+        if (p.fields) {
+          p.fields.forEach((f) => {
+            fields.push({
+              templateFieldId: f.fieldId,
+              pageNumber: p.pageNumber,
+              geometry: {
+                xPt: f.xPt,
+                yPt: f.yPt,
+                widthPt: f.widthPt,
+                heightPt: f.heightPt,
+              },
+              label: f.label || '',
+              semanticKey: f.semanticKey || null,
+              backgroundMode: f.backgroundMode || 'TRANSPARENT',
+              calibrationStatus: f.calibrationStatus || 'CONFIRMED',
+              confidence: f.confidence ?? 1.0,
+              detectionSource: f.detectionSource,
+              suggestedLabel: f.suggestedLabel,
+              suggestedSemanticKey: f.suggestedSemanticKey,
+              fieldType: (f as any).fieldType || 'TEXT_SHORT',
+              required: (f as any).required ?? false,
+              overflowPolicy: (f as any).overflowPolicy || 'RIGID',
+              status: f.calibrationStatus === 'CONFIRMED' || f.calibrationStatus === 'MODIFIED' || f.status === 'MAPPED' ? 'MANUAL_VERIFIED' : f.calibrationStatus === 'REJECTED' ? 'REJECTED' : 'CANDIDATE',
+            });
+          });
+        }
+      });
+    }
+
+    return {
+      schemaId: `SCHEMA_${model.modelId}`,
+      templateId: model.modelId,
+      sourceSha256: model.sourcePdfSha256 || '',
+      sourcePdfFileName: model.sourcePdf || '',
+      version: model.schemaVersion || '1.0.0',
+      schoolOrder: model.schoolOrder as SchoolOrder,
+      totalPages: model.totalPages,
+      pages: (model.pages || []).map((p) => ({
+        pageNumber: p.pageNumber,
+        widthPt: p.widthPt,
+        heightPt: p.heightPt,
+      })),
+      fields,
+      calibrationStatus: 'ACQUIRED',
+      geometryValidationStatus: 'PASS',
+      visualReviewStatus: 'REQUIRED',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  };
+
+  const applyTemplateSchemaToModelGeometry = (schema: TemplateSchema, model: ModelGeometry): ModelGeometry => {
+    const updatedPages = model.pages.map((p) => {
+      const pageFields = schema.fields
+        .filter((f) => f.pageNumber === p.pageNumber)
+        .map((f) => {
+          const matchedOrig = p.fields?.find((orig) => orig.fieldId === f.templateFieldId);
+          return {
+            ...matchedOrig,
+            fieldId: f.templateFieldId,
+            xPt: f.geometry.xPt,
+            yPt: f.geometry.yPt,
+            widthPt: f.geometry.widthPt,
+            heightPt: f.geometry.heightPt,
+            label: f.label,
+            semanticKey: f.semanticKey || undefined,
+            backgroundMode: f.backgroundMode,
+            calibrationStatus: f.calibrationStatus || 'CONFIRMED',
+            confidence: f.confidence ?? 1.0,
+            detectionSource: f.detectionSource,
+            suggestedLabel: f.suggestedLabel,
+            suggestedSemanticKey: f.suggestedSemanticKey || undefined,
+            fieldType: f.fieldType,
+            required: f.required,
+            overflowPolicy: f.overflowPolicy,
+            status: f.status,
+          };
+        });
+      return {
+        ...p,
+        fields: pageFields as any[],
+      };
+    });
+
+    return {
+      ...model,
+      pages: updatedPages,
+    };
+  };
 
   // Active rendering refs to prevent concurrency bugs
   const activeRenderTaskRef = useRef<any>(null);
@@ -471,6 +594,51 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
         ? `sha_${selectedModelId}_${pdfSourceSha}`
         : `path_${selectedModelId}_${pdfSourceFileName || 'default'}`)
     : null;
+
+  useEffect(() => {
+    setReverseEngineeringApplied(false);
+  }, [selectedModelId]);
+
+  useEffect(() => {
+    if (isReady && currentModel && !reverseEngineeringApplied) {
+      const order = currentModel.schoolOrder || 'A2';
+      const baselineGeometry = BASELINE_MODELS[order];
+      const baselineSchema = baselineGeometry ? modelGeometryToTemplateSchema(baselineGeometry) : null;
+      const currentModelSchema = modelGeometryToTemplateSchema(currentModel);
+
+      // Execute Reverse Engineering
+      const { calibratedSchema, diagnostics } = reverseEngineerSchema(
+        baselineSchema,
+        currentModelSchema,
+        evidenceDocument || null,
+        null
+      );
+
+      // Merge results preserving existing fields with reinforced mapping
+      const enrichedModel = applyTemplateSchemaToModelGeometry(calibratedSchema, currentModel);
+
+      setModelState((prev) => ({
+        ...prev,
+        [selectedModelId]: enrichedModel,
+      }));
+
+      setReverseEngineeringApplied(true);
+
+      // Update diagnostics state
+      setDiagnosticsState({
+        reverseEngineeringAvailable: true,
+        reverseEngineeringUsed: true,
+        baselinePresent: diagnostics.baselinePresent,
+        evidencePresent: diagnostics.evidenceSource === 'PRESENT',
+        reverseEngineeredFields: diagnostics.evidenceConfirmedFields + diagnostics.evidenceDiscoveredFields,
+        reverseEngineeredMappings: diagnostics.semanticMappingsFound,
+        reverseEngineeredOpaqueFields: diagnostics.backgroundOpaqueSuggested,
+        reverseEngineeredTransparentFields: diagnostics.backgroundTransparentSuggested,
+      });
+
+      console.log('Semantic Reverse Engineering successfully applied to model calibration workspace.', diagnostics);
+    }
+  }, [isReady, selectedModelId, currentModel, reverseEngineeringApplied, evidenceDocument]);
 
   // Level 1: Document Loader — loads PDFDocumentProxy ONCE per source/template
   useEffect(() => {
@@ -904,7 +1072,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
 
   // Assisted Field Detection: Single Page
   const handleDetectPageFields = async () => {
-    if (!cachedPdfDocRef.current?.doc) {
+    if (!cachedPdfDocRef.current?.doc || !currentModel) {
       showToast('PDF non ancora caricato o non disponibile.');
       return;
     }
@@ -912,25 +1080,61 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
     try {
       const doc = cachedPdfDocRef.current.doc;
       const pageProxy = await doc.getPage(currentPage);
-      const existing = rawFieldsOnPage;
-      const proposed = await detectFieldsOnPdfPage(pageProxy, currentPage, existing, {
+      
+      // Safe Reconstruction Rebuild Flow (CTE-FIX-02U)
+      const protectedFields = rawFieldsOnPage.filter((f) => {
+        const prov = getFieldProvenance(f);
+        return prov === 'USER_CONFIRMED' || prov === 'MANUAL_CREATED' || prov === 'NATIVE_FORM';
+      });
+
+      const proposed = await detectFieldsOnPdfPage(pageProxy, currentPage, protectedFields, {
         canvasElement: canvasRef.current,
       });
 
+      const finalFields = [...protectedFields, ...proposed];
+
+      const updatedModel: ModelGeometry = JSON.parse(JSON.stringify(currentModel)) as ModelGeometry;
+      let targetPage = updatedModel.pages.find((p) => p.pageNumber === currentPage);
+      if (!targetPage) {
+        targetPage = { pageNumber: currentPage, widthPt: A4_WIDTH_PT, heightPt: A4_HEIGHT_PT, fields: [] };
+        updatedModel.pages.push(targetPage);
+      }
+      targetPage.fields = finalFields;
+
+      setModelState((prev) => ({
+        ...prev,
+        [selectedModelId]: updatedModel,
+      }));
+
+      // Immediately persist updated revalidated schema to IndexedDB as part of operational flow
+      try {
+        const binary = customBinaries[selectedModelId] || (await getTemplatePdfBinary(currentModel.sourcePdfSha256));
+        const nowIso = new Date().toISOString();
+        await saveCustomTemplate(
+          {
+            templateId: updatedModel.modelId,
+            name: updatedModel.modelName,
+            schoolOrder: updatedModel.schoolOrder as SchoolOrder,
+            sourceFileName: updatedModel.sourcePdf,
+            sourceSha256: updatedModel.sourcePdfSha256,
+            fileSizeBytes: binary ? binary.byteLength : 0,
+            pageCount: updatedModel.totalPages,
+            schemaVersion: '1.0.0',
+            createdAt: nowIso,
+            updatedAt: nowIso,
+            calibrationStatus: 'REVIEW_REQUIRED',
+            pages: updatedModel.pages,
+          },
+          binary || undefined
+        );
+      } catch (dbErr) {
+        console.warn('Could not immediately persist revalidated geometry to IndexedDB:', dbErr);
+      }
+
       if (proposed.length === 0) {
-        showToast('Nessun nuovo campo rilevato sulla pagina corrente.');
+        showToast('Ricalibrazione completata: vecchi campi automatici non validi rimossi.');
       } else {
-        setModelState((prev) => {
-          const model = JSON.parse(JSON.stringify(prev[selectedModelId])) as ModelGeometry;
-          let targetPage = model.pages.find((p) => p.pageNumber === currentPage);
-          if (!targetPage) {
-            targetPage = { pageNumber: currentPage, widthPt: A4_WIDTH_PT, heightPt: A4_HEIGHT_PT, fields: [] };
-            model.pages.push(targetPage);
-          }
-          targetPage.fields.push(...proposed);
-          return { ...prev, [selectedModelId]: model };
-        });
-        showToast(`${proposed.length} campi proposti con successo (Stato: PROPOSTO).`);
+        showToast(`Rilevamento completato: ${proposed.length} campi attivi proposti.`);
       }
     } catch (err: any) {
       console.error('Rilevamento campi pagina fallito:', err);
@@ -962,11 +1166,38 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
         controller.signal
       );
 
-      setModelState((prev) => {
-        const model = JSON.parse(JSON.stringify(prev[selectedModelId])) as ModelGeometry;
-        model.pages = res.pages;
-        return { ...prev, [selectedModelId]: model };
-      });
+      const updatedModel: ModelGeometry = JSON.parse(JSON.stringify(currentModel)) as ModelGeometry;
+      updatedModel.pages = res.pages;
+
+      setModelState((prev) => ({
+        ...prev,
+        [selectedModelId]: updatedModel,
+      }));
+
+      // Persist entire document changes immediately to IndexedDB
+      try {
+        const binary = customBinaries[selectedModelId] || (await getTemplatePdfBinary(currentModel.sourcePdfSha256));
+        const nowIso = new Date().toISOString();
+        await saveCustomTemplate(
+          {
+            templateId: updatedModel.modelId,
+            name: updatedModel.modelName,
+            schoolOrder: updatedModel.schoolOrder as SchoolOrder,
+            sourceFileName: updatedModel.sourcePdf,
+            sourceSha256: updatedModel.sourcePdfSha256,
+            fileSizeBytes: binary ? binary.byteLength : 0,
+            pageCount: updatedModel.totalPages,
+            schemaVersion: '1.0.0',
+            createdAt: nowIso,
+            updatedAt: nowIso,
+            calibrationStatus: 'REVIEW_REQUIRED',
+            pages: updatedModel.pages,
+          },
+          binary || undefined
+        );
+      } catch (dbErr) {
+        console.warn('Could not immediately persist entire document geometry to IndexedDB:', dbErr);
+      }
 
       if (controller.signal.aborted) {
         showToast(`Rilevamento interrotto dall'utente (${res.totalProposed} campi aggiunti).`);
@@ -987,6 +1218,145 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
   const handleCancelDetection = () => {
     if (detectionAbortControllerRef.current) {
       detectionAbortControllerRef.current.abort();
+    }
+  };
+
+  // Export runtime page diagnostics JSON (CTE-FIX-02C) - READ-ONLY Snapshot
+  const handleExportPageDiagnostics = async () => {
+    if (!cachedPdfDocRef.current?.doc || !currentModel) {
+      showToast('PDF non ancora disponibile per la diagnostica.');
+      return;
+    }
+    try {
+      showToast('Estrazione diagnostica runtime in corso...');
+      const doc = cachedPdfDocRef.current.doc;
+      const pageProxy = await doc.getPage(currentPage);
+      
+      // READ-ONLY Snapshot of the current state of the page (which was already revalidated on detection)
+      const trace = await collectPageRuntimeDiagnostics(pageProxy, {
+        canvasElement: canvasRef.current,
+        modelId: selectedModelId,
+        modelName: currentModel.modelName,
+        pageNumber: currentPage,
+        existingFields: rawFieldsOnPage,
+      });
+
+      // Build renderedFieldGeometry from rawFieldsOnPage (since they are already the applied ones)
+      const renderedFieldGeometry = rawFieldsOnPage.map((f) => {
+        const clampedField = clampFieldToPageBounds(f, activePageWidthPt, activePageHeightPt) || f;
+        const overlay = pdfRectToOverlayRect(clampedField, scale);
+        const unscaledViewport = pageProxy.getViewport({ scale: 1.0 });
+
+        return {
+          fieldId: f.fieldId,
+          label: f.label || '',
+          pageNumber: currentPage,
+          sourceGeometry: {
+            xPt: f.xPt,
+            yPt: f.yPt,
+            widthPt: f.widthPt,
+            heightPt: f.heightPt,
+            coordinateSpace: "Canonical PDF Points (origin: top-left)",
+            schemaPageWidth: activePageWidthPt,
+            schemaPageHeight: activePageHeightPt,
+          },
+          activeDocumentPage: {
+            documentPageWidth: unscaledViewport.width || activePageWidthPt,
+            documentPageHeight: unscaledViewport.height || activePageHeightPt,
+            rotation: pageProxy.rotate || 0,
+            viewportWidth: canvasWidthPx,
+            viewportHeight: canvasHeightPx,
+          },
+          display: {
+            zoom: scale,
+            viewportScale: scale,
+            viewportOffsetX: 0,
+            viewportOffsetY: 0,
+          },
+          finalOverlay: {
+            cssLeft: overlay.xCss,
+            cssTop: overlay.yCss,
+            cssWidth: overlay.widthCss,
+            cssHeight: overlay.heightCss,
+          },
+          sourceGeometryObjectOrigin: f.detectionSource || f.derivationMethod || 'persisted schema',
+          transformationsApplied: [
+            "clamped to page bounds",
+            "scaled by viewport scale"
+          ]
+        };
+      });
+
+      // Inject renderedFieldGeometry into trace
+      trace.renderedFieldGeometry = renderedFieldGeometry;
+
+      // Purely simulate/re-calculate revalidation diagnostics in a read-only manner
+      const simulatedProtected = rawFieldsOnPage.filter((f) => {
+        const prov = getFieldProvenance(f);
+        return prov === 'USER_CONFIRMED' || prov === 'MANUAL_CREATED' || prov === 'NATIVE_FORM';
+      });
+
+      const simulatedProposals = await detectFieldsOnPdfPage(pageProxy, currentPage, simulatedProtected, {
+        canvasElement: canvasRef.current,
+      });
+
+      const autoFieldsBefore = rawFieldsOnPage.filter((f) => getFieldProvenance(f) === 'AUTO_DETECTED');
+
+      const removedAutoFields = autoFieldsBefore.filter(
+        (old) => !simulatedProposals.some((p) => p.fieldId === old.fieldId)
+      ).map((f) => {
+        let reason = 'NOT_REDETECTED';
+        if (f.fieldType === 'CHECKBOX' || f.fieldType === 'SINGLE_CHOICE') {
+          reason = 'ORPHAN_CHECKBOX';
+        } else if (f.label && !isValidLabel(f.label)) {
+          reason = 'INVALID_LABEL';
+        }
+        return {
+          fieldId: f.fieldId,
+          label: f.label || '',
+          reason,
+        };
+      });
+
+      const autoFieldsRegenerated = simulatedProposals.filter(
+        (p) => autoFieldsBefore.some((old) => old.fieldId === p.fieldId)
+      ).length;
+
+      let duplicatesRemoved = 0;
+      const seen = new Set<string>();
+      for (const f of rawFieldsOnPage) {
+        const key = `${f.xPt}_${f.yPt}_${f.widthPt}_${f.heightPt}`;
+        if (seen.has(key)) {
+          duplicatesRemoved++;
+        } else {
+          seen.add(key);
+        }
+      }
+
+      trace.persistedGeometryRevalidation = {
+        existingFields: rawFieldsOnPage.length,
+        protectedFields: simulatedProtected.length,
+        autoFieldsBefore: autoFieldsBefore.length,
+        autoFieldsRemoved: removedAutoFields,
+        autoFieldsRegenerated,
+        duplicatesRemoved,
+        finalFields: rawFieldsOnPage.length,
+      };
+
+      const jsonStr = JSON.stringify(trace, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `PEI_diagnostica_runtime_${selectedModelId}_pag_${currentPage}_${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast(`Diagnostica Pagina ${currentPage} esportata con successo (Snapshot Read-Only).`);
+    } catch (err: any) {
+      console.error('Esportazione diagnostica runtime fallita:', err);
+      showToast(`Errore esportazione diagnostica: ${err?.message || err}`);
     }
   };
 
@@ -1656,6 +2026,18 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
 
           <button
             type="button"
+            id="btn-header-export-diagnostics"
+            disabled={!currentModel || !cachedPdfDocRef.current?.doc || isDetecting}
+            onClick={handleExportPageDiagnostics}
+            className="px-2.5 py-1.5 rounded bg-purple-950/70 hover:bg-purple-900 text-purple-200 font-semibold border border-purple-700/60 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-xs"
+            title="Esporta diagnostica runtime reale della pagina in formato JSON (PDF.js + vettori + pipeline trace)"
+          >
+            <FileText className="w-3.5 h-3.5 text-purple-400" />
+            <span>Esporta Diagnostica</span>
+          </button>
+
+          <button
+            type="button"
             id="btn-copy-geometry-json"
             disabled={!currentModel}
             onClick={copyUpdatedJson}
@@ -2169,6 +2551,29 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
               </div>
             </div>
 
+            {/* Semantic Reverse Engineering Diagnostic Status Strip */}
+            {diagnosticsState.reverseEngineeringAvailable && (
+              <div className="bg-stone-950 p-2.5 rounded-lg border border-stone-800 text-[11px] space-y-1">
+                <div className="flex items-center justify-between text-stone-300 font-semibold">
+                  <span className="flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400 font-bold animate-pulse" />
+                    Reverse Engineering Semantico
+                  </span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-800/40">
+                    ATTIVO
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-1 text-stone-400 font-mono text-[10px]">
+                  <div>Baseline: <span className={diagnosticsState.baselinePresent ? "text-emerald-400 font-bold" : "text-amber-500"}>{diagnosticsState.baselinePresent ? "Presente" : "Assente"}</span></div>
+                  <div>Evidenza: <span className={diagnosticsState.evidencePresent ? "text-emerald-400 font-bold" : "text-amber-500"}>{diagnosticsState.evidencePresent ? "Presente" : "Assente"}</span></div>
+                  <div>Mappature GLO: <span className="text-stone-200">{diagnosticsState.reverseEngineeredMappings}</span></div>
+                  <div>Campi Confermati: <span className="text-stone-200">{diagnosticsState.reverseEngineeredFields}</span></div>
+                  <div>Sfondi Opachi: <span className="text-stone-200">{diagnosticsState.reverseEngineeredOpaqueFields}</span></div>
+                  <div>Sfondi Trasp.: <span className="text-stone-200">{diagnosticsState.reverseEngineeredTransparentFields}</span></div>
+                </div>
+              </div>
+            )}
+
             {/* In-Flight Detection Banner / Actions */}
             {isDetecting ? (
               <div className="bg-amber-950/70 border border-amber-600/50 p-2.5 rounded-lg text-amber-200 space-y-2">
@@ -2254,6 +2659,21 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
                   >
                     <Copy className="w-3.5 h-3.5 text-amber-400" />
                     <span>Duplica Campo</span>
+                  </button>
+                </div>
+
+                {/* Diagnostic Trace Export (CTE-FIX-02C) */}
+                <div className="pt-1 border-t border-stone-800/80">
+                  <button
+                    type="button"
+                    id="btn-export-page-diagnostics"
+                    disabled={!currentModel || !cachedPdfDocRef.current?.doc || isDetecting}
+                    onClick={handleExportPageDiagnostics}
+                    className="w-full py-1.5 px-2 rounded-md bg-purple-950/70 hover:bg-purple-900 text-purple-200 font-semibold border border-purple-700/60 shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-[11px]"
+                    title="Esporta JSON di diagnostica runtime reale della pagina (Document, TextItems, VectorLines, VectorBoxes, Pipeline Trace, Final Fields)"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-purple-400" />
+                    <span>Esporta diagnostica pagina (JSON)</span>
                   </button>
                 </div>
 

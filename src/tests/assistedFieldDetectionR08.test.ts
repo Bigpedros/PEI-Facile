@@ -299,10 +299,12 @@ describe('PEI FACILE — R08 Assisted Field Detection', () => {
           fnArray: [
             4, // OPS.rectangle
             4, // OPS.rectangle (checkbox size)
+            4, // Second checkbox to form a group of options and prevent orphan rejection
           ],
           argsArray: [
             [50, 700, 200, 30], // Big input box
-            [300, 700, 12, 12], // Checkbox
+            [300, 700, 12, 12], // Checkbox 1
+            [350, 700, 12, 12], // Checkbox 2
           ],
         }),
         getTextContent: async () => ({

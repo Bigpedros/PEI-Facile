@@ -17,70 +17,161 @@ import { MINISTERIAL_PEI_MODELS } from '../data/peiModelRegistry';
  * 1. DOCUMENT MODEL CLASSIFIER
  * Classifica il documento in modo deterministico. Se non riconosciuto, NON forza A1-A4.
  */
+/**
+ * Estrae e normalizza l'anno scolastico in formato YYYY/YYYY (es. "2025/2026").
+ */
+export function extractAndNormalizeSchoolYear(text: string): string | undefined {
+  const regexes = [
+    /(?:anno\s+scolastico|a\.s\.)\s*[:\-]?\s*(\d{4})[\s/\\\-]+\s*(\d{2,4})/i,
+    /(\d{4})[\s/\\\-]+\s*(\d{2,4})\s*(?:anno\s+scolastico|a\.s\.)/i,
+    /a\.s\.\s*(\d{4})/i
+  ];
+
+  for (const regex of regexes) {
+    const match = text.match(regex);
+    if (match) {
+      const startYear = match[1];
+      let endYear = match[2];
+      if (!endYear) {
+        const startNum = parseInt(startYear, 10);
+        endYear = String(startNum + 1);
+      }
+      if (endYear.length === 2) {
+        const century = startYear.slice(0, 2);
+        endYear = century + endYear;
+      }
+      return `${startYear}/${endYear}`;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Inferisce l'anno scolastico in base alle date espresse in mesi (es. "dicembre 2005", "gennaio 2006").
+ */
+export function inferSchoolYearFromDates(text: string): string | undefined {
+  const months = [
+    'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
+    'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'
+  ];
+  const monthsRegex = new RegExp(`(${months.join('|')})\\s+(\\d{4})`, 'i');
+  const match = text.match(monthsRegex);
+  if (match) {
+    const monthName = match[1].toLowerCase();
+    const year = parseInt(match[2], 10);
+    const monthIndex = months.indexOf(monthName);
+    // Settembre-Dicembre -> anno/anno+1. Gennaio-Agosto -> anno-1/anno
+    if (monthIndex >= 8) {
+      return `${year}/${year + 1}`;
+    } else {
+      return `${year - 1}/${year}`;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Verifica se un anno scolastico ricade in un intervallo di validità.
+ */
+export function isSchoolYearInRange(
+  year: string,
+  fromYear?: string,
+  toYear?: string
+): boolean {
+  if (!year) return true;
+  const matchCurrent = year.match(/^(\d{4})/);
+  if (!matchCurrent) return true;
+  const currentNum = parseInt(matchCurrent[1], 10);
+
+  if (fromYear) {
+    const matchFrom = fromYear.match(/^(\d{4})/);
+    if (matchFrom) {
+      const fromNum = parseInt(matchFrom[1], 10);
+      if (currentNum < fromNum) return false;
+    }
+  }
+
+  if (toYear) {
+    const matchTo = toYear.match(/^(\d{4})/);
+    if (matchTo) {
+      const toNum = parseInt(matchTo[1], 10);
+      if (currentNum > toNum) return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Calcola un punteggio semantico di compatibilità del testo con un modello personalizzato.
+ */
+export function calculateCustomModelSemanticScore(
+  text: string,
+  model: PeiModelDefinition
+): { score: number; matchedKeywords: string[] } {
+  const lowerText = text.toLowerCase();
+  let score = 0;
+  const matchedKeywords: string[] = [];
+
+  // 1. Corrispondenza frase intera o hash
+  if (model.name && lowerText.includes(model.name.toLowerCase())) {
+    score += 50;
+    matchedKeywords.push(model.name);
+  }
+  if (model.originName && lowerText.includes(model.originName.toLowerCase())) {
+    score += 40;
+    matchedKeywords.push(model.originName);
+  }
+  if (model.sourceHash && text.includes(model.sourceHash)) {
+    score += 60;
+    matchedKeywords.push(model.sourceHash);
+  }
+
+  // 2. Corrispondenza basata su parole chiave / firma semantica
+  const tokensToMatch = new Set<string>();
+  if (model.semanticSignature && model.semanticSignature.length > 0) {
+    model.semanticSignature.forEach((sig) => tokensToMatch.add(sig.toLowerCase()));
+  } else {
+    // Generazione automatica firma da nome e origine
+    const sourceString = `${model.name || ''} ${model.originName || ''}`;
+    const potentialTokens = sourceString
+      .toLowerCase()
+      .split(/[^a-z0-9]+/i)
+      .filter((t) => t.length >= 4 && t !== 'model' && t !== 'modello' && t !== 'vuoto');
+    potentialTokens.forEach((t) => tokensToMatch.add(t));
+  }
+
+  let tokenMatchCount = 0;
+  for (const token of tokensToMatch) {
+    if (lowerText.includes(token)) {
+      tokenMatchCount++;
+      matchedKeywords.push(token);
+    }
+  }
+
+  if (tokensToMatch.size > 0) {
+    const tokenScore = (tokenMatchCount / tokensToMatch.size) * 55;
+    score += tokenScore;
+  }
+
+  return {
+    score: Math.min(100, Math.round(score)),
+    matchedKeywords,
+  };
+}
+
+/**
+ * 1. DOCUMENT MODEL CLASSIFIER
+ * Classifica il documento in modo deterministico. Se non riconosciuto, NON forza A1-A4.
+ */
 export function classifyDocumentModel(
   fullText: string,
   customModels: PeiModelDefinition[] = []
 ): ModelClassificationResult {
   const lower = fullText.toLowerCase();
 
-  // 1. Verifica modelli personalizzati registrati
-  for (const cm of customModels) {
-    if (
-      (cm.name && lower.includes(cm.name.toLowerCase())) ||
-      (cm.originName && lower.includes(cm.originName.toLowerCase())) ||
-      (cm.sourceHash && fullText.includes(cm.sourceHash))
-    ) {
-      return {
-        detectedOrder: cm.schoolOrder,
-        detectedModelId: cm.id,
-        detectedModelName: cm.name,
-        isModelRecognized: true,
-        recognitionReason: `Corrispondenza con modello personalizzato registrato: "${cm.name}" (${cm.originType})`,
-        confidence: 95,
-      };
-    }
-  }
-
-  // 2. Verifica modelli ministeriali ufficiali (A1, A2, A3, A4)
-  const a1Matches = [
-    'allegato a1',
-    'scuola dell’infanzia',
-    "scuola dell'infanzia",
-    'scuola infanzia',
-    'campi di esperienza',
-    'decreto interministeriale n. 182',
-  ].filter((k) => lower.includes(k));
-
-  const a2Matches = [
-    'allegato a2',
-    'scuola primaria',
-    'giudizio descrittivo',
-    'quattro livelli di apprendimento',
-    'decreto interministeriale n. 182',
-  ].filter((k) => lower.includes(k));
-
-  const a3Matches = [
-    'allegato a3',
-    'secondaria di primo grado',
-    'secondaria i grado',
-    'esame di stato conclusivo',
-    'prove invalsi con misure compensative',
-    'decreto interministeriale n. 182',
-  ].filter((k) => lower.includes(k));
-
-  const a4Matches = [
-    'allegato a4',
-    'secondaria di secondo grado',
-    'secondaria ii grado',
-    'pcto',
-    'percorsi per le competenze trasversali',
-    'percorso a - ordinario',
-    'percorso b - personalizzato',
-    'percorso c - differenziato',
-  ].filter((k) => lower.includes(k));
-
-  // Punteggi ponderati
-  const scores: { order: SchoolOrder; score: number; reason: string }[] = [
+  // STEP 1: FAMILY DETECTION (A1, A2, A3, A4)
+  const familyScores: { order: SchoolOrder; score: number; reason: string }[] = [
     {
       order: 'A1',
       score:
@@ -115,26 +206,75 @@ export function classifyDocumentModel(
     },
   ];
 
-  scores.sort((a, b) => b.score - a.score);
-  const best = scores[0];
+  familyScores.sort((a, b) => b.score - a.score);
+  const bestFamily = familyScores[0] && familyScores[0].score >= 30 ? familyScores[0].order : undefined;
 
-  if (best && best.score >= 30) {
-    const minMeta = MINISTERIAL_PEI_MODELS.find((m) => m.schoolOrder === best.order);
+  // STEP 2: ACADEMIC YEAR DETECTION
+  let schoolYear = extractAndNormalizeSchoolYear(fullText);
+  if (!schoolYear) {
+    schoolYear = inferSchoolYearFromDates(fullText);
+  }
+
+  // STEP 3: BASELINE / DERIVED CANDIDATES FILTERING
+  let candidateModels = [...customModels];
+  if (bestFamily) {
+    candidateModels = candidateModels.filter((m) => m.schoolOrder === bestFamily);
+  }
+
+  if (schoolYear) {
+    candidateModels = candidateModels.filter((m) =>
+      isSchoolYearInRange(schoolYear!, m.baselineValidFromSchoolYear, m.baselineValidToSchoolYear)
+    );
+  }
+
+  // STEP 4: SCORE CANDIDATE MODELS
+  const scoredCustoms = candidateModels.map((m) => {
+    const { score, matchedKeywords } = calculateCustomModelSemanticScore(fullText, m);
     return {
-      detectedOrder: best.order,
-      detectedModelId: `MINISTERIAL_${best.order}`,
-      detectedModelName: minMeta?.name || `Modello Ministeriale ${best.order}`,
+      model: m,
+      score,
+      matchedKeywords,
+    };
+  });
+
+  scoredCustoms.sort((a, b) => b.score - a.score);
+
+  // STEP 5 & 6: SELECTION - Prefer specific derived model over general built-in
+  if (scoredCustoms.length > 0 && scoredCustoms[0].score >= 40) {
+    const bestCustom = scoredCustoms[0].model;
+    const confidence = Math.min(99, 60 + scoredCustoms[0].score);
+    return {
+      detectedOrder: bestCustom.schoolOrder,
+      detectedModelId: bestCustom.id,
+      detectedModelName: bestCustom.name,
       isModelRecognized: true,
-      recognitionReason: best.reason,
-      confidence: Math.min(95, 60 + best.score),
+      recognitionReason: `Corrispondenza con modello personalizzato registrato: "${bestCustom.name}" (${bestCustom.originType}) basato su firma semantica.`,
+      confidence,
+      schoolYear,
     };
   }
 
-  // Nessuna corrispondenza affidabile
+  // STEP 7: FALLBACK - Use general ministerial template if family is found
+  if (bestFamily) {
+    const minMeta = MINISTERIAL_PEI_MODELS.find((m) => m.schoolOrder === bestFamily);
+    const familyReason = familyScores.find((f) => f.order === bestFamily)?.reason || `Marcatori famiglia ${bestFamily}`;
+    return {
+      detectedOrder: bestFamily,
+      detectedModelId: `MINISTERIAL_${bestFamily}`,
+      detectedModelName: minMeta?.name || `Modello Ministeriale ${bestFamily}`,
+      isModelRecognized: true,
+      recognitionReason: familyReason,
+      confidence: Math.min(95, 60 + (familyScores.find((f) => f.order === bestFamily)?.score || 0)),
+      schoolYear,
+    };
+  }
+
+  // No reliable matches at all
   return {
     isModelRecognized: false,
     recognitionReason: 'MODELLO NON RICONOSCIUTO: il documento non presenta intestazioni ministeriali o di modelli registrati note.',
     confidence: 0,
+    schoolYear,
   };
 }
 

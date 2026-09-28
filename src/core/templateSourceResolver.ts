@@ -236,31 +236,35 @@ export async function resolveTemplateSource(
             visualReviewStatus: 'REQUIRED',
           };
 
-    // Retrieve PDF bytes directly from bundled asset (or provided binary)
+    // Retrieve PDF bytes directly from provided canonical binary or load bundled asset
     let bytes: Uint8Array;
+    let effectiveSha: string = canonical.sourceSha256;
+
     if (providedBinary && providedBinary.byteLength > 0) {
+      // CTE-FIX-01: Canonical document pass-through for acquired/normalized documents
       bytes = providedBinary;
+      effectiveSha = await computeSha256(bytes);
     } else {
+      // Direct ministerial creation: load built-in asset and verify integrity
       bytes = await loadBuiltInAssetBytes(canonical.sourcePath);
-    }
 
-    // Verify SHA-256 against baseline
-    if (!skipHashCheck) {
-      const actualSha = mockCorruptedHash
-        ? '0000000000000000000000000000000000000000000000000000000000000000'
-        : await computeSha256(bytes);
+      if (!skipHashCheck) {
+        const actualSha = mockCorruptedHash
+          ? '0000000000000000000000000000000000000000000000000000000000000000'
+          : await computeSha256(bytes);
 
-      if (actualSha !== canonical.sourceSha256) {
-        throw new TemplateSourceError(
-          'TEMPLATE_INTEGRITY_MISMATCH',
-          `TEMPLATE INTEGRITY MISMATCH — L'hash SHA-256 del PDF ministeriale (${canonical.sourcePdfFileName}) non corrisponde alla baseline ufficiale.\nAtteso:  ${canonical.sourceSha256}\nRilevato: ${actualSha}`,
-          {
-            expectedSha: canonical.sourceSha256,
-            actualSha,
-            order,
-            fileName: canonical.sourcePdfFileName,
-          }
-        );
+        if (actualSha !== canonical.sourceSha256) {
+          throw new TemplateSourceError(
+            'TEMPLATE_INTEGRITY_MISMATCH',
+            `TEMPLATE INTEGRITY MISMATCH — L'hash SHA-256 del PDF ministeriale (${canonical.sourcePdfFileName}) non corrisponde alla baseline ufficiale.\nAtteso:  ${canonical.sourceSha256}\nRilevato: ${actualSha}`,
+            {
+              expectedSha: canonical.sourceSha256,
+              actualSha,
+              order,
+              fileName: canonical.sourcePdfFileName,
+            }
+          );
+        }
       }
     }
 
@@ -273,7 +277,7 @@ export async function resolveTemplateSource(
       sourceKind: 'BUILT_IN',
       sourcePath: canonical.sourcePath,
       sourceBinary: bytes,
-      sourceSha256: canonical.sourceSha256,
+      sourceSha256: effectiveSha,
       schoolOrder: order,
       templateId: canonical.templateId,
       templateSchema,

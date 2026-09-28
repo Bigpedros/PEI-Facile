@@ -322,6 +322,16 @@ export class NormalizationExecutionEngine {
       // ====================================================================
       // 6. MARGIN ADJUSTMENT
       // ====================================================================
+      // Mathematical Coordinate Conversion:
+      // - PDF User Space (ISO 32000-1): Origin (0,0) is at Bottom-Left, +Y goes UPWARDS.
+      // - Screen / Overlay Space: Origin (0,0) is at Top-Left, +Y goes DOWNWARDS.
+      // - Margin Corrections:
+      //     marginCorrection.top = targetTop - currentTop (positive if top margin needs to grow -> content moves down, i.e. -Y in PDF space)
+      //     marginCorrection.bottom = targetBottom - currentBottom (positive if bottom margin needs to grow -> content moves up, i.e. +Y in PDF space)
+      // - Therefore in PDF User Space:
+      //     dx = (marginCorrection.left - marginCorrection.right) / 2
+      //     dy = (marginCorrection.bottom - marginCorrection.top) / 2
+      // ====================================================================
       const marginOp = pagePlan.operationSequence.find(o => o.type === 'margin_adjustment');
       if (marginOp) {
         const dx =

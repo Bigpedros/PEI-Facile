@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { PeiDocument, PeiSectionDefinition } from '../../types/pei';
+import type { PeiDocument, PeiSectionDefinition, PeiModelDefinition } from '../../types/pei';
 import { SCHOOL_ORDERS_METADATA } from '../../data/masterPeiStructure';
 import { DocumentSurface } from '../document/DocumentSurface';
 import {
@@ -22,6 +22,7 @@ interface AnteprimaScreenProps {
   onChangeZoom: (scale: number) => void;
   onOpenShareModal: () => void;
   onOpenCalibration?: () => void;
+  customModels?: PeiModelDefinition[];
 }
 
 export const AnteprimaScreen: React.FC<AnteprimaScreenProps> = ({
@@ -32,6 +33,7 @@ export const AnteprimaScreen: React.FC<AnteprimaScreenProps> = ({
   onChangeZoom,
   onOpenShareModal,
   onOpenCalibration,
+  customModels = [],
 }) => {
   const modelMeta = SCHOOL_ORDERS_METADATA[document.schoolOrder];
 
@@ -121,6 +123,7 @@ export const AnteprimaScreen: React.FC<AnteprimaScreenProps> = ({
         <DocumentSurface
           document={document}
           schoolOrder={document.schoolOrder}
+          customModels={customModels}
           mode="PREVIEW"
           zoomScale={zoomScale}
           showAllPages={true}

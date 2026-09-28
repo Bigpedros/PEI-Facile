@@ -26,15 +26,43 @@ import {
   validateFieldGeometry,
   extractCellInteriorRect,
   calculateGeometryFitScore,
+  isExplicitPrompt,
   type StructureAnchorType,
   type GeometryFitEvaluation,
 } from '../data/geometry/geometryTransform';
+
+export function isValidLabel(label: string): boolean {
+  const clean = label.trim();
+  if (!clean) return false;
+
+  // 1. Check if label has any letters (alpha characters)
+  const hasLetters = /[a-zA-ZàèìòùéÀÈÌÒÙÉ]/.test(clean);
+  if (!hasLetters) {
+    return false;
+  }
+
+  // 2. Short brief OCR garbage or symbols: e.g. "L]", "l)", "i)"
+  if (clean.length <= 2) {
+    if (/^[a-zA-Z\d][\]\)\|\/\\_]+$/.test(clean) || /^[^a-zA-Z\d]+$/.test(clean) || /^[\]\)\|\/\\_]+[a-zA-Z\d]$/.test(clean)) {
+      return false;
+    }
+  }
+
+  // 3. Common noise strings / OCR fragments to reject as autonomous labels
+  const noise = ['di', 'da', 'del', 'al', 'il', 'la', 'i', 'gli', 'le', 'un', 'una', 'data', 'personale', 'rivedibilità'];
+  if (noise.includes(clean.toLowerCase())) {
+    return false;
+  }
+
+  return true;
+}
 
 export {
   snapFieldToDetectedStructure,
   validateFieldGeometry,
   extractCellInteriorRect,
   calculateGeometryFitScore,
+  isExplicitPrompt,
   type StructureAnchorType,
   type GeometryFitEvaluation,
 };
@@ -75,6 +103,7 @@ export type DiscardReason =
   | 'TOO_SMALL'
   | 'NO_LABEL'
   | 'HEADER_ONLY'
+  | 'STATIC_TEXT_NO_GEOMETRY'
   | 'OTHER';
 
 export interface CandidateClusteringDiagnostics {
@@ -112,7 +141,7 @@ export interface ProcessCandidatesInput {
 /**
  * Merges horizontally colinear segments with small gaps (< 16 pt).
  */
-export function mergeColinearHorizontalLines(lines: RawLineCandidate[]): RawLineCandidate[] {
+export function mergeColinearHorizontalLines(lines: RawLineCandidate[], textItems: RawTextItem[] = []): RawLineCandidate[] {
   if (lines.length <= 1) return [...lines];
 
   // Group lines by y-coordinate (tolerance 2.5 pt)
@@ -141,8 +170,20 @@ export function mergeColinearHorizontalLines(lines: RawLineCandidate[]): RawLine
 
     for (let i = 1; i < group.length; i++) {
       const next = group[i];
-      // If overlapping or gap is small (< 16 pt)
-      if (next.x1 <= current.x2 + 16) {
+      // Check if there is non-punctuation text in between current and next
+      let hasTextInBetween = false;
+      if (textItems && textItems.length > 0) {
+        hasTextInBetween = textItems.some(
+          (it) =>
+            Math.abs(it.yTop - current.y) < 12 &&
+            it.x >= current.x2 - 5 &&
+            it.x + it.w <= next.x1 + 5 &&
+            /[a-zA-ZàèìòùéÀÈÌÒÙÉ]/.test(it.str)
+        );
+      }
+
+      // If overlapping or gap is small (< 16 pt) and no text is in between
+      if (next.x1 <= current.x2 + 16 && !hasTextInBetween) {
         current.x2 = Math.max(current.x2, next.x2);
         current.x1 = Math.min(current.x1, next.x1);
       } else {
@@ -229,23 +270,22 @@ export function clusterMultilineAreas(
       }
     }
 
-    // A multiline area must have at least 2 stacked parallel lines
-    if (cluster.length >= 2) {
+    // Find nearby prompt above the top line of the cluster
+    const topY = cluster[0].y;
+    const leftX = Math.min(...cluster.map((l) => l.x1));
+    const rightX = Math.max(...cluster.map((l) => l.x2));
+
+    const prompt = textItems.find(
+      (it) =>
+        topY - (it.yTop + it.h) >= -2 &&
+        topY - (it.yTop + it.h) <= 35 &&
+        it.x >= leftX - 40 &&
+        it.x <= rightX
+    );
+
+    // Multiline narrative area: at least 3 lines, OR 2 lines with a prompt above
+    if (cluster.length >= 3 || (cluster.length >= 2 && prompt)) {
       clusterIndices.forEach((idx) => usedLineIndices.add(idx));
-
-      // Find nearby prompt above the top line of the cluster
-      const topY = cluster[0].y;
-      const leftX = Math.min(...cluster.map((l) => l.x1));
-      const rightX = Math.max(...cluster.map((l) => l.x2));
-
-      const prompt = textItems.find(
-        (it) =>
-          topY - (it.yTop + it.h) >= -2 &&
-          topY - (it.yTop + it.h) <= 35 &&
-          it.x >= leftX - 40 &&
-          it.x <= rightX
-      );
-
       multilineClusters.push({ lines: cluster, prompt });
     }
   }
@@ -273,7 +313,8 @@ export function clusterMultilineAreas(
 export function filterTableStructureLines(
   lines: RawLineCandidate[],
   boxes: RawRectCandidate[],
-  pageWidthPt: number
+  pageWidthPt: number,
+  textItems: RawTextItem[] = []
 ): {
   filteredLines: RawLineCandidate[];
   structuralLinesCount: number;
@@ -290,7 +331,7 @@ export function filterTableStructureLines(
   });
 
   // 2. Identify grid bounding boxes or table outlines
-  const tableBoxes = boxes.filter((b) => b.w >= 100 && b.h >= 30 && !b.isCheckbox);
+  const tableBoxes = boxes.filter((b) => b.w >= 30 && b.h >= 16 && !b.isCheckbox);
 
   // 3. Detect multi-row grid structures: horizontal lines sharing x1 and x2
   const lineGroupsBySpan = new Map<string, RawLineCandidate[]>();
@@ -301,7 +342,7 @@ export function filterTableStructureLines(
     lineGroupsBySpan.set(key, grp);
   }
 
-  // If lines form regular grid lines across the width with spacing > 24 pt, they are table grid rows!
+  // If lines form regular grid lines across the width with spacing > 24 pt, they are potential table grid rows
   const gridLineSet = new Set<RawLineCandidate>();
   for (const [, grp] of lineGroupsBySpan.entries()) {
     if (grp.length >= 3) {
@@ -314,7 +355,19 @@ export function filterTableStructureLines(
           break;
         }
       }
-      if (isTableGrid && grp[1].y - grp[0].y >= 24) {
+      // If there is a prompt above the top line of this group, this is a multiline narrative writing area, NOT table grid borders!
+      const topY = grp[0].y;
+      const leftX = Math.min(...grp.map((l) => l.x1));
+      const rightX = Math.max(...grp.map((l) => l.x2));
+      const hasPromptAboveGroup = textItems.some(
+        (it) =>
+          topY - (it.yTop + it.h) >= -2 &&
+          topY - (it.yTop + it.h) <= 35 &&
+          it.x >= leftX - 40 &&
+          it.x <= rightX
+      );
+
+      if (!hasPromptAboveGroup && isTableGrid && grp[1].y - grp[0].y >= 24) {
         for (const l of grp) {
           gridLineSet.add(l);
         }
@@ -331,13 +384,39 @@ export function filterTableStructureLines(
       return false;
     }
 
-    // B. Part of a detected table grid
+    // Contextual Evidence Check: Does this line have adjacent text prompt evidence (label, date, field name)?
+    // A line inside a table or grid MUST NOT be discarded if there is contextual evidence of compilability!
+    const hasNearbyPrompt = textItems.some((it) => {
+      const isPrompt = isExplicitPrompt(it.str);
+      if (!isPrompt) return false;
+
+      // 1. Label directly to the left on the same line band
+      const isLeftPrompt =
+        Math.abs(it.yTop + it.h * 0.8 - line.y) < 14 &&
+        it.x + it.w <= line.x1 + 25 &&
+        line.x1 - (it.x + it.w) < 80;
+      // 2. Label directly above the line (within 24 pt)
+      const isAbovePrompt =
+        line.y - (it.yTop + it.h) >= -2 &&
+        line.y - (it.yTop + it.h) < 24 &&
+        it.x >= line.x1 - 30 &&
+        it.x < line.x2;
+
+      return isLeftPrompt || isAbovePrompt;
+    });
+
+    // If there is clear contextual evidence of a prompt, PRESERVE this line as fillable!
+    if (hasNearbyPrompt) {
+      return true;
+    }
+
+    // B. Part of a detected table grid with no label context
     if (gridLineSet.has(line)) {
       structuralCount++;
       return false;
     }
 
-    // C. Lines that lie on or inside a table box as internal row/column dividers
+    // C. Lines that lie on or inside a table box as internal row/column dividers with no label context
     for (const tbox of tableBoxes) {
       const isInsideOrOnBorder =
         line.y >= tbox.y - 3 &&
@@ -386,36 +465,41 @@ export function calculateIoU(
 
 /**
  * Checks if two fields occupy substantially the same logical compilation area.
+ * Preserves distinct adjacent fields belonging to the same row, table or section.
  */
 export function areFieldsSameArea(
   a: { xPt: number; yPt: number; widthPt: number; heightPt: number },
   b: { xPt: number; yPt: number; widthPt: number; heightPt: number }
 ): boolean {
   const iou = calculateIoU(a, b);
-  if (iou >= 0.38) return true;
+  if (iou >= 0.55) return true;
 
-  // Check containment
-  const x1 = Math.max(a.xPt, b.xPt);
-  const y1 = Math.max(a.yPt, b.yPt);
-  const x2 = Math.min(a.xPt + a.widthPt, b.xPt + b.widthPt);
-  const y2 = Math.min(a.yPt + a.heightPt, b.yPt + b.heightPt);
+  // Check containment only if sizes are comparable (do not swallow small child fields into large macro-blocks)
+  const areaA = a.widthPt * a.heightPt;
+  const areaB = b.widthPt * b.heightPt;
+  const minArea = Math.min(areaA, areaB);
+  const maxArea = Math.max(areaA, areaB);
 
-  if (x2 > x1 && y2 > y1) {
-    const interArea = (x2 - x1) * (y2 - y1);
-    const minArea = Math.min(a.widthPt * a.heightPt, b.widthPt * b.heightPt);
-    if (minArea > 0 && interArea / minArea >= 0.55) return true;
+  if (maxArea > 0 && minArea / maxArea >= 0.50) {
+    const x1 = Math.max(a.xPt, b.xPt);
+    const y1 = Math.max(a.yPt, b.yPt);
+    const x2 = Math.min(a.xPt + a.widthPt, b.xPt + b.widthPt);
+    const y2 = Math.min(a.yPt + a.heightPt, b.yPt + b.heightPt);
+
+    if (x2 > x1 && y2 > y1) {
+      const interArea = (x2 - x1) * (y2 - y1);
+      if (interArea / minArea >= 0.70) return true;
+    }
   }
 
-  // Check same horizontal line band and nearby center
+  // Check same horizontal line band and nearly identical center & width
   const centerAX = a.xPt + a.widthPt / 2;
   const centerAY = a.yPt + a.heightPt / 2;
   const centerBX = b.xPt + b.widthPt / 2;
   const centerBY = b.yPt + b.heightPt / 2;
   const dist = Math.hypot(centerAX - centerBX, centerAY - centerBY);
 
-  if (dist <= 18) return true;
-
-  if (Math.abs(a.yPt - b.yPt) <= 6 && Math.abs(centerAX - centerBX) <= 24) {
+  if (dist <= 10 && Math.abs(a.widthPt - b.widthPt) <= 15 && Math.abs(a.heightPt - b.heightPt) <= 10) {
     return true;
   }
 
@@ -466,6 +550,7 @@ export function clusterAndRefineCandidates(
     TOO_SMALL: 0,
     NO_LABEL: 0,
     HEADER_ONLY: 0,
+    STATIC_TEXT_NO_GEOMETRY: 0,
     OTHER: 0,
   };
 
@@ -482,16 +567,17 @@ export function clusterAndRefineCandidates(
   let recoveryPassAddedCount = 0;
 
   // Step 1: Horizontal colinear segment merging
-  const colinearMergedLines = mergeColinearHorizontalLines(rawLines);
+  const colinearMergedLines = mergeColinearHorizontalLines(rawLines, textItems);
   const colinearMergedDelta = Math.max(0, rawLines.length - colinearMergedLines.length);
   mergedCount += colinearMergedDelta;
   discardedReasons.MERGED += colinearMergedDelta;
 
-  // Step 2: Table structure filtering (filter table grid borders & vertical columns)
+  // Step 2: Table structure filtering (filter table grid borders & vertical columns with contextual awareness)
   const { filteredLines, structuralLinesCount } = filterTableStructureLines(
     colinearMergedLines,
     rawRects,
-    pageWidthPt
+    pageWidthPt,
+    textItems
   );
   filteredStructureCount += structuralLinesCount;
   discardedReasons.TABLE_STRUCTURE += structuralLinesCount;
@@ -530,14 +616,16 @@ export function clusterAndRefineCandidates(
     const heightPt = Math.max(28, Math.round((lastLineY + 4 - yPt) * 10) / 10);
 
     const promptText = cluster.prompt ? cluster.prompt.str.replace(/:$/, '').trim() : '';
-    const suggestion = suggestSemanticKey(promptText || 'Note e osservazioni');
+    const suggestion = promptText
+      ? suggestSemanticKey(promptText)
+      : { semanticKey: null, suggestedSemanticKey: null, suggestedLabel: null, suggestedFieldType: 'TEXT_LONG', confidence: 0 };
 
     const multilineField: FieldGeometry & { anchorType?: StructureAnchorType } = {
       fieldId: generateFieldId(),
-      label: suggestion.suggestedLabel || promptText || 'Area di testo multilinea',
+      label: suggestion.suggestedLabel || promptText || 'Campo da identificare',
       semanticKey: null,
-      suggestedSemanticKey: suggestion.semanticKey,
-      suggestedLabel: suggestion.suggestedLabel,
+      suggestedSemanticKey: suggestion.semanticKey || null,
+      suggestedLabel: suggestion.suggestedLabel || null,
       fieldType: 'TEXT_LONG',
       backgroundMode: 'OPAQUE_WHITE',
       calibrationStatus: 'PROPOSED',
@@ -559,35 +647,29 @@ export function clusterAndRefineCandidates(
 
   // Step 4: Rectangular Boxes & Cells (With Two-Column Table Support & Header Exclusion)
   const consumedLinesInBoxes = new Set<RawLineCandidate>();
+  const discardedBoxesInStep4 = new Set<RawRectCandidate>();
 
   for (const box of rawRects) {
     if (box.isCheckbox) continue;
 
     // Plausible box/cell dimensions (w >= 40, h >= 18)
     if (box.w >= 40 && box.h >= 18) {
-      // Find prompt inside or directly above box
-      const prompt = textItems.find(
+      // Find all text items inside or directly above box
+      const itemsInBox = textItems.filter(
         (it) =>
-          (it.x >= box.x - 6 && it.x + it.w <= box.x + box.w + 12 && it.yTop >= box.y - 2 && it.yTop + it.h <= box.y + box.h + 2) ||
-          (box.y - (it.yTop + it.h) >= -2 && box.y - (it.yTop + it.h) < 26 && Math.abs(it.x - box.x) < 50)
+          it.x >= box.x - 4 &&
+          it.x + it.w <= box.x + box.w + 6 &&
+          it.yTop >= box.y - 2 &&
+          it.yTop + it.h <= box.y + box.h + 2
       );
 
-      // Extract inner compilation geometry with label exclusion
-      const interior = extractCellInteriorRect(box, prompt, 2);
-
-      // Check if this is a pure header cell
-      if (interior.isHeaderOnly) {
-        discardedReasons.HEADER_ONLY++;
-        continue;
-      }
-
-      // Swallow any remaining lines falling inside this box
+      // Swallow any remaining lines falling inside or on the border of this box
       for (const line of remainingLines) {
         if (
-          line.y >= box.y &&
-          line.y <= box.y + box.h &&
-          line.x1 >= box.x - 5 &&
-          line.x2 <= box.x + box.w + 5
+          line.y >= box.y - 3 &&
+          line.y <= box.y + box.h + 3 &&
+          line.x1 >= box.x - 8 &&
+          line.x2 <= box.x + box.w + 8
         ) {
           consumedLinesInBoxes.add(line);
           mergedCount++;
@@ -595,29 +677,100 @@ export function clusterAndRefineCandidates(
         }
       }
 
-      // If prompt is not directly inside, search for a column header right above (table column case)
-      let labelText = prompt ? prompt.str.replace(/:$/, '').trim() : '';
-      if (!labelText) {
-        const colHeader = textItems.find(
-          (it) =>
-            box.y - (it.yTop + it.h) >= 0 &&
-            box.y - (it.yTop + it.h) < 40 &&
-            it.x >= box.x - 10 &&
-            it.x <= box.x + box.w
-        );
-        if (colHeader) {
-          labelText = colHeader.str.replace(/:$/, '').trim();
+      // Check if cell contains static descriptive text (instructions/title/header)
+      if (itemsInBox.length > 0) {
+        const fullCellText = itemsInBox.map((it) => it.str).join(' ').trim();
+        const hasPromptColon = /[:?]\s*$/.test(fullCellText);
+        const isExplicit = isExplicitPrompt(fullCellText);
+        if (!hasPromptColon && !isExplicit && box.h < 50) {
+          discardedReasons.HEADER_ONLY++;
+          discardedBoxesInStep4.add(box);
+          continue;
         }
       }
 
-      const suggestion = suggestSemanticKey(labelText || 'Area di compilazione');
+      let prompt: RawTextItem | undefined;
+      let labelText = '';
+
+      if (itemsInBox.length > 0) {
+        const fullCellText = itemsInBox.map((it) => it.str).join(' ').trim();
+        const firstItem = itemsInBox[0];
+        const lastItem = itemsInBox[itemsInBox.length - 1];
+        prompt = {
+          x: firstItem.x,
+          yTop: firstItem.yTop,
+          w: Math.max(firstItem.w, lastItem.x + lastItem.w - firstItem.x),
+          h: Math.max(...itemsInBox.map((it) => it.h)),
+          str: fullCellText,
+        };
+        labelText = fullCellText;
+      } else {
+        prompt = textItems.find(
+          (it) =>
+            box.y - (it.yTop + it.h) >= -2 &&
+            box.y - (it.yTop + it.h) < 26 &&
+            Math.abs(it.x - box.x) < 50
+        );
+        if (prompt) {
+          labelText = prompt.str;
+        } else {
+          // Column header check (within 250 pt above for multi-row tables)
+          const colHeader = textItems.find(
+            (it) =>
+              box.y - (it.yTop + it.h) >= 0 &&
+              box.y - (it.yTop + it.h) < 250 &&
+              it.x >= box.x - 10 &&
+              it.x <= box.x + box.w
+          );
+          if (colHeader) {
+            labelText = colHeader.str;
+            prompt = colHeader;
+          } else {
+            // Left-side label cell check
+            const leftLabel = textItems.find(
+              (it) =>
+                it.x + it.w <= box.x + 8 &&
+                box.x - (it.x + it.w) < 120 &&
+                Math.abs(it.yTop - box.y) < 20 &&
+                isExplicitPrompt(it.str)
+            );
+            if (leftLabel) {
+              labelText = leftLabel.str;
+              prompt = leftLabel;
+            }
+          }
+        }
+      }
+
+      // POSITIVE EDITABILITY EVIDENCE REQUIREMENT:
+      // Empty cells without prompt, column header, or left label have no positive editability evidence!
+      if (!prompt && !labelText) {
+        discardedReasons.TABLE_STRUCTURE++;
+        discardedBoxesInStep4.add(box);
+        continue;
+      }
+
+      // Extract inner compilation geometry with label exclusion
+      const interior = extractCellInteriorRect(box, prompt, 2);
+
+      // Check if this is a pure header cell or static text cell
+      if (interior.isHeaderOnly) {
+        discardedReasons.HEADER_ONLY++;
+        discardedBoxesInStep4.add(box);
+        continue;
+      }
+
+      const cleanLabel = labelText.replace(/:$/, '').trim();
+      const suggestion = cleanLabel
+        ? suggestSemanticKey(cleanLabel)
+        : { semanticKey: null, suggestedSemanticKey: null, suggestedLabel: null, suggestedFieldType: 'TEXT_SHORT', confidence: 0 };
 
       candidatePool.push({
         fieldId: generateFieldId(),
-        label: suggestion.suggestedLabel || labelText || 'Area di compilazione',
+        label: suggestion.suggestedLabel || cleanLabel || 'Campo da identificare',
         semanticKey: null,
-        suggestedSemanticKey: suggestion.semanticKey,
-        suggestedLabel: suggestion.suggestedLabel,
+        suggestedSemanticKey: suggestion.semanticKey || null,
+        suggestedLabel: suggestion.suggestedLabel || null,
         fieldType: box.h > 45 ? 'TEXT_LONG' : suggestion.suggestedFieldType || 'TEXT_SHORT',
         backgroundMode: 'OPAQUE_WHITE',
         calibrationStatus: 'PROPOSED',
@@ -626,7 +779,7 @@ export function clusterAndRefineCandidates(
         yPt: interior.yPt,
         widthPt: interior.widthPt,
         heightPt: interior.heightPt,
-        anchorText: prompt ? prompt.str : labelText || 'Visual Box',
+        anchorText: prompt ? prompt.str : cleanLabel || 'Visual Box',
         derivationMethod: 'TABLE_CELL',
         detectionSource: prompt ? 'COMBINED' : 'GEOMETRY',
         confidence: prompt ? 0.92 : 0.85,
@@ -642,13 +795,41 @@ export function clusterAndRefineCandidates(
     if (box.isCheckbox || (box.w >= 10 && box.w <= 24 && box.h >= 10 && box.h <= 24)) {
       rawCheckboxCount++;
       const rightLabel = textItems.find(
-        (it) => Math.abs(it.yTop - box.y) < 8 && it.x > box.x + box.w && it.x - (box.x + box.w) < 60
+        (it) => Math.abs(it.yTop - box.y) < 10 && it.x > box.x + box.w && it.x - (box.x + box.w) < 80
       );
-      const choiceLabel = rightLabel ? rightLabel.str.trim() : 'Scelta opzione';
+      const leftLabel = textItems.find(
+        (it) => Math.abs(it.yTop - box.y) < 10 && it.x + it.w < box.x && box.x - (it.x + it.w) < 80
+      );
+      const aboveLabel = textItems.find(
+        (it) => box.y - (it.yTop + it.h) >= 0 && box.y - (it.yTop + it.h) < 20 && Math.abs(it.x - box.x) < 80
+      );
+
+      const hasLabelNear = (rightLabel && isValidLabel(rightLabel.str)) ||
+                           (leftLabel && isValidLabel(leftLabel.str)) ||
+                           (aboveLabel && isValidLabel(aboveLabel.str));
+
+      const hasGroupCheckbox = rawRects.some(
+        (other) => other !== box &&
+        (other.isCheckbox || (other.w >= 10 && other.w <= 24 && other.h >= 10 && other.h <= 24)) &&
+        (Math.abs(other.y - box.y) < 16 || Math.abs(other.x - box.x) < 100)
+      );
+
+      // Orphan checkbox check: must have near label or group checkbox context
+      if (!hasLabelNear && !hasGroupCheckbox) {
+        filteredLowConfidenceCount++;
+        discardedReasons.LOW_CONFIDENCE++;
+        continue;
+      }
+
+      const rawChoiceLabel = rightLabel ? rightLabel.str.trim() :
+                             leftLabel ? leftLabel.str.trim() :
+                             aboveLabel ? aboveLabel.str.trim() : '';
+
+      const choiceLabel = rawChoiceLabel || 'Opzione';
 
       candidatePool.push({
         fieldId: generateFieldId(),
-        label: choiceLabel.startsWith('Scelta') ? choiceLabel : `Scelta: ${choiceLabel}`,
+        label: choiceLabel.startsWith('Opzione') ? choiceLabel : `Scelta: ${choiceLabel}`,
         semanticKey: null,
         suggestedSemanticKey: null,
         suggestedLabel: choiceLabel,
@@ -681,9 +862,10 @@ export function clusterAndRefineCandidates(
       continue;
     }
 
-    // Find nearby prompt to the left or above
+    // Find nearby prompt to the left or above (must be a valid explicit prompt label)
     const promptLeft = textItems.find(
       (it) =>
+        isExplicitPrompt(it.str) &&
         Math.abs(it.yTop + it.h - line.y) < 16 &&
         it.x <= line.x1 + 12 &&
         it.x + it.w < line.x2 &&
@@ -692,6 +874,7 @@ export function clusterAndRefineCandidates(
 
     const promptAbove = textItems.find(
       (it) =>
+        isExplicitPrompt(it.str) &&
         line.y - (it.yTop + it.h) >= 0 &&
         line.y - (it.yTop + it.h) < 24 &&
         Math.abs(it.x - line.x1) < 50
@@ -707,7 +890,9 @@ export function clusterAndRefineCandidates(
     }
 
     const label = prompt.str.replace(/:$/, '').trim();
-    const suggestion = suggestSemanticKey(label);
+    const suggestion = label
+      ? suggestSemanticKey(label)
+      : { semanticKey: null, suggestedSemanticKey: null, suggestedLabel: null, suggestedFieldType: 'TEXT_SHORT', confidence: 0 };
     const isDate = /data|nato\s+il|lì/i.test(label);
 
     let fieldX = Math.round(line.x1 * 10) / 10;
@@ -723,10 +908,10 @@ export function clusterAndRefineCandidates(
 
     candidatePool.push({
       fieldId: generateFieldId(),
-      label: suggestion.suggestedLabel || label,
+      label: suggestion.suggestedLabel || label || 'Campo da identificare',
       semanticKey: null,
-      suggestedSemanticKey: suggestion.semanticKey,
-      suggestedLabel: suggestion.suggestedLabel,
+      suggestedSemanticKey: suggestion.semanticKey || null,
+      suggestedLabel: suggestion.suggestedLabel || null,
       fieldType: isDate ? 'DATE' : suggestion.suggestedFieldType || 'TEXT_SHORT',
       backgroundMode: 'OPAQUE_WHITE',
       calibrationStatus: 'PROPOSED',
@@ -762,6 +947,7 @@ export function clusterAndRefineCandidates(
   for (const rect of rawRects) {
     if (rect.isCheckbox) continue;
     if (rect.w < 40 || rect.h < 18) continue;
+    if (discardedBoxesInStep4.has(rect)) continue;
 
     // Check if this rectangle is already covered by a candidate in candidatePool
     const isCovered = candidatePool.some((cand) => {
@@ -772,39 +958,87 @@ export function clusterAndRefineCandidates(
     if (!isCovered) {
       uncoveredPlausibleRegionsCount++;
 
-      // Find nearby prompt inside, above, or left
-      const prompt = textItems.find(
+      // Find all text items inside or directly above rect
+      const itemsInBox = textItems.filter(
         (it) =>
-          (it.x >= rect.x - 10 && it.x + it.w <= rect.x + rect.w + 15 && it.yTop >= rect.y - 4 && it.yTop + it.h <= rect.y + rect.h + 4) ||
-          (rect.y - (it.yTop + it.h) >= -2 && rect.y - (it.yTop + it.h) < 35 && Math.abs(it.x - rect.x) < 50)
+          it.x >= rect.x - 4 &&
+          it.x + it.w <= rect.x + rect.w + 6 &&
+          it.yTop >= rect.y - 2 &&
+          it.yTop + it.h <= rect.y + rect.h + 2
       );
 
-      const interior = extractCellInteriorRect(rect, prompt, 2);
+      let prompt: RawTextItem | undefined;
+      let labelText = '';
 
-      if (!interior.isHeaderOnly) {
-        let labelText = prompt ? prompt.str.replace(/:$/, '').trim() : '';
-        if (!labelText) {
-          // Column header check
+      if (itemsInBox.length > 0) {
+        const fullCellText = itemsInBox.map((it) => it.str).join(' ').trim();
+        const firstItem = itemsInBox[0];
+        const lastItem = itemsInBox[itemsInBox.length - 1];
+        prompt = {
+          x: firstItem.x,
+          yTop: firstItem.yTop,
+          w: Math.max(firstItem.w, lastItem.x + lastItem.w - firstItem.x),
+          h: Math.max(...itemsInBox.map((it) => it.h)),
+          str: fullCellText,
+        };
+        labelText = fullCellText;
+      } else {
+        prompt = textItems.find(
+          (it) =>
+            rect.y - (it.yTop + it.h) >= -2 &&
+            rect.y - (it.yTop + it.h) < 35 &&
+            Math.abs(it.x - rect.x) < 50
+        );
+        if (prompt) {
+          labelText = prompt.str;
+        } else {
+          // Column header check (within 250 pt above for multi-row tables)
           const colHeader = textItems.find(
             (it) =>
               rect.y - (it.yTop + it.h) >= 0 &&
-              rect.y - (it.yTop + it.h) < 45 &&
+              rect.y - (it.yTop + it.h) < 250 &&
               it.x >= rect.x - 10 &&
               it.x <= rect.x + rect.w
           );
           if (colHeader) {
-            labelText = colHeader.str.replace(/:$/, '').trim();
+            labelText = colHeader.str;
+            prompt = colHeader;
+          } else {
+            // Left-side label cell check
+            const leftLabel = textItems.find(
+              (it) =>
+                it.x + it.w <= rect.x + 8 &&
+                rect.x - (it.x + it.w) < 120 &&
+                Math.abs(it.yTop - rect.y) < 20 &&
+                isExplicitPrompt(it.str)
+            );
+            if (leftLabel) {
+              labelText = leftLabel.str;
+              prompt = leftLabel;
+            }
           }
         }
+      }
 
-        const suggestion = suggestSemanticKey(labelText || 'Area di compilazione');
+      // REQUIRE POSITIVE EDITABILITY EVIDENCE IN RECOVERY PASS TOO!
+      if (!prompt && !labelText) {
+        continue;
+      }
+
+      const interior = extractCellInteriorRect(rect, prompt, 2);
+
+      if (!interior.isHeaderOnly) {
+        const cleanLabel = labelText.replace(/:$/, '').trim();
+        const suggestion = cleanLabel
+          ? suggestSemanticKey(cleanLabel)
+          : { semanticKey: null, suggestedSemanticKey: null, suggestedLabel: null, suggestedFieldType: 'TEXT_SHORT', confidence: 0 };
 
         candidatePool.push({
           fieldId: generateFieldId(),
-          label: suggestion.suggestedLabel || labelText || 'Area di compilazione (recuperata)',
+          label: suggestion.suggestedLabel || cleanLabel || 'Campo da identificare',
           semanticKey: null,
-          suggestedSemanticKey: suggestion.semanticKey,
-          suggestedLabel: suggestion.suggestedLabel,
+          suggestedSemanticKey: suggestion.semanticKey || null,
+          suggestedLabel: suggestion.suggestedLabel || null,
           fieldType: rect.h > 45 ? 'TEXT_LONG' : suggestion.suggestedFieldType || 'TEXT_SHORT',
           backgroundMode: 'OPAQUE_WHITE',
           calibrationStatus: 'PROPOSED',
@@ -813,7 +1047,7 @@ export function clusterAndRefineCandidates(
           yPt: interior.yPt,
           widthPt: interior.widthPt,
           heightPt: interior.heightPt,
-          anchorText: prompt ? prompt.str : labelText || 'Recovered Region',
+          anchorText: prompt ? prompt.str : cleanLabel || 'Recovered Region',
           derivationMethod: 'TABLE_CELL',
           detectionSource: prompt ? 'COMBINED' : 'GEOMETRY',
           confidence: prompt ? 0.90 : 0.82,
@@ -845,8 +1079,9 @@ export function clusterAndRefineCandidates(
       // Look for relaxed prompt to the left (up to 70 pt) or above (up to 30 pt)
       const relaxedPrompt = textItems.find(
         (it) =>
-          (Math.abs(it.yTop + it.h - line.y) < 20 && it.x + it.w <= line.x1 + 25 && line.x1 - (it.x + it.w) < 70) ||
-          (line.y - (it.yTop + it.h) >= 0 && line.y - (it.yTop + it.h) < 32 && Math.abs(it.x - line.x1) < 60)
+          isExplicitPrompt(it.str) &&
+          ((Math.abs(it.yTop + it.h - line.y) < 20 && it.x + it.w <= line.x1 + 25 && line.x1 - (it.x + it.w) < 70) ||
+            (line.y - (it.yTop + it.h) >= 0 && line.y - (it.yTop + it.h) < 32 && Math.abs(it.x - line.x1) < 60))
       );
 
       if (relaxedPrompt) {
@@ -889,6 +1124,12 @@ export function clusterAndRefineCandidates(
   const snappedPool: FieldGeometry[] = [];
 
   for (const cand of candidatePool) {
+    if (!isValidLabel(cand.label)) {
+      filteredLowConfidenceCount++;
+      discardedReasons.LOW_CONFIDENCE++;
+      continue;
+    }
+
     const snapped =
       cand.anchorType === 'CELL_ANCHOR'
         ? cand

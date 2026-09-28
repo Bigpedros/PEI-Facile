@@ -491,6 +491,32 @@ export interface GeometryFitEvaluation {
 }
 
 /**
+ * Checks whether a text string represents an explicit form prompt label
+ * (ends with ':' or '?' or matches known administrative standalone prompt tokens).
+ */
+export function isExplicitPrompt(str: string): boolean {
+  if (!str) return false;
+  const clean = str.trim();
+  if (clean.length < 2 || clean.length > 80) return false;
+
+  // Bracketed replaceable placeholder e.g. [INTESTAZIONE SCUOLA]
+  if (/^\[.+\]$/.test(clean)) {
+    return true;
+  }
+
+  // Must end with ':' or '?' (explicit form prompt label)
+  if (/[:?]\s*$/.test(clean)) {
+    // Exclude long instructional/narrative sentences with a colon
+    if (clean.split(/\s+/).length > 8) return false;
+    return true;
+  }
+  // Standalone administrative prompt keywords without colon
+  return /^(?:anno\s+scolastico|a\.s\.|bambin[oa]|alunn[oa]|student(?:e|essa)|cognome(?:\s+e\s+nome)?|nome|nominativo|codice\s*fiscale|c\.f\.|nat[oa](?:\s+a|\s+il)?|classe|sez(?:ione)?|plesso(?:\s+o\s+sede)?|sede|scuola|istituto|data(?:\s+di\s+nascita)?|firma|firme|oepac|aec|ore|punti)$/i.test(
+    clean
+  );
+}
+
+/**
  * Extracts inner fillable rectangle from a cell or rectangular boundary,
  * excluding any prompt label header and applying inner padding (R08-R6).
  */
@@ -506,42 +532,128 @@ export function extractCellInteriorRect(
   heightPt: number;
   anchorType: StructureAnchorType;
 } {
-  // If cell is shallow (h <= 32 pt) and contains a header/label prompt leaving no room (< 14 pt) for input,
-  // it is a pure table/section header cell!
-  if (prompt && box.h <= 32) {
-    const promptBottom = prompt.yTop + prompt.h;
-    const remainingH = box.y + box.h - promptBottom;
-    if (remainingH < 14 || prompt.h / box.h >= 0.45) {
-      return {
-        isHeaderOnly: true,
-        xPt: box.x,
-        yPt: box.y,
-        widthPt: box.w,
-        heightPt: box.h,
-        anchorType: 'CELL_ANCHOR',
-      };
-    }
+  const cellRight = box.x + box.w;
+  const cellBottom = box.y + box.h;
+
+  // Case 1: Empty cell without prompt -> Fillable cell interior
+  if (!prompt) {
+    const fieldX = Math.round((box.x + paddingPt) * 10) / 10;
+    const fieldY = Math.round((box.y + paddingPt) * 10) / 10;
+    const fieldW = Math.max(20, Math.round((box.w - 2 * paddingPt) * 10) / 10);
+    const fieldH = Math.max(16, Math.round((box.h - 2 * paddingPt) * 10) / 10);
+    return {
+      isHeaderOnly: false,
+      xPt: fieldX,
+      yPt: fieldY,
+      widthPt: fieldW,
+      heightPt: fieldH,
+      anchorType: 'CELL_ANCHOR',
+    };
   }
 
-  let fieldX = Math.round((box.x + paddingPt) * 10) / 10;
-  let fieldW = Math.max(20, Math.round((box.w - 2 * paddingPt) * 10) / 10);
-  let fieldY = Math.round((box.y + paddingPt) * 10) / 10;
-  let fieldH = Math.max(16, Math.round((box.h - 2 * paddingPt) * 10) / 10);
+  // Calculate available space to the right and below the prompt
+  const promptRight = prompt.x + prompt.w;
+  const promptBottom = prompt.yTop + prompt.h;
+  const remainingW = cellRight - promptRight - paddingPt;
+  const remainingH = cellBottom - promptBottom - paddingPt;
 
-  if (prompt && prompt.yTop >= box.y - 2 && prompt.yTop <= box.y + 35) {
-    // Prompt sits at top of cell -> field starts directly below prompt
-    const promptBottom = prompt.yTop + prompt.h + 2;
-    fieldY = Math.round(promptBottom * 10) / 10;
-    const remainingH = box.y + box.h - paddingPt - fieldY;
-    fieldH = Math.max(16, Math.round(remainingH * 10) / 10);
+  // Check if prompt is an explicit prompt label
+  const isPromptLabel = isExplicitPrompt(prompt.str || '');
+  const promptIsInside = prompt.yTop >= box.y - 2;
+
+  // Pure structural / header cell:
+  // 1) Any text inside a cell where box.h < 50 or remainingH < 30 that is not an explicit prompt label: static title or section header!
+  // 2) Any cell where remaining horizontal space is too small (< 28) AND remaining vertical space is too small (< 18)
+  // 3) Any cell where text occupies >= 55% of the cell width and remaining vertical space is < 18
+  const isHeader =
+    (promptIsInside && !isPromptLabel && (box.h < 50 || remainingH < 30)) ||
+    (remainingH < 18 && remainingW < 28) ||
+    (!isPromptLabel && remainingH < 30) ||
+    (box.w > 0 && prompt.w / box.w >= 0.55 && remainingH < 18);
+
+  if (isHeader) {
+    return {
+      isHeaderOnly: true,
+      xPt: box.x,
+      yPt: box.y,
+      widthPt: box.w,
+      heightPt: box.h,
+      anchorType: 'CELL_ANCHOR',
+    };
   }
 
+  // Case 3: Tall multi-line section box (h >= 50 pt) with substantial vertical space below
+  if (box.h >= 50 && remainingH >= 30) {
+    const fieldX = Math.round((box.x + paddingPt) * 10) / 10;
+    const fieldY = Math.round(Math.max(box.y + paddingPt, promptBottom + 2) * 10) / 10;
+    const fieldW = Math.max(20, Math.round((box.w - 2 * paddingPt) * 10) / 10);
+    const fieldH = Math.max(16, Math.round((cellBottom - paddingPt - fieldY) * 10) / 10);
+    return {
+      isHeaderOnly: false,
+      xPt: fieldX,
+      yPt: fieldY,
+      widthPt: fieldW,
+      heightPt: fieldH,
+      anchorType: 'CELL_ANCHOR',
+    };
+  }
+
+  // Case 4: Horizontal form row/cell [ Label | Free Value Area ] (e.g. BAMBINO/A, ANNO SCOLASTICO, SEZIONE, DATA)
+  // ONLY if it is an explicit prompt label with remaining width >= 25 pt
+  if (isPromptLabel && remainingW >= 25) {
+    const fieldX = Math.round(Math.max(box.x + paddingPt, promptRight + 4) * 10) / 10;
+    const fieldY = Math.round((box.y + paddingPt) * 10) / 10;
+    const fieldW = Math.max(25, Math.round((cellRight - paddingPt - fieldX) * 10) / 10);
+    const fieldH = Math.max(16, Math.round((box.h - 2 * paddingPt) * 10) / 10);
+    return {
+      isHeaderOnly: false,
+      xPt: fieldX,
+      yPt: fieldY,
+      widthPt: fieldW,
+      heightPt: fieldH,
+      anchorType: 'CELL_ANCHOR',
+    };
+  }
+
+  // Case 5: Vertical area fallback if height allows AND prompt is valid
+  if ((isPromptLabel || !promptIsInside) && remainingH >= 16) {
+    const fieldX = Math.round((box.x + paddingPt) * 10) / 10;
+    const fieldY = Math.round(Math.max(box.y + paddingPt, promptBottom + 2) * 10) / 10;
+    const fieldW = Math.max(20, Math.round((box.w - 2 * paddingPt) * 10) / 10);
+    const fieldH = Math.max(16, Math.round((cellBottom - paddingPt - fieldY) * 10) / 10);
+    return {
+      isHeaderOnly: false,
+      xPt: fieldX,
+      yPt: fieldY,
+      widthPt: fieldW,
+      heightPt: fieldH,
+      anchorType: 'CELL_ANCHOR',
+    };
+  }
+
+  // Case 6: Cell under column header or left label where whole cell is fillable
+  if (!promptIsInside) {
+    const fieldX = Math.round((box.x + paddingPt) * 10) / 10;
+    const fieldY = Math.round((box.y + paddingPt) * 10) / 10;
+    const fieldW = Math.max(20, Math.round((box.w - 2 * paddingPt) * 10) / 10);
+    const fieldH = Math.max(16, Math.round((box.h - 2 * paddingPt) * 10) / 10);
+    return {
+      isHeaderOnly: false,
+      xPt: fieldX,
+      yPt: fieldY,
+      widthPt: fieldW,
+      heightPt: fieldH,
+      anchorType: 'CELL_ANCHOR',
+    };
+  }
+
+  // Default: Header only
   return {
-    isHeaderOnly: false,
-    xPt: fieldX,
-    yPt: fieldY,
-    widthPt: fieldW,
-    heightPt: fieldH,
+    isHeaderOnly: true,
+    xPt: box.x,
+    yPt: box.y,
+    widthPt: box.w,
+    heightPt: box.h,
     anchorType: 'CELL_ANCHOR',
   };
 }

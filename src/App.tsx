@@ -54,6 +54,45 @@ const DEFAULT_SETTINGS: AppSettings = {
   theme: 'verde_prato',
 };
 
+export const restoreUint8Array = (value: unknown): Uint8Array | undefined => {
+  if (!value) return undefined;
+  if (value instanceof Uint8Array) return value;
+
+  if (Array.isArray(value)) {
+    return new Uint8Array(value);
+  }
+
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, number>)
+      .filter(([key, v]) => /^\d+$/.test(key) && Number.isFinite(v))
+      .sort((a, b) => Number(a[0]) - Number(b[0]));
+
+    if (entries.length > 0) {
+      return new Uint8Array(entries.map(([, v]) => v));
+    }
+  }
+
+  return undefined;
+};
+
+export const restorePeiDocumentBinaries = (doc: any): any => {
+  if (!doc) return doc;
+  const restored = { ...doc };
+  if (restored.sourcePdfBinary) {
+    const restoredBinary = restoreUint8Array(restored.sourcePdfBinary);
+    if (restoredBinary) {
+      restored.sourcePdfBinary = restoredBinary;
+    }
+  }
+  if (restored.canonicalDocument) {
+    const restoredBinary = restoreUint8Array(restored.canonicalDocument);
+    if (restoredBinary) {
+      restored.canonicalDocument = restoredBinary;
+    }
+  }
+  return restored;
+};
+
 export default function App() {
   // 1. Stato Impostazioni (pei_facile_settings_v1)
   const [settings, setSettings] = useState<AppSettings>(() => {
@@ -148,7 +187,7 @@ export default function App() {
     try {
       const savedDoc = localStorage.getItem('pei_facile_saved_doc');
       if (savedDoc) {
-        return JSON.parse(savedDoc);
+        return restorePeiDocumentBinaries(JSON.parse(savedDoc));
       }
     } catch {
       // ignore
@@ -162,7 +201,7 @@ export default function App() {
   const [savedDocument, setSavedDocument] = useState<PeiDocument | null>(() => {
     try {
       const s = localStorage.getItem('pei_facile_saved_doc');
-      return s ? JSON.parse(s) : null;
+      return s ? restorePeiDocumentBinaries(JSON.parse(s)) : null;
     } catch {
       return null;
     }
@@ -388,7 +427,7 @@ export default function App() {
     try {
       const s = localStorage.getItem('pei_facile_saved_doc');
       if (s) {
-        const doc = JSON.parse(s);
+        const doc = restorePeiDocumentBinaries(JSON.parse(s));
         setDocument(doc);
         setHasOpenDocument(true);
         setSavedDocument(doc);
@@ -437,6 +476,16 @@ export default function App() {
       payload.classOrSection,
       targetModelDef
     );
+
+    if (payload.schoolYear) {
+      newDoc.schoolYear = payload.schoolYear;
+    }
+
+    // CTE-FIX-01: Pass-through of canonical/acquired document binary
+    if (payload.canonicalDocument || payload.sourcePdfBinary) {
+      newDoc.canonicalDocument = payload.canonicalDocument || payload.sourcePdfBinary;
+      newDoc.sourcePdfBinary = payload.canonicalDocument || payload.sourcePdfBinary;
+    }
 
     // Popola esclusivamente con i valori estratti e approvati nella coda di revisione
     newDoc.values = {
@@ -550,6 +599,7 @@ export default function App() {
             onSave={handleSaveDocument}
             onGoToPreview={() => setCurrentScreen('SCR-003')}
             onOpenCalibration={() => handleOpenCalibration(currentModelDef)}
+            customModels={customModels}
           />
         )}
 
@@ -563,6 +613,7 @@ export default function App() {
             onChangeZoom={setZoomScale}
             onOpenShareModal={() => setIsShareModalOpen(true)}
             onOpenCalibration={() => handleOpenCalibration(currentModelDef)}
+            customModels={customModels}
           />
         )}
       </div>
@@ -595,12 +646,14 @@ export default function App() {
         onOpenCalibration={(model) => handleOpenCalibration(model)}
       />
 
-      <AcquisitionModal
-        isOpen={isPdfIntakeModalOpen}
-        onClose={() => setIsPdfIntakeModalOpen(false)}
-        customModels={customModels}
-        onAcquisitionSuccess={handleAcquisitionSuccess}
-      />
+      {isPdfIntakeModalOpen && (
+        <AcquisitionModal
+          isOpen={true}
+          onClose={() => setIsPdfIntakeModalOpen(false)}
+          customModels={customModels}
+          onAcquisitionSuccess={handleAcquisitionSuccess}
+        />
+      )}
 
       <SettingsModal
         isOpen={isSettingsModalOpen}
@@ -641,6 +694,7 @@ export default function App() {
         <TemplateCalibrationWorkspace
           initialModelDef={calibrationModel}
           instructionNotice={calibrationNotice}
+          evidenceDocument={hasOpenDocument ? document : undefined}
           onClose={() => {
             setIsCalibrationWorkspaceOpen(false);
             setCalibrationModel(null);
