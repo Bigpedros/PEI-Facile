@@ -1,0 +1,51 @@
+{
+  "name": "motore-ocr-cte",
+  "version": "1.0.0",
+  "private": false,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:03": "vitest run src/tests/cteFix03*.test.ts",
+    "build": "tsc -p tsconfig.build.json && node tools/fixEsmSpecifiers.mjs dist",
+    "analyze": "tsx src/cli/analyze.ts",
+    "probe:roma:p1": "node tools/popplerRasterProbe.mjs fixtures/PEI_Comune_Roma_Infanzia_modello_vuoto_ricostruito.pdf 1 Roma-page1-real-probe.json",
+    "analyze:raster": "tsx src/cli/analyzeRaster.ts",
+    "regression:v08": "node tools/v08RegressionSmoke.cjs",
+    "regression:v09": "node tools/v09ContractSmoke.cjs && node tools/v09ApiSmoke.cjs",
+    "regression:v10": "node tools/v08RegressionSmoke.cjs && node tools/v09ContractSmoke.cjs && node tools/v10ApiSmoke.mjs && node tools/v10ReleaseSmoke.cjs"
+  },
+  "dependencies": {
+    "pdfjs-dist": "4.10.38",
+    "tesseract.js": "7.0.0",
+    "pdf-lib": "^1.17.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2",
+    "vitest": "3.0.7",
+    "jsdom": "26.0.0"
+  },
+  "description": "Standalone domain-neutral OCR, geometric field detection and canonical template engine.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./pei-adapter": {
+      "types": "./dist/adapters/pei/registerPeiAdapter.d.ts",
+      "import": "./dist/adapters/pei/registerPeiAdapter.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "API_CONTRACT.md",
+    "INTEGRATION_GUIDE.md",
+    "ACCEPTANCE_CHECKLIST.md",
+    "PUBLIC_SURFACE.md"
+  ]
+}

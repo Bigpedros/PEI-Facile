@@ -496,7 +496,7 @@ export interface GeometryFitEvaluation {
  */
 export function isExplicitPrompt(str: string): boolean {
   if (!str) return false;
-  const clean = str.trim();
+  const clean = str.replace(/[_\.\s]+$/, '').trim();
   if (clean.length < 2 || clean.length > 80) return false;
 
   // Bracketed replaceable placeholder e.g. [INTESTAZIONE SCUOLA]
@@ -511,7 +511,7 @@ export function isExplicitPrompt(str: string): boolean {
     return true;
   }
   // Standalone administrative prompt keywords without colon
-  return /^(?:anno\s+scolastico|a\.s\.|bambin[oa]|alunn[oa]|student(?:e|essa)|cognome(?:\s+e\s+nome)?|nome|nominativo|codice\s*fiscale|c\.f\.|nat[oa](?:\s+a|\s+il)?|classe|sez(?:ione)?|plesso(?:\s+o\s+sede)?|sede|scuola|istituto|data(?:\s+di\s+nascita)?|firma|firme|oepac|aec|ore|punti)$/i.test(
+  return /^(?:anno\s+scolastico|a\.s\.|bambin[oa](?:\/[a-zA-Z])?|alunn[oa](?:\/[a-zA-Z])?|student(?:e|essa)(?:\/[a-zA-Z]+)?|cognome(?:\s+e\s+nome)?|nome|nominativo|codice\s*fiscale|c\.f\.|nat[oa](?:\s+a|\s+il)?(?:\/[a-zA-Z])?|classe|sez(?:ione)?|plesso(?:\s+o\s+sede)?|sede|scuola|istituto|data(?:\s+di\s+nascita)?|firma|firme|oepac|aec|ore|punti)$/i.test(
     clean
   );
 }

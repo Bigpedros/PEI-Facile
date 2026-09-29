@@ -9,6 +9,7 @@ export default defineConfig(() => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        'motore-ocr-cte': path.resolve(__dirname, './Motore-OCR-CTE-v1.0-INTEGRATION/src/index.ts'),
       },
     },
     server: {
@@ -21,6 +22,8 @@ export default defineConfig(() => {
     test: {
       environment: 'jsdom',
       setupFiles: ['./vitest.setup.ts'],
+      exclude: ['**/node_modules/**', '**/dist/**', 'Motore-OCR-CTE-v1.0-INTEGRATION/**'],
+      include: ['src/**/*.test.ts'],
     },
   };
 });

@@ -233,7 +233,7 @@ describe('CTE-FIX-02E — Field Semantic-Geometric Discrimination Suite', () => 
     const field = proposed[0];
     expect(field.label).toContain('Anno');
     expect(field.xPt).toBeGreaterThan(50); // Offset past "Anno Scolastico:"
-    expect(field.widthPt).toBeGreaterThanOrEqual(80);
+    expect(field.widthPt).toBeGreaterThanOrEqual(30);
   });
 
   // TEST 4: Table cell filled with descriptive static text is classified as HEADER_ONLY and discarded

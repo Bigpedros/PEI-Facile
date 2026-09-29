@@ -18,6 +18,12 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "motore-ocr-cte": [
+        "./Motore-OCR-CTE-v1.0-INTEGRATION/src/index.ts"
+      ],
+      "motore-ocr-cte/*": [
+        "./Motore-OCR-CTE-v1.0-INTEGRATION/src/*"
       ]
     },
     "allowImportingTsExtensions": true,

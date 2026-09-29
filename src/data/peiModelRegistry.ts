@@ -255,24 +255,29 @@ export function findModelDefinition(
 ): PeiModelDefinition | null {
   if (!identifier) return null;
 
-  // 1. Check ministerial canonical
-  const minOrder = resolveMinisterialOrder(identifier);
-  if (minOrder) {
-    const minModel = MINISTERIAL_PEI_MODELS.find((m) => m.schoolOrder === minOrder);
-    if (minModel) return minModel;
-  }
-
-  // 2. Check direct ID or templateId match in ministerial list
-  const directMin = MINISTERIAL_PEI_MODELS.find(
-    (m) => m.id === identifier || m.templateId === identifier || m.schoolOrder === identifier
-  );
-  if (directMin) return directMin;
-
-  // 3. Check custom models
+  // 1. Check custom models first (exact match on id or templateId)
   const foundCustom = customModels.find(
     (m) => m.id === identifier || m.templateId === identifier
   );
   if (foundCustom) return foundCustom;
+
+  // 2. Check direct ID or templateId match in ministerial list
+  const directMin = MINISTERIAL_PEI_MODELS.find(
+    (m) => m.id === identifier || m.templateId === identifier
+  );
+  if (directMin) return directMin;
+
+  // 3. Check ministerial canonical alias ONLY IF identifier explicitly matches a ministerial alias/order
+  const minOrder = resolveMinisterialOrder(identifier);
+  if (
+    minOrder &&
+    (identifier === minOrder ||
+      identifier === `MINISTERIAL_${minOrder}` ||
+      MINISTERIAL_CANONICAL_MAP[minOrder]?.aliases.includes(identifier))
+  ) {
+    const minModel = MINISTERIAL_PEI_MODELS.find((m) => m.schoolOrder === minOrder);
+    if (minModel) return minModel;
+  }
 
   return null;
 }

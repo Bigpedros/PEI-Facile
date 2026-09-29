@@ -10,7 +10,30 @@ export type GeometryDerivationMethod =
   | 'VECTOR_BOUNDARY'
   | 'TEXT_ANCHOR'
   | 'TABLE_CELL'
+  | 'SPATIAL_EMPTY_REGION'
+  | 'GRID_CELL'
+  | 'CHECKBOX_BOX'
+  | 'VECTOR_BOX'
+  | 'VECTOR_LINE'
   | 'MANUAL_VERIFIED';
+
+export type LabelAssociationMethod =
+  | 'LEFT_NEIGHBOR'
+  | 'RIGHT_NEIGHBOR'
+  | 'TOP_HEADER'
+  | 'COLUMN_HEADER'
+  | 'CONTAINED_PROMPT'
+  | 'SAME_ROW'
+  | 'CHECKBOX_LABEL'
+  | 'UNASSOCIATED';
+
+export type GeometricExtractionSource =
+  | 'EMPTY_CELL'
+  | 'PARTIAL_CELL'
+  | 'UNDERLINE'
+  | 'WHITE_REGION'
+  | 'CHECKBOX'
+  | 'NON_FILLABLE_GRAPHIC';
 
 export type FieldGeometryStatus = 'MAPPED' | 'UNMAPPED' | 'REVIEW_REQUIRED';
 
@@ -46,6 +69,13 @@ export interface FieldGeometry {
   widthPt: number;
   /** Height in standard points */
   heightPt: number;
+  /** Normalized coordinates relative to page width and height (0.0 to 1.0) */
+  xNorm?: number;
+  yNorm?: number;
+  wNorm?: number;
+  hNorm?: number;
+  /** Physical geometric extraction origin */
+  geometrySource?: GeometricExtractionSource;
   /** Text from the official PDF used as spatial reference anchor */
   anchorText: string;
   /** Coordinates of anchor if measured */
@@ -61,6 +91,17 @@ export interface FieldGeometry {
   status: FieldGeometryStatus;
   /** Explanation if unmapped or requiring review */
   reason?: string;
+  geometricConfidence?: number;
+  heuristicConfidence?: number;
+  labelConfidence?: number;
+  semanticConfidence?: number;
+  rawGeometricBBox?: {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+  };
+  labelAssociationMethod?: LabelAssociationMethod;
 }
 
 export interface PageGeometry {

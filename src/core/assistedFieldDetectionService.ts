@@ -37,8 +37,10 @@ import {
   type RawLineCandidate,
   type RawRectCandidate,
 } from './fieldCandidateClustering';
+import { runHybridDetectionPipeline } from './canonical-template-engine/geometry/hybridDetectionEngine';
 import { analyzeDocumentImage } from './ocrEngine';
 import { renderPdfPageToCanvas } from './pdfIntakeService';
+import { PeiOcrCteAdapter } from '../integrations/ocrCte/PeiOcrCteAdapter';
 
 export interface DetectPageFieldsOptions {
   canvasElement?: HTMLCanvasElement;
@@ -507,11 +509,15 @@ async function extractVectorGraphics(
  * Detects visual lines and boxes from a canvas element (or fallback visual structural analysis).
  * Scans rows and columns for dark pixels to find printed compilation lines, vertical separators,
  * rectangular bounding boxes, table grid cells, and checkboxes.
+ *
+ * CTE-FIX-03E: Includes Text Masking, Lateral Dark Pixel Density Validation,
+ * Colinear Merging, Vertical Line Structural Connection Rules, and Closed-Cell/Checkbox Validation.
  */
 export function detectVisualLinesFromCanvas(
   canvas: HTMLCanvasElement,
   pageWidthPt: number,
-  pageHeightPt: number
+  pageHeightPt: number,
+  textItems?: Array<{ x: number; yTop: number; w: number; h: number; str?: string }>
 ): {
   lines: Array<{ x1: number; y: number; x2: number }>;
   boxes: Array<{ x: number; y: number; w: number; h: number; isCheckbox: boolean }>;
@@ -547,7 +553,18 @@ export function detectVisualLinesFromCanvas(
       return (r * 299 + g * 587 + b * 114) < 155000;
     };
 
-    const minHorizLineLenPx = Math.max(10, Math.round(18 * scaleX));
+    // Calculate median text height for proportional thresholds
+    let medianTextH = 10;
+    if (textItems && textItems.length > 0) {
+      const heights = textItems.map((t) => t.h).filter((h) => h >= 4 && h <= 40).sort((a, b) => a - b);
+      if (heights.length > 0) {
+        medianTextH = heights[Math.floor(heights.length / 2)];
+      }
+    }
+
+    const minHorizLineLenPx = Math.max(10, Math.round(11 * scaleX));
+    const minVertLineLenPx = Math.max(10, Math.round(11 * scaleY));
+
     const stepY = Math.max(1, Math.round(2 * scaleY));
     const stepX = Math.max(1, Math.round(1.5 * scaleX));
 
@@ -581,8 +598,42 @@ export function detectVisualLinesFromCanvas(
       }
     }
 
-    // 2. Scan vertical line segments
-    const minVertLineLenPx = Math.max(10, Math.round(14 * scaleY));
+    // Filter raw horizontal segments against Text Mask (Phase 2 & 3)
+    const filteredH: Array<{ x1: number; y: number; x2: number }> = [];
+    for (const hSeg of rawH) {
+      const len = hSeg.x2 - hSeg.x1;
+      if (len < 8) continue; // Micro-segment elimination
+
+      if (textItems && textItems.length > 0) {
+        // Check if horizontal segment lies strictly inside text body (internal character strokes/serifs)
+        const insideTextBody = textItems.some((t) => {
+          const inY = hSeg.y >= t.yTop + 2.5 && hSeg.y <= t.yTop + t.h - 3; // strictly inside text body, not baseline/underline!
+          const inX = hSeg.x1 >= t.x - 2 && hSeg.x2 <= t.x + t.w + 2;
+          return inY && inX;
+        });
+        if (insideTextBody) continue;
+      }
+      filteredH.push(hSeg);
+    }
+
+    // Merge colinear horizontal segments
+    const sortedH = [...filteredH].sort((a, b) => (Math.abs(a.y - b.y) <= 2.5 ? a.x1 - b.x1 : a.y - b.y));
+    const mergedH: Array<{ x1: number; y: number; x2: number }> = [];
+    for (const seg of sortedH) {
+      const last = mergedH[mergedH.length - 1];
+      if (last && Math.abs(last.y - seg.y) <= 2.5 && seg.x1 <= last.x2 + 16) {
+        last.x2 = Math.max(last.x2, seg.x2);
+      } else {
+        mergedH.push({ ...seg });
+      }
+    }
+    for (const h of mergedH) {
+      if (h.x2 - h.x1 >= 8) {
+        lines.push(h);
+      }
+    }
+
+    // 2. Scan vertical line segments (Phase 4 - Critical Cleanup)
     const stepX_v = Math.max(1, Math.round(2 * scaleX));
     const stepY_v = Math.max(1, Math.round(1.5 * scaleY));
 
@@ -615,48 +666,88 @@ export function detectVisualLinesFromCanvas(
       }
     }
 
-    // Merge colinear horizontal segments
-    const sortedH = [...rawH].sort((a, b) => (Math.abs(a.y - b.y) <= 2.5 ? a.x1 - b.x1 : a.y - b.y));
-    const mergedH: Array<{ x1: number; y: number; x2: number }> = [];
-    for (const seg of sortedH) {
-      const last = mergedH[mergedH.length - 1];
-      if (last && Math.abs(last.y - seg.y) <= 2.5 && seg.x1 <= last.x2 + 16) {
-        last.x2 = Math.max(last.x2, seg.x2);
-      } else {
-        mergedH.push({ ...seg });
+    // Filter vertical segments (Text Mask + Lateral Dark Pixel Density Check)
+    const filteredV: Array<{ x: number; y1: number; y2: number }> = [];
+    for (const vSeg of rawV) {
+      const vLen = vSeg.y2 - vSeg.y1;
+      if (vLen < 12) continue; // Micro vertical segment elimination
+
+      // Text Mask Check: Is this vertical segment a character stem ('l', 'I', '1', 't', 'b', 'd', 'M', 'H', etc.)?
+      if (textItems && textItems.length > 0) {
+        const isGlyphStem = textItems.some((t) => {
+          const inX = vSeg.x >= t.x - 3 && vSeg.x <= t.x + t.w + 3;
+          const inY = vSeg.y1 >= t.yTop - 2 && vSeg.y2 <= t.yTop + t.h + 2;
+          const isGlyphHeight = vLen <= t.h * 1.35;
+          return inX && inY && isGlyphHeight;
+        });
+        if (isGlyphStem) continue;
       }
-    }
-    for (const h of mergedH) {
-      if (h.x2 - h.x1 >= 25) {
-        lines.push(h);
+
+      // Lateral Dark Pixel Density Check:
+      // Real structural vertical dividers have white background on left or right.
+      // Character stems inside words ('M', 'W', 'H', 'B', 'E', 'K') have dark pixels 3px to left & right.
+      const pxCanvas = Math.round(vSeg.x * scaleX);
+      const py1Canvas = Math.round(vSeg.y1 * scaleY);
+      const py2Canvas = Math.round(vSeg.y2 * scaleY);
+      const samples = Math.max(3, Math.floor((py2Canvas - py1Canvas) / 4));
+      let bothSidesDarkCount = 0;
+
+      for (let s = 0; s < samples; s++) {
+        const sy = py1Canvas + Math.round((s / (samples - 1 || 1)) * (py2Canvas - py1Canvas));
+        const leftDark = isDarkAt(pxCanvas - 3, sy) || isDarkAt(pxCanvas - 4, sy);
+        const rightDark = isDarkAt(pxCanvas + 3, sy) || isDarkAt(pxCanvas + 4, sy);
+        if (leftDark && rightDark) {
+          bothSidesDarkCount++;
+        }
       }
+
+      // If > 40% of sampled points have dark pixels on BOTH left and right, it's inside a glyph/word
+      if (samples > 0 && bothSidesDarkCount / samples >= 0.4) {
+        continue;
+      }
+
+      filteredV.push(vSeg);
     }
 
     // Merge colinear vertical segments
-    const sortedV = [...rawV].sort((a, b) => (Math.abs(a.x - b.x) <= 2.5 ? a.y1 - b.y1 : a.x - b.x));
+    const sortedV = [...filteredV].sort((a, b) => (Math.abs(a.x - b.x) <= 3.0 ? a.y1 - b.y1 : a.x - b.x));
     const mergedV: Array<{ x: number; y1: number; y2: number }> = [];
     for (const seg of sortedV) {
       const last = mergedV[mergedV.length - 1];
-      if (last && Math.abs(last.x - seg.x) <= 2.5 && seg.y1 <= last.y2 + 16) {
+      if (last && Math.abs(last.x - seg.x) <= 3.0 && seg.y1 <= last.y2 + 12) {
         last.y2 = Math.max(last.y2, seg.y2);
       } else {
         mergedV.push({ ...seg });
       }
     }
+
+    // Structural Connection Check:
+    // Short vertical lines (< 35pt) must touch or intersect at least one horizontal structural line
     for (const v of mergedV) {
-      if (v.y2 - v.y1 >= 14) {
+      const len = v.y2 - v.y1;
+      if (len >= 35) {
         verticalLines.push(v);
+      } else if (len >= 8) {
+        const touchesHorizontal = lines.some(
+          (h) =>
+            h.x1 <= v.x + 6 &&
+            h.x2 >= v.x - 6 &&
+            (Math.abs(v.y1 - h.y) <= 8 || Math.abs(v.y2 - h.y) <= 8)
+        );
+        if (touchesHorizontal) {
+          verticalLines.push(v);
+        }
       }
     }
 
-    // 3. Assemble Boxes / Cells / Checkboxes
+    // 3. Assemble Boxes / Cells / Checkboxes (Phase 5 & 6)
     const candidateBoxes: Array<{ x: number; y: number; w: number; h: number; isCheckbox: boolean }> = [];
 
     // Method A: Intersection of horizontal lines and vertical lines (Grid & Cell Detection)
-    for (let i = 0; i < mergedH.length; i++) {
-      const topL = mergedH[i];
-      for (let j = i + 1; j < mergedH.length; j++) {
-        const botL = mergedH[j];
+    for (let i = 0; i < lines.length; i++) {
+      const topL = lines[i];
+      for (let j = i + 1; j < lines.length; j++) {
+        const botL = lines[j];
         const dy = botL.y - topL.y;
         if (dy < 8) continue;
         if (dy > 350) break;
@@ -665,7 +756,7 @@ export function detectVisualLinesFromCanvas(
         const xOverlapEnd = Math.min(topL.x2, botL.x2);
         if (xOverlapEnd - xOverlapStart < 8) continue;
 
-        const matchingV = mergedV.filter(
+        const matchingV = verticalLines.filter(
           (v) =>
             v.x >= xOverlapStart - 8 &&
             v.x <= xOverlapEnd + 8 &&
@@ -680,7 +771,7 @@ export function detectVisualLinesFromCanvas(
             const vRight = matchingV[k + 1];
             const cellW = vRight.x - vLeft.x;
             if (cellW >= 8 && cellW <= 650) {
-              const isCheckbox = cellW <= 28 && dy <= 28;
+              const isCheckbox = cellW >= 8 && cellW <= 28 && dy >= 8 && dy <= 28;
               candidateBoxes.push({
                 x: Math.round(vLeft.x * 10) / 10,
                 y: Math.round(topL.y * 10) / 10,
@@ -695,32 +786,34 @@ export function detectVisualLinesFromCanvas(
     }
 
     // Method B: Rectangular border confirmation from horizontal line pairs with dark edge pixels
-    for (let i = 0; i < mergedH.length; i++) {
-      const topL = mergedH[i];
-      for (let j = i + 1; j < mergedH.length; j++) {
-        const botL = mergedH[j];
+    for (let i = 0; i < lines.length; i++) {
+      const topL = lines[i];
+      for (let j = i + 1; j < lines.length; j++) {
+        const botL = lines[j];
         const dy = botL.y - topL.y;
-        if (dy < 10) continue;
+        if (dy < 8) continue;
         if (dy > 250) break;
 
         const xA = Math.max(topL.x1, botL.x1);
         const xB = Math.min(topL.x2, botL.x2);
         const w = xB - xA;
-        if (w < 10) continue;
+        if (w < 8) continue;
 
-        const isAligned = Math.abs(topL.x1 - botL.x1) <= 15 && Math.abs(topL.x2 - botL.x2) <= 15;
+        const isAligned = Math.abs(topL.x1 - botL.x1) <= 12 && Math.abs(topL.x2 - botL.x2) <= 12;
         if (isAligned) {
           let darkLeft = 0;
           let darkRight = 0;
           const samples = 4;
           for (let s = 1; s <= samples; s++) {
             const sy = Math.round((topL.y + (s / (samples + 1)) * dy) * scaleY);
-            if (isDarkAt(Math.round(xA * scaleX), sy)) darkLeft++;
-            if (isDarkAt(Math.round(xB * scaleX), sy)) darkRight++;
+            const xl = Math.round(xA * scaleX);
+            const xr = Math.max(0, Math.round(xB * scaleX) - 1);
+            if (isDarkAt(xl, sy) || isDarkAt(xl + 1, sy)) darkLeft++;
+            if (isDarkAt(xr, sy) || isDarkAt(xr + 1, sy)) darkRight++;
           }
 
-          if ((darkLeft >= 1 && darkRight >= 1) || (w <= 35 && dy <= 35)) {
-            const isCheckbox = w <= 28 && dy <= 28;
+          if ((darkLeft >= 2 && darkRight >= 2) || (w <= 28 && dy <= 28 && darkLeft >= 1 && darkRight >= 1)) {
+            const isCheckbox = w >= 8 && w <= 28 && dy >= 8 && dy <= 28;
             candidateBoxes.push({
               x: Math.round(xA * 10) / 10,
               y: Math.round(topL.y * 10) / 10,
@@ -928,13 +1021,7 @@ export async function detectFieldsOnPdfPage(
     rawRects.push({ x: vb.x, y: vb.y, w: vb.w, h: vb.h, isCheckbox: vb.isCheckbox, source: 'VECTOR' });
   }
 
-  // 2B. Visual Lines and Boxes from Rendered Canvas (Raster / Scanned support)
-  let scannedCanvasData: {
-    lines: Array<{ x1: number; y: number; x2: number }>;
-    boxes: Array<{ x: number; y: number; w: number; h: number; isCheckbox: boolean }>;
-    verticalLines?: Array<{ x: number; y1: number; y2: number }>;
-  } = { lines: [], boxes: [], verticalLines: [] };
-
+  // 3. Extract Text Layer (Native PDF or Local OCR Fallback)
   let effectiveCanvas = opts.canvasElement;
   if (!effectiveCanvas && typeof document !== 'undefined' && pdfPage.render) {
     try {
@@ -944,27 +1031,6 @@ export async function detectFieldsOnPdfPage(
     }
   }
 
-  if (effectiveCanvas) {
-    try {
-      scannedCanvasData = detectVisualLinesFromCanvas(effectiveCanvas, pageWidthPt, pageHeightPt);
-      if (scannedCanvasData.lines.length > 0 || scannedCanvasData.boxes.length > 0) {
-        rasterFallbackUsed = true;
-        for (const sl of scannedCanvasData.lines) {
-          rawLines.push({ x1: sl.x1, y: sl.y, x2: sl.x2, source: 'CANVAS' });
-        }
-        for (const vl of scannedCanvasData.verticalLines || []) {
-          rawLines.push({ x1: vl.x, y: vl.y1, x2: vl.x, y2: vl.y2, isVertical: true, source: 'CANVAS' });
-        }
-        for (const sb of scannedCanvasData.boxes) {
-          rawRects.push({ x: sb.x, y: sb.y, w: sb.w, h: sb.h, isCheckbox: sb.isCheckbox, source: 'CANVAS' });
-        }
-      }
-    } catch {
-      // Ignore canvas access errors
-    }
-  }
-
-  // 3. Extract Text Layer (Native PDF or Local OCR Fallback)
   let rawItems: any[] = [];
   try {
     const textContent = await pdfPage.getTextContent();
@@ -1143,6 +1209,33 @@ export async function detectFieldsOnPdfPage(
   // Sort text items visually top-to-bottom, left-to-right
   textItems.sort((a, b) => (Math.abs(a.yTop - b.yTop) < 6 ? a.x - b.x : a.yTop - b.yTop));
 
+  // 2B. Visual Lines and Boxes from Rendered Canvas (Raster / Scanned support using textItems mask)
+  let scannedCanvasData: {
+    lines: Array<{ x1: number; y: number; x2: number }>;
+    boxes: Array<{ x: number; y: number; w: number; h: number; isCheckbox: boolean }>;
+    verticalLines?: Array<{ x: number; y1: number; y2: number }>;
+  } = { lines: [], boxes: [], verticalLines: [] };
+
+  if (effectiveCanvas) {
+    try {
+      scannedCanvasData = detectVisualLinesFromCanvas(effectiveCanvas, pageWidthPt, pageHeightPt, textItems);
+      if (scannedCanvasData.lines.length > 0 || scannedCanvasData.boxes.length > 0) {
+        rasterFallbackUsed = true;
+        for (const sl of scannedCanvasData.lines) {
+          rawLines.push({ x1: sl.x1, y: sl.y, x2: sl.x2, source: 'CANVAS' });
+        }
+        for (const vl of scannedCanvasData.verticalLines || []) {
+          rawLines.push({ x1: vl.x, y: vl.y1, x2: vl.x, y2: vl.y2, isVertical: true, source: 'CANVAS' });
+        }
+        for (const sb of scannedCanvasData.boxes) {
+          rawRects.push({ x: sb.x, y: sb.y, w: sb.w, h: sb.h, isCheckbox: sb.isCheckbox, source: 'CANVAS' });
+        }
+      }
+    } catch {
+      // Ignore canvas access errors
+    }
+  }
+
   // Combined geometric features for Step 5 matching
   const allAvailableLines = [
     ...vectorData.lines,
@@ -1227,8 +1320,9 @@ export async function detectFieldsOnPdfPage(
 
       // Short generic token check
       const lowerLabel = cleanLabel.toLowerCase();
+      const endsWithColon = str.trim().endsWith(':');
       const isShortGeneric = ['di', 'data', 'personale', 'rivedibilità'].includes(lowerLabel);
-      if (isShortGeneric) {
+      if (isShortGeneric && !endsWithColon) {
         // If it belongs to a larger sentence on the same line, skip it as an autonomous field!
         const hasNeighbor = textItems.some(
           (it) => it.str !== item.str && Math.abs(it.yTop - item.yTop) < 8 && Math.abs(it.x - item.x) < 120
@@ -1360,8 +1454,12 @@ export async function detectFieldsOnPdfPage(
         matchedGeometry = true;
       }
 
-      // STRICT DISCRIMINATION: A prompt label WITHOUT geometric support (line, box, underline)
-      // must NEVER generate a field! It is purely static form text / label.
+      // CTE-FIX-03B Binding Rule: WHITE SPACE IS NOT A FIELD.
+      // SPATIAL_EMPTY_REGION is an auxiliary metric only and MUST NOT generate autonomous FieldGeometry from OCR label + whitespace alone!
+      // If no physical geometry (line, cell, border, underline, checkbox) was matched, matchedGeometry remains false!
+
+      // STRICT DISCRIMINATION: A prompt label WITHOUT physical geometric support (line, box, cell, underline, checkbox)
+      // must NEVER generate a field! Geometry precedes semantics.
       if (matchedGeometry && widthField >= 30) {
         labelCandidatesCount++;
         textLayerCandidates.push({
@@ -1382,27 +1480,62 @@ export async function detectFieldsOnPdfPage(
           derivationMethod,
           detectionSource,
           confidence,
+          geometricConfidence: confidence,
+          rawGeometricBBox: {
+            left: xField,
+            top: yField,
+            right: xField + widthField,
+            bottom: yField + heightField,
+          },
+          labelAssociationMethod: matchingVectorLineBelow ? 'TOP_HEADER' : 'LEFT_NEIGHBOR',
           status: 'REVIEW_REQUIRED',
         });
       }
     }
   }
 
-  // 6. Master Candidate Clustering, Over-detection Reduction & Field Segmentation Refinement
-  const { proposedFields: clusteredFields, diagnostics: clusteringDiagnostics } = clusterAndRefineCandidates({
-    pageNumber,
-    pageWidthPt,
-    pageHeightPt,
-    rawLines,
-    rawRects,
-    textItems,
-    acroformCandidates,
-    textLayerCandidates,
-    existingFields,
-  });
+  // 6. Master Hybrid Geometric + Heuristic Field Detection Engine (CTE-FIX-03D)
+  PeiOcrCteAdapter.init();
+  console.log(`[03C][START]\npageNumber: ${pageNumber}`);
+  console.log(`[03C][ENGINE]\nHYBRID_DETECTION_ENGINE_CALLED = true`);
+  console.log(`[03C][LEGACY_ENGINE]\nLEGACY_DETECTION_ENGINE_CALLED = false`);
+
+  let autoCandidates: FieldGeometry[] = [];
+  let totalRegionsCount = 0;
+  let checkboxesCount = 0;
+  let structuralOnlyCount = 0;
+  let nonFillableGraphicsCount = 0;
+  let unresolvedCount = 0;
+  let unresolvedPotentialLabelsCount = 0;
+
+  try {
+    const hybridOutput = runHybridDetectionPipeline({
+      pageNumber,
+      pageWidthPt,
+      pageHeightPt,
+      rawLines,
+      rawRects,
+      textItems,
+      existingFields,
+    });
+
+    const hybridAuthoritative = hybridOutput.authoritativeFields;
+    totalRegionsCount = hybridOutput.diagnostics.totalRegionsDetected;
+    checkboxesCount = hybridOutput.diagnostics.checkboxesCount;
+    structuralOnlyCount = hybridOutput.diagnostics.structuralOnlyCount;
+    nonFillableGraphicsCount = hybridOutput.diagnostics.nonFillableGraphicsCount;
+    unresolvedCount = hybridOutput.diagnostics.unresolvedCount;
+    unresolvedPotentialLabelsCount = hybridOutput.diagnostics.unresolvedPotentialLabelsCount;
+
+    // Combine native AcroForm annotations with Authoritative Hybrid Fields
+    autoCandidates = [...acroformCandidates, ...hybridAuthoritative];
+  } catch (hybridErr) {
+    console.error(`[03D][HYBRID_ENGINE_ERROR] Hybrid detection pipeline failed on page ${pageNumber}:`, hybridErr);
+    // Explicit diagnostic logging without silent fallback
+  }
 
   // Evaluate each clustered proposal against existing fields (protection of confirmed/modified, memory of rejected)
-  for (const cand of clusteredFields) {
+  for (const cand of autoCandidates) {
     evaluateAndAddCandidate(cand);
   }
 
@@ -1412,9 +1545,9 @@ export async function detectFieldsOnPdfPage(
     annotationsCount,
     vectorCandidatesCount: rawLines.length + rawRects.length,
     labelCandidatesCount: textLayerCandidates.length,
-    checkboxRadioCandidatesCount: clusteringDiagnostics.rawCheckboxCount,
-    candidatesRaw: clusteringDiagnostics.rawTotalCount,
-    candidatesDeduplicated: clusteredFields.length,
+    checkboxRadioCandidatesCount: checkboxesCount,
+    candidatesRaw: totalRegionsCount,
+    candidatesDeduplicated: autoCandidates.length,
     matchedExisting,
     newProposals: proposedFields.length,
     ignoredDuplicates,
@@ -1424,21 +1557,20 @@ export async function detectFieldsOnPdfPage(
     ocrFallbackUsed,
     rawOcrWordsCount,
     validOcrTextItemsCount,
-    rawLinesCount: clusteringDiagnostics.rawLinesCount,
-    rawRectsCount: clusteringDiagnostics.rawRectsCount,
-    rawTextCount: clusteringDiagnostics.rawTextCount,
-    rawCheckboxCount: clusteringDiagnostics.rawCheckboxCount,
-    rawTotalCount: clusteringDiagnostics.rawTotalCount,
-    clustersCount: clusteringDiagnostics.clustersCount,
-    mergedCount: clusteringDiagnostics.mergedCount,
-    filteredStructureCount: clusteringDiagnostics.filteredStructureCount,
-    filteredLowConfidenceCount: clusteringDiagnostics.filteredLowConfidenceCount,
-    overDetectionSuspected: clusteringDiagnostics.overDetectionSuspected,
-    expectedStructuralRegionsCount: clusteringDiagnostics.expectedStructuralRegionsCount,
-    uncoveredPlausibleRegionsCount: clusteringDiagnostics.uncoveredPlausibleRegionsCount,
-    recoveryPassAddedCount: clusteringDiagnostics.recoveryPassAddedCount,
-    underDetectionSuspected: clusteringDiagnostics.underDetectionSuspected,
-    discardedReasons: clusteringDiagnostics.discardedReasons,
+    rawLinesCount: rawLines.length,
+    rawRectsCount: rawRects.length,
+    rawTextCount: textItems.length,
+    rawCheckboxCount: checkboxesCount,
+    rawTotalCount: rawLines.length + rawRects.length + textItems.length,
+    clustersCount: totalRegionsCount,
+    mergedCount: 0,
+    filteredStructureCount: structuralOnlyCount + nonFillableGraphicsCount,
+    filteredLowConfidenceCount: unresolvedCount,
+    overDetectionSuspected: false,
+    expectedStructuralRegionsCount: totalRegionsCount,
+    uncoveredPlausibleRegionsCount: unresolvedPotentialLabelsCount,
+    recoveryPassAddedCount: 0,
+    underDetectionSuspected: unresolvedPotentialLabelsCount > 0,
   };
 
   console.log(`[AssistedFieldDetection Diagnostics Page ${pageNumber}]
@@ -1834,7 +1966,7 @@ export async function collectPageRuntimeDiagnostics(
 
   if (effectiveCanvas) {
     try {
-      scannedCanvasData = detectVisualLinesFromCanvas(effectiveCanvas, pageWidthPt, pageHeightPt);
+      scannedCanvasData = detectVisualLinesFromCanvas(effectiveCanvas, pageWidthPt, pageHeightPt, textItems);
       for (const sl of scannedCanvasData.lines) {
         rasterLines.push({ ...sl, source: 'CANVAS' });
       }

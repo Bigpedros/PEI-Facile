@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "outDir": ".tmp_pipeline_cjs",
+    "rootDir": "src",
+    "strict": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ]
+  },
+  "files": [
+    "src/core/rasterPrimitiveDetector.ts",
+    "src/core/textReconstruction.ts",
+    "src/core/canonical-template-engine/geometry/hybridDetectionEngine.ts",
+    "src/core/fieldCandidateClustering.ts",
+    "src/core/semanticCatalog.ts",
+    "src/core/promptHeuristics.ts",
+    "src/core/templateSchemaTypes.ts",
+    "src/data/geometry/types.ts",
+    "src/data/geometry/geometryTransform.ts",
+    "src/adapters/pei/peiSemanticCatalog.ts",
+    "src/adapters/pei/registerPeiAdapter.ts",
+    "src/core/headlessPageAnalyzer.ts",
+    "src/core/engineApi.ts",
+    "src/contracts/version.ts",
+    "src/contracts/errors.ts",
+    "src/contracts/diagnostics.ts",
+    "src/contracts/publicApi.ts"
+  ]
+}

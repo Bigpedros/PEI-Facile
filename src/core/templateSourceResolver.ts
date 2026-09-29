@@ -170,30 +170,44 @@ export async function resolveTemplateSource(
     mockCorruptedHash = false,
   } = options;
 
-  // 1. Determine canonical identifier
+  // 1. Determine candidate identifier
   const candidateIdentifier =
     inputModelDef?.id ||
     inputModelId ||
     inputTemplateId ||
-    inputModelDef?.templateId ||
-    inputOrder;
+    inputModelDef?.templateId;
 
-  // Check if explicitly custom (USER_IMPORTED or isMinisterial === false)
+  // 2. Resolve model definition from registry or customModels
+  const resolvedModelDef =
+    inputModelDef ||
+    (candidateIdentifier ? findModelDefinition(candidateIdentifier, customModels) : null);
+
+  // Check if explicitly custom model definition exists
   const isExplicitCustom =
-    inputModelDef?.sourceKind === 'USER_IMPORTED' ||
-    (inputModelDef !== undefined && inputModelDef !== null && inputModelDef.isMinisterial === false);
+    resolvedModelDef?.sourceKind === 'USER_IMPORTED' ||
+    resolvedModelDef?.isMinisterial === false ||
+    (resolvedModelDef !== null && resolvedModelDef !== undefined && resolvedModelDef.originType !== 'MINISTERIAL');
 
   // Check if ministerial built-in:
-  // Must NOT be an explicit custom model, AND candidate identifier or definition must be ministerial
-  const candidateOrder = resolveMinisterialOrder(candidateIdentifier);
-  const fallbackOrder = !inputModelDef && !inputModelId && !inputTemplateId ? resolveMinisterialOrder(inputOrder) : null;
+  // Must NOT be explicit custom, AND must match ministerial model definition or explicit ministerial identifier
+  const candidateOrder = candidateIdentifier ? resolveMinisterialOrder(candidateIdentifier) : null;
+  const isExplicitMinisterialId =
+    candidateIdentifier &&
+    candidateOrder &&
+    (candidateIdentifier === candidateOrder ||
+      candidateIdentifier === `MINISTERIAL_${candidateOrder}` ||
+      MINISTERIAL_CANONICAL_MAP[candidateOrder]?.aliases.includes(candidateIdentifier));
+
+  const fallbackOrder = !candidateIdentifier ? resolveMinisterialOrder(inputOrder) : null;
   const ministerialOrder = candidateOrder || fallbackOrder;
 
   const isBuiltIn =
     !isExplicitCustom &&
-    (Boolean(ministerialOrder) ||
-      inputModelDef?.isMinisterial === true ||
-      inputModelDef?.sourceKind === 'BUILT_IN');
+    (resolvedModelDef?.isMinisterial === true ||
+      resolvedModelDef?.sourceKind === 'BUILT_IN' ||
+      resolvedModelDef?.originType === 'MINISTERIAL' ||
+      Boolean(isExplicitMinisterialId) ||
+      (!candidateIdentifier && Boolean(fallbackOrder)));
 
   // ============================================================
   // PATH A: BUILT_IN / MINISTERIAL (A1, A2, A3, A4)
@@ -292,6 +306,7 @@ export async function resolveTemplateSource(
   // PATH B: USER_IMPORTED / CUSTOM MODEL
   // ============================================================
   const modelDef =
+    resolvedModelDef ||
     inputModelDef ||
     findModelDefinition(candidateIdentifier, customModels);
 

@@ -17,6 +17,7 @@ import type {
   FieldGeometry,
   FieldDetectionSource,
   FieldBackgroundMode,
+  LabelAssociationMethod,
 } from '../data/geometry/types';
 import type { TemplateFieldType } from './templateSchemaTypes';
 import { generateFieldId, suggestSemanticKey } from './semanticCatalog';
@@ -30,6 +31,45 @@ import {
   type StructureAnchorType,
   type GeometryFitEvaluation,
 } from '../data/geometry/geometryTransform';
+
+export function isNonFillableGraphic(rect: RawRectCandidate): boolean {
+  if (rect.isCheckbox) return false;
+  // Circular graphic, stamp or decorative logo (square-ish aspect ratio, h >= 35, w >= 35)
+  if (rect.w >= 35 && rect.w <= 200 && rect.h >= 35 && rect.h <= 200) {
+    const ratio = rect.w / rect.h;
+    if (ratio >= 0.85 && ratio <= 1.15) {
+      if ((rect as any).isCircle || (rect as any).isStamp || (rect as any).type === 'CIRCLE') {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+export function normalizeLineCandidate(line: RawLineCandidate): RawLineCandidate {
+  const x1 = line.x1;
+  const x2 = line.x2;
+  const y1 = line.y;
+  const y2 = line.y2 !== undefined ? line.y2 : line.y;
+
+  const dx = Math.abs(x2 - x1);
+  const dy = Math.abs(y2 - y1);
+
+  const rawSlope = dx > 0 ? (y2 - y1) / dx : 999;
+  const isVert = dy > dx * 2 || line.isVertical === true;
+  const normalizedOrientation = isVert ? 'VERTICAL' : 'HORIZONTAL';
+  const meanCoordinate = isVert ? (x1 + x2) / 2 : (y1 + y2) / 2;
+
+  return {
+    ...line,
+    y: Math.round((isVert ? y1 : meanCoordinate) * 10) / 10,
+    lineStart: { x: x1, y: y1 },
+    lineEnd: { x: x2, y: y2 },
+    rawSlope: Math.round(rawSlope * 1000) / 1000,
+    normalizedOrientation,
+    meanCoordinate: Math.round(meanCoordinate * 10) / 10,
+  };
+}
 
 export function isValidLabel(label: string): boolean {
   const clean = label.trim();
@@ -49,9 +89,16 @@ export function isValidLabel(label: string): boolean {
   }
 
   // 3. Common noise strings / OCR fragments to reject as autonomous labels
-  const noise = ['di', 'da', 'del', 'al', 'il', 'la', 'i', 'gli', 'le', 'un', 'una', 'data', 'personale', 'rivedibilità'];
-  if (noise.includes(clean.toLowerCase())) {
+  const noise = ['di', 'da', 'del', 'al', 'il', 'la', 'i', 'gli', 'le', 'un', 'una', 'personale', 'rivedibilità'];
+  const lower = clean.toLowerCase();
+  if (noise.includes(lower)) {
     return false;
+  }
+  if (lower === 'data') {
+    // Structural prompt "Data:" or capitalized "Data" is valid; lowercase "data" in sentence is noise
+    if (!clean.endsWith(':') && clean === 'data') {
+      return false;
+    }
   }
 
   return true;
@@ -74,6 +121,11 @@ export interface RawLineCandidate {
   y2?: number;
   isVertical?: boolean;
   source?: 'VECTOR' | 'RASTER' | 'CANVAS' | 'VISUAL_SCAN';
+  lineStart?: { x: number; y: number };
+  lineEnd?: { x: number; y: number };
+  rawSlope?: number;
+  normalizedOrientation?: 'HORIZONTAL' | 'VERTICAL';
+  meanCoordinate?: number;
 }
 
 export interface RawRectCandidate {
@@ -638,6 +690,9 @@ export function clusterAndRefineCandidates(
       derivationMethod: 'VECTOR_BOUNDARY',
       detectionSource: cluster.prompt ? 'COMBINED' : 'GEOMETRY',
       confidence: cluster.prompt ? 0.94 : 0.88,
+      geometricConfidence: cluster.prompt ? 0.94 : 0.88,
+      rawGeometricBBox: { left: minX, top: firstLineY, right: maxX, bottom: lastLineY },
+      labelAssociationMethod: cluster.prompt ? 'CONTAINED_PROMPT' : 'UNASSOCIATED',
       status: 'REVIEW_REQUIRED',
       anchorType: 'MULTILINE_REGION_ANCHOR',
     };
@@ -692,6 +747,10 @@ export function clusterAndRefineCandidates(
       let prompt: RawTextItem | undefined;
       let labelText = '';
 
+      let topPrompt: RawTextItem | undefined;
+      let colHeader: RawTextItem | undefined;
+      let leftLabel: RawTextItem | undefined;
+
       if (itemsInBox.length > 0) {
         const fullCellText = itemsInBox.map((it) => it.str).join(' ').trim();
         const firstItem = itemsInBox[0];
@@ -705,17 +764,18 @@ export function clusterAndRefineCandidates(
         };
         labelText = fullCellText;
       } else {
-        prompt = textItems.find(
+        topPrompt = textItems.find(
           (it) =>
             box.y - (it.yTop + it.h) >= -2 &&
             box.y - (it.yTop + it.h) < 26 &&
             Math.abs(it.x - box.x) < 50
         );
-        if (prompt) {
-          labelText = prompt.str;
+        if (topPrompt) {
+          labelText = topPrompt.str;
+          prompt = topPrompt;
         } else {
           // Column header check (within 250 pt above for multi-row tables)
-          const colHeader = textItems.find(
+          colHeader = textItems.find(
             (it) =>
               box.y - (it.yTop + it.h) >= 0 &&
               box.y - (it.yTop + it.h) < 250 &&
@@ -727,7 +787,7 @@ export function clusterAndRefineCandidates(
             prompt = colHeader;
           } else {
             // Left-side label cell check
-            const leftLabel = textItems.find(
+            leftLabel = textItems.find(
               (it) =>
                 it.x + it.w <= box.x + 8 &&
                 box.x - (it.x + it.w) < 120 &&
@@ -760,6 +820,19 @@ export function clusterAndRefineCandidates(
         continue;
       }
 
+      let assocMethod: LabelAssociationMethod = 'UNASSOCIATED';
+      if (itemsInBox.length > 0) {
+        assocMethod = 'CONTAINED_PROMPT';
+      } else if (prompt) {
+        if (leftLabel && prompt === leftLabel) {
+          assocMethod = 'LEFT_NEIGHBOR';
+        } else if (colHeader && prompt === colHeader) {
+          assocMethod = 'COLUMN_HEADER';
+        } else {
+          assocMethod = 'TOP_HEADER';
+        }
+      }
+
       const cleanLabel = labelText.replace(/:$/, '').trim();
       const suggestion = cleanLabel
         ? suggestSemanticKey(cleanLabel)
@@ -783,6 +856,9 @@ export function clusterAndRefineCandidates(
         derivationMethod: 'TABLE_CELL',
         detectionSource: prompt ? 'COMBINED' : 'GEOMETRY',
         confidence: prompt ? 0.92 : 0.85,
+        geometricConfidence: prompt ? 0.92 : 0.85,
+        rawGeometricBBox: { left: box.x, top: box.y, right: box.x + box.w, bottom: box.y + box.h },
+        labelAssociationMethod: assocMethod,
         status: 'REVIEW_REQUIRED',
         anchorType: 'CELL_ANCHOR',
       });
@@ -826,6 +902,7 @@ export function clusterAndRefineCandidates(
                              aboveLabel ? aboveLabel.str.trim() : '';
 
       const choiceLabel = rawChoiceLabel || 'Opzione';
+      const assocMethod: LabelAssociationMethod = rightLabel || leftLabel ? 'LEFT_NEIGHBOR' : aboveLabel ? 'TOP_HEADER' : 'UNASSOCIATED';
 
       candidatePool.push({
         fieldId: generateFieldId(),
@@ -842,9 +919,12 @@ export function clusterAndRefineCandidates(
         widthPt: box.w,
         heightPt: box.h,
         anchorText: choiceLabel,
-        derivationMethod: 'VECTOR_BOUNDARY',
+        derivationMethod: 'CHECKBOX_BOX',
         detectionSource: 'GEOMETRY',
         confidence: 0.88,
+        geometricConfidence: 0.88,
+        rawGeometricBBox: { left: box.x, top: box.y, right: box.x + box.w, bottom: box.y + box.h },
+        labelAssociationMethod: assocMethod,
         status: 'REVIEW_REQUIRED',
         anchorType: 'RECT_ANCHOR',
       });
@@ -906,6 +986,8 @@ export function clusterAndRefineCandidates(
       fieldY = Math.max(0, Math.max(Math.round((line.y - 18) * 10) / 10, Math.round((promptAbove.yTop + promptAbove.h + 2) * 10) / 10));
     }
 
+    const lineAssocMethod: LabelAssociationMethod = promptLeft ? 'LEFT_NEIGHBOR' : 'TOP_HEADER';
+
     candidatePool.push({
       fieldId: generateFieldId(),
       label: suggestion.suggestedLabel || label || 'Campo da identificare',
@@ -921,9 +1003,12 @@ export function clusterAndRefineCandidates(
       widthPt: fieldW,
       heightPt: 20,
       anchorText: prompt.str,
-      derivationMethod: 'VECTOR_BOUNDARY',
+      derivationMethod: 'VECTOR_LINE',
       detectionSource: 'COMBINED',
       confidence: 0.89,
+      geometricConfidence: 0.89,
+      rawGeometricBBox: { left: line.x1, top: line.y - 2, right: line.x2, bottom: line.y + 18 },
+      labelAssociationMethod: lineAssocMethod,
       status: 'REVIEW_REQUIRED',
       anchorType: 'LINE_ANCHOR',
     });
@@ -970,6 +1055,10 @@ export function clusterAndRefineCandidates(
       let prompt: RawTextItem | undefined;
       let labelText = '';
 
+      let topPrompt: RawTextItem | undefined;
+      let colHeader: RawTextItem | undefined;
+      let leftLabel: RawTextItem | undefined;
+
       if (itemsInBox.length > 0) {
         const fullCellText = itemsInBox.map((it) => it.str).join(' ').trim();
         const firstItem = itemsInBox[0];
@@ -983,17 +1072,18 @@ export function clusterAndRefineCandidates(
         };
         labelText = fullCellText;
       } else {
-        prompt = textItems.find(
+        topPrompt = textItems.find(
           (it) =>
             rect.y - (it.yTop + it.h) >= -2 &&
             rect.y - (it.yTop + it.h) < 35 &&
             Math.abs(it.x - rect.x) < 50
         );
-        if (prompt) {
-          labelText = prompt.str;
+        if (topPrompt) {
+          labelText = topPrompt.str;
+          prompt = topPrompt;
         } else {
           // Column header check (within 250 pt above for multi-row tables)
-          const colHeader = textItems.find(
+          colHeader = textItems.find(
             (it) =>
               rect.y - (it.yTop + it.h) >= 0 &&
               rect.y - (it.yTop + it.h) < 250 &&
@@ -1005,7 +1095,7 @@ export function clusterAndRefineCandidates(
             prompt = colHeader;
           } else {
             // Left-side label cell check
-            const leftLabel = textItems.find(
+            leftLabel = textItems.find(
               (it) =>
                 it.x + it.w <= rect.x + 8 &&
                 rect.x - (it.x + it.w) < 120 &&
@@ -1033,6 +1123,19 @@ export function clusterAndRefineCandidates(
           ? suggestSemanticKey(cleanLabel)
           : { semanticKey: null, suggestedSemanticKey: null, suggestedLabel: null, suggestedFieldType: 'TEXT_SHORT', confidence: 0 };
 
+        let assocMethod: LabelAssociationMethod = 'UNASSOCIATED';
+        if (itemsInBox.length > 0) {
+          assocMethod = 'CONTAINED_PROMPT';
+        } else if (prompt) {
+          if (leftLabel && prompt === leftLabel) {
+            assocMethod = 'LEFT_NEIGHBOR';
+          } else if (colHeader && prompt === colHeader) {
+            assocMethod = 'COLUMN_HEADER';
+          } else {
+            assocMethod = 'TOP_HEADER';
+          }
+        }
+
         candidatePool.push({
           fieldId: generateFieldId(),
           label: suggestion.suggestedLabel || cleanLabel || 'Campo da identificare',
@@ -1051,6 +1154,9 @@ export function clusterAndRefineCandidates(
           derivationMethod: 'TABLE_CELL',
           detectionSource: prompt ? 'COMBINED' : 'GEOMETRY',
           confidence: prompt ? 0.90 : 0.82,
+          geometricConfidence: prompt ? 0.90 : 0.82,
+          rawGeometricBBox: { left: rect.x, top: rect.y, right: rect.x + rect.w, bottom: rect.y + rect.h },
+          labelAssociationMethod: assocMethod,
           status: 'REVIEW_REQUIRED',
           anchorType: 'CELL_ANCHOR',
         });

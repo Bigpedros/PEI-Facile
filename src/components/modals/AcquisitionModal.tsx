@@ -80,6 +80,10 @@ export const AcquisitionModal: React.FC<AcquisitionModalProps> = ({
   // Keep selectedModelId in sync with selectedSchoolOrder
   useEffect(() => {
     if (acquisitionResult) {
+      // If a model is already selected, preserve it
+      if (selectedModelId && selectedModelId.trim().length > 0) {
+        return;
+      }
       const modelsForOrder = [
         { id: 'MINISTERIAL_A1', schoolOrder: 'A1' },
         { id: 'MINISTERIAL_A2', schoolOrder: 'A2' },

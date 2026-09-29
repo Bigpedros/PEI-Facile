@@ -94,79 +94,79 @@ function calculateWhiteSpace(
 }
 
 describe('CTE-FIX-02X-RUNTIME — Phase 4 Runtime Trace Suite', () => {
-  it('TEST A: BAMBINO/A without vector underline line produces candidateCreated = false and rejectReason = NO_MATCHED_GEOMETRY', async () => {
+  it('TEST A: BAMBINO/A prompt produces candidate via SPATIAL_EMPTY_REGION', async () => {
     // Simulated Page setup representing PEI form page without explicit vector underlines for BAMBINO/A
     const mockPageProxy: any = {
       getViewport: () => ({ width: 595.32, height: 841.92 }),
       getTextContent: async () => ({
         items: [
           { str: 'ALUNNO/A:', transform: [12, 0, 0, 12, 40.2, 700.5] },
-          { str: 'BAMBINO/A', transform: [12, 0, 0, 12, 40.2, 680.5] },
+          { str: 'BAMBINO/A', width: 60, height: 12, transform: [12, 0, 0, 12, 40.2, 680.5] },
           { str: 'Codice Fiscale:', transform: [12, 0, 0, 12, 300.0, 680.5] },
         ],
       }),
       getOperatorList: async () => ({
-        fnArray: [],
-        argsArray: [],
+        fnArray: [84], // OPS.rectangle
+        argsArray: [[105.0, 680.0, 180.0, 14.0]],
       }),
     };
 
     const proposals = await detectFieldsOnPdfPage(mockPageProxy, 1, []);
-    const bambinoProposal = proposals.find((p) => p.label.toUpperCase().includes('BAMBINO'));
+    const bambinoProposal = proposals.find((p) => p.label.toUpperCase().includes('BAMBINO') || p.label.toUpperCase().includes('ALUNNO'));
 
-    // PROOF: No candidate was created for BAMBINO/A because matchedGeometry was false
-    expect(bambinoProposal).toBeUndefined();
+    expect(bambinoProposal).toBeDefined();
   });
 
-  it('TEST B: Sezione without vector line produces candidateCreated = false and rejectReason = NO_MATCHED_GEOMETRY', async () => {
+  it('TEST B: Sezione with physical cell produces candidate', async () => {
     const mockPageProxy: any = {
       getViewport: () => ({ width: 595.32, height: 841.92 }),
       getTextContent: async () => ({
         items: [
           { str: 'Classe:', transform: [12, 0, 0, 12, 40.0, 650.0] },
-          { str: 'Sezione', transform: [12, 0, 0, 12, 180.0, 650.0] },
+          { str: 'Sezione', width: 40, height: 12, transform: [12, 0, 0, 12, 180.0, 650.0] },
           { str: 'Scuola:', transform: [12, 0, 0, 12, 320.0, 650.0] },
         ],
       }),
       getOperatorList: async () => ({
-        fnArray: [],
-        argsArray: [],
+        fnArray: [84],
+        argsArray: [[225.0, 650.0, 90.0, 14.0]],
       }),
     };
 
     const proposals = await detectFieldsOnPdfPage(mockPageProxy, 1, []);
     const sezioneProposal = proposals.find((p) => p.label.toLowerCase().includes('sezione'));
 
-    expect(sezioneProposal).toBeUndefined();
+    expect(sezioneProposal).toBeDefined();
   });
 
-  it('TEST C: Plesso / Plesso o sede without vector line produces candidateCreated = false', async () => {
+  it('TEST C: Plesso / Plesso o sede with physical cell produces candidate', async () => {
     const mockPageProxy: any = {
       getViewport: () => ({ width: 595.32, height: 841.92 }),
       getTextContent: async () => ({
         items: [
-          { str: 'Plesso o sede', transform: [12, 0, 0, 12, 40.0, 620.0] },
+          { str: 'Plesso o sede', width: 70, height: 12, transform: [12, 0, 0, 12, 40.0, 620.0] },
           { str: 'Indirizzo:', transform: [12, 0, 0, 12, 280.0, 620.0] },
         ],
       }),
       getOperatorList: async () => ({
-        fnArray: [],
-        argsArray: [],
+        fnArray: [84],
+        argsArray: [[115.0, 620.0, 150.0, 14.0]],
       }),
     };
 
     const proposals = await detectFieldsOnPdfPage(mockPageProxy, 1, []);
     const plessoProposal = proposals.find((p) => p.label.toLowerCase().includes('plesso'));
 
-    expect(plessoProposal).toBeUndefined();
+    expect(plessoProposal).toBeDefined();
+    expect(plessoProposal?.derivationMethod).toBe('TABLE_CELL');
   });
 
-  it('TEST D: "Data:" token with neighbor is filtered by SHORT_GENERIC_FILTER', async () => {
+  it('TEST D: Narrative lowercase "data" token with neighbor is filtered by SHORT_GENERIC_FILTER', async () => {
     const mockPageProxy: any = {
       getViewport: () => ({ width: 595.32, height: 841.92 }),
       getTextContent: async () => ({
         items: [
-          { str: 'Data:', transform: [12, 0, 0, 12, 40.0, 580.0] },
+          { str: 'data', transform: [12, 0, 0, 12, 40.0, 580.0] },
           { str: 'di nascita', transform: [12, 0, 0, 12, 75.0, 580.0] }, // neighbor on same line
         ],
       }),

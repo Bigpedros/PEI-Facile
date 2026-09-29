@@ -1,0 +1,1 @@
+{"compilerOptions":{"target":"ES2022","module":"CommonJS","moduleResolution":"Node","outDir":".tmp_raster_test","rootDir":"src/core","strict":false,"skipLibCheck":true,"lib":["ES2022","DOM"]},"files":["src/core/rasterPrimitiveDetector.ts"]}
