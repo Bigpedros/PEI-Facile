@@ -1,6 +1,8 @@
 PEI FACILE - SECONDO TEST GITHUB -> AI STUDIO
 Creato esclusivamente nel repository GitHub il 6 ottobre 2026, dopo il primo test.
-Marcatore: PEI_SYNC_SECONDO_FILE_20261006_02
+Marcatore: PEI_SYNC_SECONDO_FILE_20261006_03
 
-File di testo per verificare la sincronizzazione verso l'istanza AI Studio esistente.
+REVISIONE 03 - FILE ESISTENTE AGGIORNATO SOLO SU GITHUB.
+Aggiornamento del 6 ottobre 2026 per verificare il recupero di modifiche a un file gia presente in AI Studio.
+Il test riesce se nell'istanza compare il marcatore finale _03 e questa riga di revisione.
 Non richiede modifiche al codice dell'app o al motore OCR.
