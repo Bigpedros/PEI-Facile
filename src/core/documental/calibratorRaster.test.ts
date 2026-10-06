@@ -36,7 +36,7 @@ describe('Calibratore: evidenza raster e associazioni',()=>{
   const fields=inferFields(c as any,tokens,[{id:'noise',kind:'checkbox',box:{x:80,y:100,width:12,height:12},text:'',status:'review',checked:null}]);
   expect(fields.some(f=>f.type==='checkbox')).toBe(false);
   const date=fields.find(f=>f.type==='date')!;expect(date.value).toBe('2024-10-16');expect(date.label).toBe('DATA');expect(date.box.x).toBe(160);
-  const signature=fields.find(f=>/FIRMA/.test(f.label))!;expect(signature).toBeDefined();expect(signature.box.width).toBeGreaterThan(180);expect(signature.box.y).toBeGreaterThan(220);
+  const signature=fields.find(f=>/firma/i.test(f.label))!;expect(signature).toBeDefined();expect(signature.box.width).toBeGreaterThan(180);expect(signature.box.y).toBeGreaterThan(220);
  });
  it('lascia statici i titoli e conserva il testo nella zona narrativa sotto la consegna',()=>{
   const c=createCanvas(800,1000),ctx=c.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,800,1000);
@@ -47,6 +47,22 @@ describe('Calibratore: evidenza raster e associazioni',()=>{
   const fields=inferFields(c as any,tokens,[{id:'narrative',kind:'cell',box:{x:50,y:100,width:650,height:160},text:'',status:'review',checked:null}]);
   expect(fields).toHaveLength(1);expect(fields[0].type).toBe('textarea');expect(fields[0].box.y).toBeGreaterThan(124);expect(fields[0].value).toBe('Testo già compilato da conservare.');expect(fields[0].maskOriginal).toBe(true);
   expect(isLabel('4. Osservazioni sul bambino:')).toBe(false);expect(isLabel('a. Dimensione della relazione:')).toBe(false);
+ });
+ it('ricostruisce quattro celle con bordi chiari inclinati senza alterare il raster',()=>{
+  const c=createCanvas(800,1000),ctx=c.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,800,1000);ctx.strokeStyle='#d7d7d7';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(50,100);ctx.lineTo(750,112);ctx.lineTo(746,460);ctx.lineTo(46,448);ctx.closePath();ctx.stroke();
+  for(let n=1;n<4;n++){ctx.beginPath();ctx.moveTo(50-n,100+n*87);ctx.lineTo(750-n,112+n*87);ctx.stroke();}
+  const tokens:Token[]=Array.from({length:4},(_,n)=>({id:'caption'+n,text:`${'abcd'[n]}. Dimensione della relazione:`,box:{x:60,y:120+n*87,width:390,height:20},source:'ocr',confidence:95,lineId:'row'+n}));
+  const regions=detectRegions(c as any,tokens),fields=inferFields(c as any,tokens,regions);
+  expect(regions.filter(r=>r.kind==='cell')).toHaveLength(4);expect(fields.filter(f=>f.type==='textarea')).toHaveLength(4);
+ });
+ it('conserva tutta la cella quando attività e risposta condividono la prima riga',()=>{
+  const c=createCanvas(800,1000),ctx=c.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,800,1000);
+  const caption:Token={id:'c',text:'Attività',box:{x:55,y:105,width:80,height:20},source:'ocr',confidence:95,lineId:'row'};
+  const response:Token={id:'v',text:'GIOCHI DI TURNAZIONE',box:{x:150,y:105,width:260,height:20},source:'ocr',confidence:95,lineId:'row'};
+  const fields=inferFields(c as any,fieldTokens([caption,response],[{id:'cell',kind:'cell',box:{x:50,y:100,width:650,height:120},text:'',status:'review',checked:null}]),[{id:'cell',kind:'cell',box:{x:50,y:100,width:650,height:120},text:'',status:'review',checked:null}]);
+  expect(fields).toHaveLength(1);expect(fields[0].label).toBe('Attività');expect(fields[0].value).toBe('Attività GIOCHI DI TURNAZIONE');expect(fields[0].maskOriginal).toBe(true);expect(fields[0].type).toBe('textarea');
+  expect(isLabel('fascia di età, capacità di integrare competenze:')).toBe(false);
  });
  it('trova geometria reale sulla pagina Roma inclusa nello ZIP e separa Sezione da Plesso',async()=>{
   const d=await pdfjs.getDocument({data:new Uint8Array(fs.readFileSync('public/downloads/PEI_Comune_Roma_Canonico_A4_020.pdf'))}).promise;

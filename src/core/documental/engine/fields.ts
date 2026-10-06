@@ -9,9 +9,9 @@ export function isLabel(text:string):boolean {
  if(/^(?:\(?art\.?|ai sensi|d\.?\s*lgs\.?|legge|decreto)\b/i.test(s))return false;
  if(/^(?:intestazione della scuola|codice sostitutivo personale|firma(?: del| della)? (?:dirigente scolastico|docente|genitore)|verbale allegato(?: n\.?)?)\s*[.!]?$/i.test(s))return true;
  if(/^(?:[a-d][.)]\s*)?(?:dimensione\b|interventi per\b|elementi generali\b|raccordo con\b|eventuali modifiche\b)/i.test(s))return false;
- if(/[:?]\s*$/.test(s))return true;
+ // A colon alone is not evidence of a form prompt.
  // A keyword embedded in a heading/narrative is not itself a prompt.
- return /^(?:nome(?: e cognome)?|cognome(?: e nome)?|data(?: di nascita)?|luogo(?: di nascita)?|indirizzo|residenza|telefono|cellulare|email|e-mail|classe|sezione|scuola|istituto|codice(?: fiscale)?|firma|note(?: cliniche)?|osservazioni|descrizione|obiettivi|risposta|motivazione|comune|provincia|cap|anno scolastico|alunn[oa](?:\/a)?|bambin[oa](?:\/?a)?|plesso(?: o sede)?|docente|genitore|consenso)$/i.test(s);
+ return /^(?:nome(?: e cognome)?|cognome(?: e nome)?|data(?: di nascita)?|luogo(?: di nascita)?|indirizzo|residenza|telefono|cellulare|email|e-mail|classe|sezione|scuola|istituto|codice(?: fiscale)?|firma|note(?: cliniche)?|osservazioni|descrizione|obiettivi|risposta|motivazione|comune|provincia|cap|anno scolastico|alunn[oa](?:\/a)?|bambin[oa](?:\/?a)?|plesso(?: o sede)?|docente|genitore|consenso)$/i.test(s.replace(/[:?]\s*$/,''));
 }
 const clean=(s:string)=>s.replace(/[_\.]{3,}/g,'').replace(/\s+/g,' ').trim().replace(/[,:;]$/, '');
 export function fieldType(label:string,height:number,typicalHeight:number):FormField['type']{return /\bdata\b|(?:nato|nata)\s+il/i.test(label)?'date':((/note|osservazioni|descrizione|obiettivi|motivazione|risposta/i.test(label)&&height>typicalHeight*2)||(!/nome|cognome|classe|sezione|indirizzo|telefono|email|codice|luogo|comune|provincia|firma/i.test(label)&&height>typicalHeight*6))?'textarea':'text';}
@@ -73,6 +73,15 @@ export function inferFields(canvas:HTMLCanvasElement,tokens:Token[],regions:Regi
   const box={x,y:Math.max(0,y-margin),width:Math.max(...valueWords.map(w=>w.box.x+w.box.width))-x,height:Math.max(...valueWords.map(w=>w.box.y+w.box.height))-y+margin*2};
   const f=makeField(box,clean(match[1]),'inline');f.type='date';f.value=match[2];f.originalValue=f.value;f.observedText=f.value;f.maskOriginal=true;f.confidence=.75;f.reason='Data compilata accanto a una etichetta esplicita; posizione misurata sulle parole OCR.';add(f);
  }
+ // OCR can read a printed square as C] or Q]. Require an explicit choice
+ // beside it; a solitary glyph or a mark beside DATA/FIRMA is not enough.
+ for(const t of words.filter(t=>t.source==='ocr'&&/^[[(COQ]\s*[xX]?\s*[\])]$/.test(t.text.trim()))){
+  const right=words.filter(w=>w.id!==t.id&&w.box.x>=t.box.x+t.box.width-2&&w.box.x-t.box.x-t.box.width<textHeight*3&&Math.abs(w.box.y-t.box.y)<textHeight).sort((a,b)=>a.box.x-b.box.x);
+  if(!right[0]||!/^(?:non|redatto|da|sì|si|no)$/i.test(right[0].text))continue;
+  const caption=right.filter(w=>w.lineId===right[0].lineId&&w.box.x<right[0].box.x+textHeight*10).map(w=>w.text).join(' ');
+  if(!/^(?:non redatto|redatto in data|da redigere|sì\b|si\b|no\b)/i.test(caption))continue;
+  const f=makeField({...t.box},clean(caption),'checkbox');f.type='checkbox';f.value=/x/i.test(t.text);f.originalValue=f.value;f.observedText=t.text;f.maskOriginal=true;f.confidence=.65;f.reason='Simbolo OCR di casella accanto a una scelta esplicita, da verificare.';add(f);
+ }
  // OCR often groups a bare PEI prompt and its existing response on one line.
  // Recover only explicit known prompts; keep original word boxes when available.
  for(const t of tokens){
@@ -106,6 +115,18 @@ export function inferFields(canvas:HTMLCanvasElement,tokens:Token[],regions:Regi
   const label=(context?context+': ':'')+clean(right.text);
   const f=makeField({...t.box},label,'checkbox');f.type='checkbox';f.value=/x/i.test(t.text);f.originalValue=f.value;f.observedText=t.text;f.maskOriginal=true;f.confidence=.8;f.reason='Casella esplicita tra parentesi nel testo PDF, associata a una scelta adiacente.';add(f);
  }
+ // A signature caption and its measured dotted line remain valid evidence
+ // even when a faint outer border prevents reconstruction of the whole cell.
+ for(const start of words.filter(t=>/^FIRMA\b/i.test(t.text))){
+  const row=words.filter(t=>t.lineId===start.lineId&&Math.abs(t.box.y-start.box.y)<textHeight*.65&&t.box.x>=start.box.x).sort((a,b)=>a.box.x-b.box.x);
+  const caption=row.map(t=>t.text).join(' ').replace(/[;!]/g,'');
+  if(!/^FIRMA (?:DEL|DIL|DELLA) DIRIGENT[EI] SCOLASTICO\b/i.test(caption))continue;
+  const bottom=Math.max(...row.map(t=>t.box.y+t.box.height)),end=Math.max(...row.map(t=>t.box.x+t.box.width));
+  const evidence=signatureEvidence??=rasterStrokes(canvas),scale=evidence.scale;
+  const lines=evidence.writing.map(l=>({x:l.start/scale,y:l.pos/scale,width:(l.end-l.start)/scale})).filter(l=>l.y>bottom+margin&&l.y<bottom+textHeight*5&&l.x>=start.box.x-margin*2&&l.x+l.width<end-margin&&l.width>textHeight*4).sort((a,b)=>a.y-b.y);
+  if(!lines[0])continue;
+  const l=lines[0],f=makeField({x:l.x,y:l.y-textHeight*1.3,width:l.width,height:textHeight*1.3},'Firma del dirigente scolastico','line');f.confidence=.8;f.reason='Area di firma misurata sulla riga tratteggiata sotto una intestazione esplicita, senza includere il timbro.';add(f);
+ }
  for(const region of regions){
  if(region.kind==='checkbox'){
  const captionTokens=tokens.flatMap(t=>t.fragments||[t]);
@@ -113,7 +134,7 @@ export function inferFields(canvas:HTMLCanvasElement,tokens:Token[],regions:Regi
  const stop=regions.filter(r=>r.kind==='checkbox'&&r.box.x>region.box.x+region.box.width&&Math.abs(r.box.y-region.box.y)<textHeight).sort((a,b)=>a.box.x-b.box.x)[0]?.box.x??canvas.width;
  // Tiny marks next to table headings are not selectable options.
  if(next[0]&&/^(?:DATA|FIRMA|VERBALE)\b/i.test(next[0].text))continue;
- if(Math.min(region.box.width,region.box.height)<textHeight*.75&&!next[0])continue;
+ if(Math.min(region.box.width,region.box.height)<textHeight*.75)continue;
  const label=(next[0]?captionTokens.filter(t=>t.lineId===next[0].lineId&&t.box.x>=next[0].box.x&&t.box.x<stop).sort((a,b)=>a.box.x-b.box.x).map(t=>t.text).join(' '):'')||'Selezione da verificare';if(/^DATA\s+FIRMA\b/i.test(label))continue;const f=makeField({...region.box},label.replace(/\s*[C([]\]?\s*$/,'').trim(),'checkbox');const state=checkedState(canvas,region.box);f.type='checkbox';f.value=state??false;f.originalValue=f.value;f.maskOriginal=true;f.confidence=state===null?.4:.85;f.reason=state===null?'Quadratino rilevato; stato ambiguo da verificare.':'Quadratino e contenuto interno rilevati.';add(f);continue;
  }
  // Signature captions plus a measured dotted line define a writable area.
@@ -131,19 +152,24 @@ export function inferFields(canvas:HTMLCanvasElement,tokens:Token[],regions:Regi
  // occupies the area below. Use individual word boxes so grouped OCR rows
  // spanning a border do not erase the distinction between prompt and value.
  const cellWords=words.filter(t=>/[a-zà-ù0-9]/i.test(t.text)&&(intersectionRatio(t.box,region.box)>.55||(t.box.x>=region.box.x&&t.box.x+t.box.width<=region.box.x+region.box.width&&t.box.y<region.box.y+textHeight&&t.box.y+t.box.height>region.box.y-margin*2))).sort((a,b)=>a.box.y-b.box.y||a.box.x-b.box.x);
- const firstRowY=cellWords[0]?.box.y??Infinity;
- const topWords=cellWords.filter(t=>t.box.y<firstRowY+textHeight*.65&&t.box.y<region.box.y+textHeight*1.8);
+ const captionStart=cellWords.filter(t=>t.box.x<region.box.x+textHeight*4&&Math.abs(t.box.y-region.box.y)<textHeight*1.8&&/^(?:[a-d][.)]\s*)?(?:dimensione|situazione|sintetica|sintesi|obiettivi|attività|strategie)(?=\s|$|[:.,])/i.test(t.text)).sort((a,b)=>Math.abs(a.box.y-region.box.y)-Math.abs(b.box.y-region.box.y))[0];
+ const topWords=captionStart?cellWords.filter(t=>t.lineId===captionStart.lineId&&Math.abs(t.box.y-captionStart.box.y)<textHeight*.65):[];
  const caption= tokensToText(topWords).trim();
- const narrativeCaption=/^(?:(?:[a-d][.)]\s*)?(?:dimensione\s+(?:della|del|cognitiva)|sintesi dei contenuti|sintetica descrizione)|situazione familiare|obiettivi ed esiti attesi|attività|strategie e strumenti|specificare i punti)/i.test(caption);
+ const captionMatch=caption.match(/^(?:(?:[a-d][.)]\s*)?dimensione\s+(?:della|dell[’']|del|cognitiva)[^:]*:|(?:[a-d][.)]\s*)?sintesi dei contenuti[^:]*|sintetica descrizione[^:]*|situazione familiare[^:]*|obiettivi ed esiti attes[iIl]|attività|strategie e strumenti)/i);
+ const narrativeCaption=!!captionMatch;
  if(region.box.height>textHeight*3&&narrativeCaption&&topWords.length){
   const instructionWords=tokens.filter(t=>intersectionRatio(t.box,region.box)>.55&&t.box.y<region.box.y+region.box.height*.45&&/^(?:A cura|In base|specificare|indicare)/i.test(t.text));
   let captionBottom=Math.max(...topWords.map(t=>t.box.y+t.box.height));
   // A separate attribution line is a printed instruction, not the response.
   const instructionRows=cellWords.filter(t=>instructionWords.some(w=>w.lineId===t.lineId));
   if(instructionRows.length)captionBottom=Math.max(captionBottom,...instructionRows.map(t=>t.box.y+t.box.height));
-  const response=cellWords.filter(t=>t.box.y>=captionBottom-margin*.3);
-  const y=captionBottom+margin,height=region.box.y+region.box.height-margin-y;
-  if(height>=textHeight){const f=makeField({x:region.box.x+margin,y,width:region.box.width-margin*2,height},clean(caption),'cell');f.type='textarea';f.value=tokensToText(response);f.originalValue=f.value;f.observedText=f.value;f.maskOriginal=!!f.value;f.confidence=.75;f.reason='Area narrativa sotto la consegna della cella; testo presente conservato e intestazione esclusa.';add(f);}
+  const prompt=clean(captionMatch![0]).replace(/^obiettivi ed esiti attes[iIl]$/i,'Obiettivi ed esiti attesi');
+  const response=cellWords.filter(t=>!topWords.includes(t)&&!instructionRows.includes(t)&&t.box.y>=captionStart!.box.y+textHeight*.3);
+  const overlapsCaption=response.some(t=>t.box.y<captionBottom+margin);
+  const sharesResponseRow=overlapsCaption||(/^(?:obiettivi ed esiti attesi|attività|strategie e strumenti)$/i.test(prompt)&&clean(caption).length>prompt.length+2);
+  const y=sharesResponseRow?region.box.y+margin:captionBottom+margin,height=region.box.y+region.box.height-margin-y;
+  if(height>=textHeight){const f=makeField({x:region.box.x+margin,y,width:region.box.width-margin*2,height},prompt,'cell');f.type='textarea';f.value=tokensToText(sharesResponseRow?cellWords.filter(w=>w.box.y>=Math.min(...topWords.map(t=>t.box.y))-margin):response);f.originalValue=f.value;f.observedText=f.value;f.maskOriginal=!!f.value;f.confidence=sharesResponseRow?.65:.75;f.reason=sharesResponseRow?'Consegna e risposta con geometrie sovrapposte: cella compilabile completa con testo originale conservato, da verificare.':'Area narrativa sotto la consegna della cella; testo presente conservato e intestazione esclusa.';add(f);}
+
   continue;
  }
  if(tokens.some(t=>/^\s*[*•]?\s*(?:specificare|indicare|compilare|istruzioni|a cura)\b/i.test(t.text)&&intersectionRatio(t.box,region.box)>.1))continue;
@@ -153,6 +179,7 @@ export function inferFields(canvas:HTMLCanvasElement,tokens:Token[],regions:Regi
  const left=regions.filter(r=>r.kind==='cell'&&r.box.x+r.box.width<=region.box.x+8&&region.box.x-r.box.x-r.box.width<15&&Math.abs(r.box.y-region.box.y)<10&&isLabel(r.text)).sort((a,b)=>b.box.x-a.box.x)[0];
  const above=regions.filter(r=>r.kind==='cell'&&r.box.y+r.box.height<=region.box.y+8&&region.box.y-r.box.y-r.box.height<15&&Math.abs(r.box.x-region.box.x)<15&&isLabel(r.text)&&r.box.height<textHeight*4).sort((a,b)=>b.box.y-a.box.y)[0];
  const label=left?.text||above?.text;
+ if(label&&isLabel(text))continue;
  if(label){const f=makeField(inset(region.box,margin),clean(label),'cell');f.type=fieldType(label,f.box.height,textHeight);f.value=rawText;f.originalValue=rawText;f.observedText=rawText;f.maskOriginal=!!text;f.confidence=.85;f.reason='Cella associata a etichetta adiacente; contenuto presente conservato.';add(f);continue;}
  if(!text){const nearby=labelNearby(region.box,tokens);if(!nearby)continue;const f=makeField(inset(region.box,margin),clean(nearby||'Campo da verificare'),'cell');f.type=fieldType(f.label,f.box.height,textHeight);f.confidence=nearby?.7:.3;f.reason=nearby?'Cella vuota vicino a una possibile etichetta.':'Cella vuota senza etichetta certa: potrebbe essere uno spazio grafico.';add(f);continue;}
  // Label-only cell with a separate cell on the right must remain static.
