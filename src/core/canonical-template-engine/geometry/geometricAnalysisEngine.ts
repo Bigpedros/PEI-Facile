@@ -9,6 +9,7 @@
  */
 
 import * as pdfjsLib from 'pdfjs-dist';
+import { analyzeImageRasterScanLines } from '../analyzer/rasterScanAnalysis';
 import {
   GeometricAnalysisResult,
   DocumentGeometricAnalysis,
@@ -234,7 +235,7 @@ export class GeometricAnalysisEngine {
       right: Math.round(marginRight * 10) / 10,
     };
 
-    // 4. Skew angle calculation (trimmed median of sampled angles)
+    // 4. Skew angle calculation (trimmed median of sampled angles & raster scan lines)
     let skewAngle = 0;
     if (sampledAngles.length > 0) {
       sampledAngles.sort((a, b) => a - b);
@@ -246,9 +247,41 @@ export class GeometricAnalysisEngine {
       skewAngle = Math.round(skewAngle * 100) / 100;
     }
 
-    // 5. Perspective deviation & perspective score
     let perspectiveDeviation = 0;
-    if (topAngles.length > 0 && bottomAngles.length > 0) {
+
+    // Direct pixel raster scan line analysis for embedded scans
+    try {
+      const opList = await page.getOperatorList();
+      const imgIdx = opList.fnArray.findIndex(
+        (fn) => fn === pdfjsLib.OPS.paintImageXObject || fn === pdfjsLib.OPS.paintInlineImageXObject
+      );
+      if (imgIdx >= 0) {
+        const imgName = opList.argsArray[imgIdx][0];
+        if (imgName && (page as any).objs && typeof (page as any).objs.get === 'function') {
+          await (page as any).objs.get(imgName, (img: any) => {
+            if (img && img.data && img.width && img.height) {
+              const rasterRes = analyzeImageRasterScanLines(
+                img.width,
+                img.height,
+                img.data,
+                pageIndex + 1
+              );
+              if (rasterRes && rasterRes.globalScanSkewDegrees !== null) {
+                skewAngle = rasterRes.globalScanSkewDegrees;
+                if (rasterRes.perspectiveDeviationDegrees !== null) {
+                  perspectiveDeviation = rasterRes.perspectiveDeviationDegrees;
+                }
+              }
+            }
+          });
+        }
+      }
+    } catch {
+      // Non-blocking raster scan line analysis
+    }
+
+    // 5. Perspective score
+    if (perspectiveDeviation === 0 && topAngles.length > 0 && bottomAngles.length > 0) {
       const avgTop = topAngles.reduce((a, b) => a + b, 0) / topAngles.length;
       const avgBottom =
         bottomAngles.reduce((a, b) => a + b, 0) / bottomAngles.length;

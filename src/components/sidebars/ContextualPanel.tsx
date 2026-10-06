@@ -14,6 +14,8 @@ import {
   Copy,
   Check,
   FileText,
+  Compass,
+  Sliders,
 } from 'lucide-react';
 
 interface ContextualPanelProps {
@@ -23,6 +25,7 @@ interface ContextualPanelProps {
   onInsertTextIntoField?: (text: string) => void;
   isOpen: boolean;
   onToggle: () => void;
+  onOpenCalibration?: () => void;
 }
 
 export const ContextualPanel: React.FC<ContextualPanelProps> = ({
@@ -32,6 +35,7 @@ export const ContextualPanel: React.FC<ContextualPanelProps> = ({
   onInsertTextIntoField,
   isOpen,
   onToggle,
+  onOpenCalibration,
 }) => {
   const [activeTab, setActiveTab] = useState<'help' | 'library' | 'model'>('help');
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -148,6 +152,16 @@ export const ContextualPanel: React.FC<ContextualPanelProps> = ({
                   <div className="text-[10px] text-[var(--text-secondary)] font-mono bg-[var(--input-bg)] p-1.5 rounded border border-[var(--border)] font-semibold">
                     Rif. Normativo: {activeField.legalReference}
                   </div>
+                )}
+                {onOpenCalibration && (
+                  <button
+                    type="button"
+                    onClick={onOpenCalibration}
+                    className="w-full mt-1 px-2.5 py-1.5 bg-amber-900/10 hover:bg-amber-900/20 text-amber-900 dark:text-amber-300 rounded border border-amber-800/30 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <Compass className="w-3.5 h-3.5 text-amber-800 dark:text-amber-400" />
+                    <span>Calibra Geometria & Sfondo Campo</span>
+                  </button>
                 )}
               </div>
             ) : (

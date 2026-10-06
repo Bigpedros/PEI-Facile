@@ -1,3 +1,5 @@
+> Consegna consolidata 5 ottobre 2026: istruzioni correnti in `docs/integration-020/INSTALLAZIONE.md` e `PROMPT_GEMINI.txt`. Il manifest corrente è `INTEGRATION-020-MANIFEST.json`; i checksum storici non descrivono questa root aggiornata.
+
 # PEI FACILE OCR STARTER — istruzioni per Gemini
 
 Questo ZIP non è il Motore OCR scontrini completo. È una base pulita derivata dalla baseline certificata `Bigpedros/Motore-OCR` v1.0.0 per costruire il motore OCR di PEI FACILE.

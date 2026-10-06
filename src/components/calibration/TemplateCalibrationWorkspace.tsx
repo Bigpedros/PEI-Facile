@@ -13,7 +13,25 @@ import {
   buildCustomSemanticKey,
   isCustomSemanticKey,
   getSemanticCatalogEntry,
+  resolveCanonicalSemanticKey,
 } from '../../core/semanticCatalog';
+
+export function formatConfidenceDisplay(rawConfidence: number | undefined | null): string {
+  if (rawConfidence === undefined || rawConfidence === null || !Number.isFinite(rawConfidence) || rawConfidence < 0) {
+    return 'Non disponibile';
+  }
+  // Zero is a valid value and must remain 0%
+  let percentage: number;
+  if (rawConfidence <= 1.0) {
+    percentage = rawConfidence * 100;
+  } else if (rawConfidence <= 100) {
+    // legacy percentage compatibility point (e.g. 85 -> 85%)
+    percentage = rawConfidence;
+  } else {
+    return 'Non disponibile';
+  }
+  return `${Math.round(percentage)}%`;
+}
 import {
   pdfPointToViewport,
   viewportToPdfPoint,
@@ -33,8 +51,11 @@ import {
   getTemplatePdfBinary,
   getCustomTemplate,
   findTemplateBySha256,
+  getNormalizedTemplatePdfBinary,
+  getOriginalTemplatePdfBinary,
+  triggerBrowserFileDownload,
 } from '../../core/templateStorage';
-import { computeSha256 } from '../../core/templateSourceResolver';
+import { computeSha256, isPdfBinary } from '../../core/templateSourceResolver';
 import type { CandidateFieldGeometry } from '../../core/templateAcquisitionTypes';
 import {
   saveTemplateSchema,
@@ -70,6 +91,9 @@ import {
   ZoomOut,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  Activity,
   ShieldCheck,
   AlertTriangle,
   FileText,
@@ -92,6 +116,7 @@ import {
   Hash,
   CheckSquare,
   Grid,
+  Download,
 } from 'lucide-react';
 
 import A1Data from '../../data/geometry/A1.geometry.json';
@@ -100,10 +125,10 @@ import A3Data from '../../data/geometry/A3.geometry.json';
 import A4Data from '../../data/geometry/A4.geometry.json';
 
 const BASELINE_MODELS: Record<string, ModelGeometry> = {
-  A1: A1Data as unknown as ModelGeometry,
-  A2: A2Data as unknown as ModelGeometry,
-  A3: A3Data as unknown as ModelGeometry,
-  A4: A4Data as unknown as ModelGeometry,
+  A1: { ...(A1Data as unknown as ModelGeometry), calibrationStatus: 'CALIBRATED' },
+  A2: { ...(A2Data as unknown as ModelGeometry), calibrationStatus: 'CALIBRATED' },
+  A3: { ...(A3Data as unknown as ModelGeometry), calibrationStatus: 'CALIBRATED' },
+  A4: { ...(A4Data as unknown as ModelGeometry), calibrationStatus: 'CALIBRATED' },
 };
 
 export type TemplateResolutionStatus = 'RESOLVING_TEMPLATE' | 'READY' | 'ERROR';
@@ -116,6 +141,38 @@ export interface TemplateResolutionState {
   status: TemplateResolutionStatus;
   errorCode?: TemplateWorkspaceErrorCode;
   message?: string;
+  displayedHash?: string;
+  isNormalizedBackground?: boolean;
+}
+
+async function loadBestTemplateBinary(
+  model: { modelId?: string; id?: string; sourcePdfSha256?: string; normalizedPdfSha256?: string },
+  customBinariesMap?: Record<string, Uint8Array>
+): Promise<Uint8Array | null> {
+  const modelId = model.modelId || model.id || '';
+  if (customBinariesMap && modelId && customBinariesMap[modelId]) {
+    return customBinariesMap[modelId];
+  }
+  const normHash = model.normalizedPdfSha256;
+  const srcHash = model.sourcePdfSha256;
+  const keys = [
+    normHash,
+    normHash ? `normalized_${normHash}` : null,
+    modelId ? `${modelId}_normalized` : null,
+    srcHash ? `normalized_${srcHash}` : null,
+    modelId,
+    srcHash,
+    srcHash ? `original_${srcHash}` : null,
+    modelId ? `${modelId}_original` : null,
+  ].filter(Boolean) as string[];
+
+  for (const k of keys) {
+    const bin = await getTemplatePdfBinary(k);
+    if (bin && bin.byteLength > 0 && isPdfBinary(bin)) {
+      return bin;
+    }
+  }
+  return null;
 }
 
 export interface TemplateCalibrationWorkspaceProps {
@@ -141,8 +198,12 @@ interface DragState {
   initialHeightPt: number;
 }
 
-const isMinisterialModel = (id: string) =>
-  ['A1', 'A2', 'A3', 'A4', 'MINISTERIAL_A1', 'MINISTERIAL_A2', 'MINISTERIAL_A3', 'MINISTERIAL_A4'].includes(id);
+const isMinisterialModel = (id: string, modelDef?: any) => {
+  if (modelDef && (!modelDef.isMinisterial || modelDef.sourceKind === 'USER_IMPORTED' || modelDef.originType !== 'MINISTERIAL')) {
+    return false;
+  }
+  return ['A1', 'A2', 'A3', 'A4', 'MINISTERIAL_A1', 'MINISTERIAL_A2', 'MINISTERIAL_A3', 'MINISTERIAL_A4'].includes(id);
+};
 
 export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspaceProps> = ({
   initialModelId = 'A1',
@@ -175,7 +236,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
 
   const [resolutionState, setResolutionState] = useState<TemplateResolutionState>(() => {
     const targetId = initialModelDef?.templateId || initialModelDef?.id || initialModelId;
-    return isMinisterialModel(targetId)
+    return isMinisterialModel(targetId, initialModelDef)
       ? { status: 'READY' }
       : { status: 'RESOLVING_TEMPLATE' };
   });
@@ -195,10 +256,71 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PROPOSED' | 'CONFIRMED' | 'MODIFIED' | 'REJECTED'>('ALL');
   const [showRejectedFields, setShowRejectedFields] = useState<boolean>(false);
 
+  // Right Panel UX state (CALIBRATOR-UX-01)
+  const [rightPanelTab, setRightPanelTab] = useState<'FIELD' | 'LIST' | 'DIAGNOSTICS'>('FIELD');
+  const [isGeometryExpanded, setIsGeometryExpanded] = useState<boolean>(true);
+  const [isAdvancedToolsExpanded, setIsAdvancedToolsExpanded] = useState<boolean>(true);
+  const [panelWidth, setPanelWidth] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('calibrator_panel_width');
+        if (saved) {
+          const parsed = parseInt(saved, 10);
+          if (!isNaN(parsed) && parsed >= 340 && parsed <= 850) {
+            return parsed;
+          }
+        }
+      } catch {
+        // Ignore localStorage error
+      }
+    }
+    return 420;
+  });
+  const [isResizingPanel, setIsResizingPanel] = useState<boolean>(false);
+
+  const handlePanelResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingPanel(true);
+    const startX = e.clientX;
+    const startWidth = panelWidth;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const delta = startX - moveEvent.clientX; // dragging left widens right panel
+      const minWidth = 340;
+      const maxWidth = Math.max(minWidth, Math.min(850, window.innerWidth - 380));
+      const newWidth = Math.max(minWidth, Math.min(maxWidth, startWidth + delta));
+      setPanelWidth(newWidth);
+    };
+
+    const onMouseUp = (upEvent: MouseEvent) => {
+      const delta = startX - upEvent.clientX;
+      const minWidth = 340;
+      const maxWidth = Math.max(minWidth, Math.min(850, window.innerWidth - 380));
+      const finalWidth = Math.max(minWidth, Math.min(maxWidth, startWidth + delta));
+      try {
+        localStorage.setItem('calibrator_panel_width', String(Math.round(finalWidth)));
+      } catch {
+        // Ignore
+      }
+      setIsResizingPanel(false);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
   // Assisted Field Detection (R08) state
   const [isDetecting, setIsDetecting] = useState<boolean>(false);
   const [detectionProgress, setDetectionProgress] = useState<{ current: number; total: number } | null>(null);
+  const [detectedPages, setDetectedPages] = useState<Set<number>>(new Set());
   const detectionAbortControllerRef = useRef<AbortController | null>(null);
+  const autoDetectionExecutedRef = useRef<Set<string>>(new Set());
 
   // PDF canvas & interaction refs
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -247,16 +369,21 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
               label: f.label || '',
               semanticKey: f.semanticKey || null,
               backgroundMode: f.backgroundMode || 'TRANSPARENT',
-              calibrationStatus: f.calibrationStatus || 'CONFIRMED',
-              confidence: f.confidence ?? 1.0,
+              calibrationStatus: f.calibrationStatus,
+              confidence: f.confidence !== undefined && f.confidence !== null && Number.isFinite(f.confidence) ? f.confidence : undefined,
               detectionSource: f.detectionSource,
               suggestedLabel: f.suggestedLabel,
               suggestedSemanticKey: f.suggestedSemanticKey,
               fieldType: (f as any).fieldType || 'TEXT_SHORT',
               required: (f as any).required ?? false,
               overflowPolicy: (f as any).overflowPolicy || 'RIGID',
-              status: f.calibrationStatus === 'CONFIRMED' || f.calibrationStatus === 'MODIFIED' || f.status === 'MAPPED' ? 'MANUAL_VERIFIED' : f.calibrationStatus === 'REJECTED' ? 'REJECTED' : 'CANDIDATE',
-            });
+              status: f.calibrationStatus === 'CONFIRMED' || f.calibrationStatus === 'MODIFIED' || f.derivationMethod === 'MANUAL_VERIFIED' || (f as any).isModifiedAfterProposal
+                ? 'MANUAL_VERIFIED'
+                : f.calibrationStatus === 'REJECTED'
+                ? 'REJECTED'
+                : (f.status as any) || 'CANDIDATE',
+              isModifiedAfterProposal: (f as any).isModifiedAfterProposal,
+            } as any);
           });
         }
       });
@@ -276,7 +403,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
         heightPt: p.heightPt,
       })),
       fields,
-      calibrationStatus: 'ACQUIRED',
+      calibrationStatus: ((model as any).calibrationStatus as any) || 'ACQUIRED',
       geometryValidationStatus: 'PASS',
       visualReviewStatus: 'REQUIRED',
       createdAt: new Date().toISOString(),
@@ -286,31 +413,47 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
 
   const applyTemplateSchemaToModelGeometry = (schema: TemplateSchema, model: ModelGeometry): ModelGeometry => {
     const updatedPages = model.pages.map((p) => {
-      const pageFields = schema.fields
-        .filter((f) => f.pageNumber === p.pageNumber)
-        .map((f) => {
-          const matchedOrig = p.fields?.find((orig) => orig.fieldId === f.templateFieldId);
-          return {
-            ...matchedOrig,
-            fieldId: f.templateFieldId,
-            xPt: f.geometry.xPt,
-            yPt: f.geometry.yPt,
-            widthPt: f.geometry.widthPt,
-            heightPt: f.geometry.heightPt,
-            label: f.label,
-            semanticKey: f.semanticKey || undefined,
-            backgroundMode: f.backgroundMode,
-            calibrationStatus: f.calibrationStatus || 'CONFIRMED',
-            confidence: f.confidence ?? 1.0,
-            detectionSource: f.detectionSource,
-            suggestedLabel: f.suggestedLabel,
-            suggestedSemanticKey: f.suggestedSemanticKey || undefined,
-            fieldType: f.fieldType,
-            required: f.required,
-            overflowPolicy: f.overflowPolicy,
-            status: f.status,
-          };
+      const schemaFieldsOnPage = schema.fields.filter((f) => f.pageNumber === p.pageNumber);
+      const schemaFieldIds = new Set(schemaFieldsOnPage.map((f) => f.templateFieldId));
+
+      const pageFields = schemaFieldsOnPage.map((f) => {
+        const matchedOrig = p.fields?.find((orig) => orig.fieldId === f.templateFieldId);
+        return {
+          ...matchedOrig,
+          fieldId: f.templateFieldId,
+          xPt: f.geometry.xPt,
+          yPt: f.geometry.yPt,
+          widthPt: f.geometry.widthPt,
+          heightPt: f.geometry.heightPt,
+          label: f.label,
+          semanticKey: f.semanticKey || undefined,
+          backgroundMode: f.backgroundMode,
+          calibrationStatus: f.calibrationStatus,
+          confidence: f.confidence !== undefined && f.confidence !== null && Number.isFinite(f.confidence) ? f.confidence : undefined,
+          detectionSource: f.detectionSource,
+          suggestedLabel: f.suggestedLabel,
+          suggestedSemanticKey: f.suggestedSemanticKey || undefined,
+          fieldType: f.fieldType,
+          required: f.required,
+          overflowPolicy: f.overflowPolicy,
+          status: f.calibrationStatus === 'CONFIRMED' || f.calibrationStatus === 'MODIFIED' || f.status === 'MANUAL_VERIFIED'
+            ? 'MAPPED'
+            : f.calibrationStatus === 'REJECTED'
+            ? 'REVIEW_REQUIRED'
+            : (matchedOrig?.status || 'MAPPED'),
+          isModifiedAfterProposal: (matchedOrig as any)?.isModifiedAfterProposal || f.calibrationStatus === 'MODIFIED',
+        };
+      });
+
+      // Preserve any fields from original model that were omitted from schema (e.g. rejected fields)
+      if (p.fields) {
+        p.fields.forEach((orig) => {
+          if (!schemaFieldIds.has(orig.fieldId)) {
+            pageFields.push(orig as any);
+          }
         });
+      }
+
       return {
         ...p,
         fields: pageFields as any[],
@@ -319,6 +462,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
 
     return {
       ...model,
+      calibrationStatus: schema.calibrationStatus || model.calibrationStatus,
       pages: updatedPages,
     };
   };
@@ -382,9 +526,18 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
               modelName: item.name,
               sourcePdf: item.sourceFileName,
               sourcePdfSha256: item.sourceSha256,
+              normalizedPdfSha256: item.normalizedSha256,
               totalPages: item.pageCount,
               pages: item.pages,
-            };
+              calibrationStatus: item.calibrationStatus,
+              engineUsed: item.engineUsed,
+              globalSkewDegrees: item.globalSkewDegrees,
+              perspectiveApplied: item.perspectiveApplied,
+              dewarpingMapApplied: item.dewarpingMapApplied,
+              localCurvatureMaxDeviationPx: item.localCurvatureMaxDeviationPx,
+              normalizationReport: item.normalizationReport,
+              pageMetrics: item.pageMetrics || item.normalizationReport?.rectificationMetrics || item.normalizationReport?.pageMetrics,
+            } as any;
           }
           setModelState((prev) => ({
             ...prev,
@@ -413,7 +566,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
     let isCancelled = false;
 
     async function resolveTemplate() {
-      if (isMinisterialModel(selectedModelId)) {
+      if (isMinisterialModel(selectedModelId, initialModelDef)) {
         if (!modelState[selectedModelId] && BASELINE_MODELS[selectedModelId]) {
           setModelState((prev) => ({
             ...prev,
@@ -461,16 +614,15 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
           modelName: record!.name,
           sourcePdf: record!.sourceFileName,
           sourcePdfSha256: record!.sourceSha256,
+          normalizedPdfSha256: record!.normalizedSha256 || initialModelDef?.normalizedSha256,
           totalPages: record!.pageCount,
           pages: record!.pages,
+          calibrationStatus: record!.calibrationStatus,
         };
 
         let binary = existingBinary || record?.pdfBinary;
-        if (!binary && geom.sourcePdfSha256) {
-          binary =
-            (await getTemplatePdfBinary(geom.sourcePdfSha256)) ||
-            (await getTemplatePdfBinary(geom.modelId)) ||
-            undefined;
+        if (!binary) {
+          binary = await loadBestTemplateBinary(geom, customBinaries);
         }
 
         if (isCancelled) return;
@@ -485,17 +637,57 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
         }
 
         // SHA-256 Cryptographic Integrity Check
-        if (geom.sourcePdfSha256) {
-          const actualSha = await computeSha256(binary);
-          if (isCancelled) return;
-          if (actualSha && geom.sourcePdfSha256 && actualSha !== geom.sourcePdfSha256) {
-            setResolutionState({
-              status: 'ERROR',
-              errorCode: 'TEMPLATE_INTEGRITY_MISMATCH',
-              message: `Integrità del file PDF compromessa per il modello "${geom.modelName}". Hash calcolato (${actualSha.slice(0, 10)}…) non corrisponde a quello registrato (${geom.sourcePdfSha256.slice(0, 10)}…).`,
-            });
-            return;
+        const actualSha = await computeSha256(binary);
+        if (isCancelled) return;
+
+        // Strict Cryptographic Integrity Verification:
+        // Match against explicitly registered normalized hash or registered source hash.
+        let isIntegrityVerified = false;
+        let isNormalizedBackground = false;
+
+        if (geom.normalizedPdfSha256 && actualSha === geom.normalizedPdfSha256) {
+          isIntegrityVerified = true;
+          isNormalizedBackground = true;
+        } else if (geom.sourcePdfSha256 && actualSha === geom.sourcePdfSha256) {
+          isIntegrityVerified = true;
+          isNormalizedBackground = false;
+        } else if (!geom.normalizedPdfSha256 && geom.sourcePdfSha256) {
+          // Controlled recovery for legacy records without registered normalizedSha256:
+          // Check if an original binary matching sourcePdfSha256 exists in storage.
+          const origBinary = await getTemplatePdfBinary(geom.sourcePdfSha256);
+          if (origBinary && (await computeSha256(origBinary)) === geom.sourcePdfSha256) {
+            // Verify if the current binary is either that verified original,
+            // or if we should display the verified original directly.
+            if (actualSha === geom.sourcePdfSha256) {
+              isIntegrityVerified = true;
+              isNormalizedBackground = false;
+            } else {
+              // Switch to the cryptographically verified original binary to ensure integrity
+              binary = origBinary;
+              isIntegrityVerified = true;
+              isNormalizedBackground = false;
+            }
           }
+        }
+
+        if (!isIntegrityVerified) {
+          setResolutionState({
+            status: 'ERROR',
+            errorCode: 'TEMPLATE_INTEGRITY_MISMATCH',
+            message: `Integrità del file PDF non verificata per il modello "${geom.modelName}". Hash calcolato (${actualSha.slice(0, 10)}…) non corrisponde né all'impronta originale registrata (${geom.sourcePdfSha256?.slice(0, 10)}…) né all'impronta normalizzata (${geom.normalizedPdfSha256?.slice(0, 10) || 'N/D'}).`,
+          });
+          return;
+        }
+
+        // Coordinate system compatibility verification:
+        // Ensure field bounding boxes correspond to the coordinate space of the active binary.
+        if (isNormalizedBackground) {
+          // Verify pages are configured in standard A4 points (595.32 x 841.92)
+          geom.pages = geom.pages.map((p) => ({
+            ...p,
+            widthPt: p.widthPt > 500 && p.widthPt < 650 ? p.widthPt : 595.32,
+            heightPt: p.heightPt > 800 && p.heightPt < 900 ? p.heightPt : 841.92,
+          }));
         }
 
         setModelState((prev) => ({
@@ -507,7 +699,11 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
           [geom.modelId]: binary,
         }));
 
-        setResolutionState({ status: 'READY' });
+        setResolutionState({
+          status: 'READY',
+          displayedHash: actualSha,
+          isNormalizedBackground,
+        });
       } catch (err: any) {
         if (!isCancelled) {
           setResolutionState({
@@ -691,10 +887,10 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
           const pdfJsBytes = new Uint8Array(activeCustomBinary).slice();
           loadingTask = pdfjs.getDocument({
             data: pdfJsBytes,
-            standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/standard_fonts/',
+            standardFontDataUrl: import.meta.env.BASE_URL + 'vendor/standard_fonts/',
           });
-        } else if (pdfSourceSha) {
-          let dbBinary = await getTemplatePdfBinary(pdfSourceSha);
+        } else if (currentModel) {
+          let dbBinary = await loadBestTemplateBinary(currentModel, customBinaries);
           if (isCancelled) return;
           if (!dbBinary && currentModel?.modelId) {
             dbBinary = await getTemplatePdfBinary(currentModel.modelId);
@@ -705,18 +901,18 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
             const pdfJsBytes = new Uint8Array(dbBinary).slice();
             loadingTask = pdfjs.getDocument({
               data: pdfJsBytes,
-              standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/standard_fonts/',
+              standardFontDataUrl: import.meta.env.BASE_URL + 'vendor/standard_fonts/',
             });
           } else if (isMinisterialModel(selectedModelId)) {
             loadingTask = pdfjs.getDocument({
               url: `/models/${pdfSourceFileName || `${selectedModelId}.pdf`}`,
-              standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/standard_fonts/',
+              standardFontDataUrl: import.meta.env.BASE_URL + 'vendor/standard_fonts/',
             });
           }
         } else if (isMinisterialModel(selectedModelId)) {
           loadingTask = pdfjs.getDocument({
             url: `/models/${pdfSourceFileName || `${selectedModelId}.pdf`}`,
-            standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/standard_fonts/',
+            standardFontDataUrl: import.meta.env.BASE_URL + 'vendor/standard_fonts/',
           });
         }
 
@@ -756,6 +952,95 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
       isCancelled = true;
     };
   }, [selectedModelId, pdfSourceSha, pdfSourceFileName, activeCustomBinary, isReady, sourceKey]);
+
+  // Core page detection executor: executes the complete detection pipeline while strictly preserving manual/confirmed/rejected fields
+  const executePageDetection = useCallback(
+    async (
+      pageProxy: any,
+      targetPageNumber: number,
+      opts: { silentToast?: boolean } = {}
+    ) => {
+      if (!cachedPdfDocRef.current?.doc || !currentModel) return;
+
+      const targetPageData = currentModel.pages?.find((p) => p.pageNumber === targetPageNumber);
+      const existingRawFields = targetPageData ? targetPageData.fields : [];
+
+      // Safe Reconstruction Rebuild Flow (CTE-FIX-02U): Preserves manual, confirmed, modified and rejected fields
+      const protectedFields = existingRawFields.filter((f) => {
+        const prov = getFieldProvenance(f);
+        return (
+          prov === 'USER_CONFIRMED' ||
+          prov === 'MANUAL_CREATED' ||
+          prov === 'NATIVE_FORM' ||
+          f.calibrationStatus === 'REJECTED' ||
+          f.calibrationStatus === 'CONFIRMED' ||
+          f.calibrationStatus === 'MODIFIED' ||
+          f.derivationMethod === 'MANUAL_VERIFIED' ||
+          f.isModifiedAfterProposal === true
+        );
+      });
+
+      const proposed = await detectFieldsOnPdfPage(pageProxy, targetPageNumber, protectedFields, {
+        canvasElement: canvasRef.current || undefined,
+      });
+
+      const finalFields = [...protectedFields, ...proposed];
+
+      console.log(`[03C][TRACE] fieldsBeforeDetection: ${existingRawFields.length}`);
+      console.log(`[03C][TRACE] fieldsProducedByHybridEngine: 0 (Legacy Engine Produced: ${proposed.length})`);
+      console.log(`[03C][TRACE] fieldsAfterApply: ${finalFields.length}`);
+      console.log(`[03C][TRACE] fieldsAfterPersistence: ${finalFields.length}`);
+      console.log(`[03C][TRACE] fieldsSeenByRenderer: ${finalFields.length}`);
+
+      const updatedModel: ModelGeometry = JSON.parse(JSON.stringify(currentModel)) as ModelGeometry;
+      let targetPage = updatedModel.pages.find((p) => p.pageNumber === targetPageNumber);
+      if (!targetPage) {
+        targetPage = { pageNumber: targetPageNumber, widthPt: activePageWidthPt, heightPt: activePageHeightPt, fields: [] };
+        updatedModel.pages.push(targetPage);
+      }
+      targetPage.fields = finalFields;
+
+      setModelState((prev) => ({
+        ...prev,
+        [selectedModelId]: updatedModel,
+      }));
+      setDetectedPages((prev) => new Set(prev).add(targetPageNumber));
+
+      // Immediately persist updated revalidated schema to IndexedDB
+      try {
+        const binary = customBinaries[selectedModelId] || (await loadBestTemplateBinary(currentModel, customBinaries));
+        const nowIso = new Date().toISOString();
+        await saveCustomTemplate(
+          {
+            templateId: updatedModel.modelId,
+            name: updatedModel.modelName,
+            schoolOrder: updatedModel.schoolOrder as SchoolOrder,
+            sourceFileName: updatedModel.sourcePdf,
+            sourceSha256: updatedModel.sourcePdfSha256,
+            fileSizeBytes: binary ? binary.byteLength : 0,
+            pageCount: updatedModel.totalPages,
+            schemaVersion: '1.0.0',
+            createdAt: nowIso,
+            updatedAt: nowIso,
+            calibrationStatus: 'REVIEW_REQUIRED',
+            pages: updatedModel.pages,
+          },
+          binary || undefined
+        );
+      } catch (dbErr) {
+        console.warn('Could not immediately persist revalidated geometry to IndexedDB:', dbErr);
+      }
+
+      if (!opts.silentToast) {
+        if (proposed.length === 0) {
+          showToast('Ricalibrazione completata: vecchi campi automatici non validi rimossi.');
+        } else {
+          showToast(`Rilevamento completato: ${proposed.length} campi attivi proposti.`);
+        }
+      }
+    },
+    [currentModel, selectedModelId, activePageWidthPt, activePageHeightPt, customBinaries]
+  );
 
   // Level 2: Page Renderer — renders currentPage using the persistent PDFDocumentProxy
   useEffect(() => {
@@ -827,6 +1112,17 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
 
         activeRenderTaskRef.current = renderTask;
         await renderTask.promise;
+
+        // All’apertura della calibrazione esegui il percorso completo quando PDF e canvas sono pronti
+        const pageKey = `${selectedModelId}_p${currentPage}`;
+        if (!autoDetectionExecutedRef.current.has(pageKey)) {
+          autoDetectionExecutedRef.current.add(pageKey);
+          try {
+            await executePageDetection(page, currentPage, { silentToast: true });
+          } catch (autoErr) {
+            console.warn('Auto-detection on canvas ready failed:', autoErr);
+          }
+        }
       } catch (err: any) {
         if (!isCancelled && err?.name !== 'RenderingCancelledException') {
           console.warn('PDF render on canvas warning:', err);
@@ -932,6 +1228,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
         modelName: `Custom: ${file.name.replace(/\.pdf$/i, '')}`,
         sourcePdf: file.name,
         sourcePdfSha256: result.sourceSha256,
+        normalizedPdfSha256: result.normalizedSha256,
         totalPages: result.pageCount,
         pages: result.pages,
       };
@@ -943,7 +1240,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
 
       setCustomBinaries((prev) => ({
         ...prev,
-        [result.templateId]: persistenceBytes,
+        [result.templateId]: result.canonicalDocument || persistenceBytes,
       }));
 
       setSelectedModelId(result.templateId);
@@ -958,6 +1255,10 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
           schoolOrder: newModelGeometry.schoolOrder,
           sourceFileName: file.name,
           sourceSha256: result.sourceSha256,
+          normalizedSha256: result.normalizedSha256,
+          normalizationSucceeded: result.normalizationSucceeded,
+          coordinateTransform: result.coordinateTransform,
+          normalizationReport: result.normalizationReport,
           fileSizeBytes: result.fileSizeBytes,
           pageCount: result.pageCount,
           schemaVersion: '1.0.0',
@@ -966,6 +1267,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
           calibrationStatus: 'REVIEW_REQUIRED',
           pages: result.pages,
         },
+        result.canonicalDocument || persistenceBytes,
         persistenceBytes
       );
 
@@ -996,9 +1298,14 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
 
         Object.assign(f, changes);
 
-        // If field was proposed, flag it as modified by user
-        if (f.calibrationStatus === 'PROPOSED') {
+        // Flag user modifications to protect manual choices from automatic inference
+        if (f.calibrationStatus !== 'REJECTED') {
           f.isModifiedAfterProposal = true;
+          if (!changes.calibrationStatus) {
+            f.calibrationStatus = 'MODIFIED';
+            f.derivationMethod = 'MANUAL_VERIFIED';
+            f.status = 'MAPPED';
+          }
         }
 
         // Sanitize coordinates if modified (respect dynamic page bounds)
@@ -1025,7 +1332,6 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
     updateSelectedField({
       calibrationStatus: isModified ? 'MODIFIED' : 'CONFIRMED',
       derivationMethod: 'MANUAL_VERIFIED',
-      confidence: 1.0,
       status: 'MAPPED',
     });
     showToast(isModified ? 'Campo confermato con modifiche (MODIFICATO).' : 'Campo confermato (CONFERMATO).');
@@ -1081,68 +1387,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
     try {
       const doc = cachedPdfDocRef.current.doc;
       const pageProxy = await doc.getPage(currentPage);
-      
-      // Safe Reconstruction Rebuild Flow (CTE-FIX-02U)
-      const protectedFields = rawFieldsOnPage.filter((f) => {
-        const prov = getFieldProvenance(f);
-        return prov === 'USER_CONFIRMED' || prov === 'MANUAL_CREATED' || prov === 'NATIVE_FORM';
-      });
-
-      const proposed = await detectFieldsOnPdfPage(pageProxy, currentPage, protectedFields, {
-        canvasElement: canvasRef.current,
-      });
-
-      const finalFields = [...protectedFields, ...proposed];
-
-      console.log(`[03C][TRACE] fieldsBeforeDetection: ${rawFieldsOnPage.length}`);
-      console.log(`[03C][TRACE] fieldsProducedByHybridEngine: 0 (Hybrid Engine Not Called, Legacy Engine Produced: ${proposed.length})`);
-      console.log(`[03C][TRACE] fieldsAfterApply: ${finalFields.length}`);
-      console.log(`[03C][TRACE] fieldsAfterPersistence: ${finalFields.length}`);
-      console.log(`[03C][TRACE] fieldsSeenByRenderer: ${finalFields.length}`);
-
-      const updatedModel: ModelGeometry = JSON.parse(JSON.stringify(currentModel)) as ModelGeometry;
-      let targetPage = updatedModel.pages.find((p) => p.pageNumber === currentPage);
-      if (!targetPage) {
-        targetPage = { pageNumber: currentPage, widthPt: A4_WIDTH_PT, heightPt: A4_HEIGHT_PT, fields: [] };
-        updatedModel.pages.push(targetPage);
-      }
-      targetPage.fields = finalFields;
-
-      setModelState((prev) => ({
-        ...prev,
-        [selectedModelId]: updatedModel,
-      }));
-
-      // Immediately persist updated revalidated schema to IndexedDB as part of operational flow
-      try {
-        const binary = customBinaries[selectedModelId] || (await getTemplatePdfBinary(currentModel.sourcePdfSha256));
-        const nowIso = new Date().toISOString();
-        await saveCustomTemplate(
-          {
-            templateId: updatedModel.modelId,
-            name: updatedModel.modelName,
-            schoolOrder: updatedModel.schoolOrder as SchoolOrder,
-            sourceFileName: updatedModel.sourcePdf,
-            sourceSha256: updatedModel.sourcePdfSha256,
-            fileSizeBytes: binary ? binary.byteLength : 0,
-            pageCount: updatedModel.totalPages,
-            schemaVersion: '1.0.0',
-            createdAt: nowIso,
-            updatedAt: nowIso,
-            calibrationStatus: 'REVIEW_REQUIRED',
-            pages: updatedModel.pages,
-          },
-          binary || undefined
-        );
-      } catch (dbErr) {
-        console.warn('Could not immediately persist revalidated geometry to IndexedDB:', dbErr);
-      }
-
-      if (proposed.length === 0) {
-        showToast('Ricalibrazione completata: vecchi campi automatici non validi rimossi.');
-      } else {
-        showToast(`Rilevamento completato: ${proposed.length} campi attivi proposti.`);
-      }
+      await executePageDetection(pageProxy, currentPage, { silentToast: false });
     } catch (err: any) {
       console.error('Rilevamento campi pagina fallito:', err);
       showToast(`Errore durante il rilevamento: ${err?.message || err}`);
@@ -1180,10 +1425,11 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
         ...prev,
         [selectedModelId]: updatedModel,
       }));
+      setDetectedPages(new Set(Array.from({ length: currentModel.totalPages }, (_, i) => i + 1)));
 
       // Persist entire document changes immediately to IndexedDB
       try {
-        const binary = customBinaries[selectedModelId] || (await getTemplatePdfBinary(currentModel.sourcePdfSha256));
+        const binary = customBinaries[selectedModelId] || (await loadBestTemplateBinary(currentModel, customBinaries));
         const nowIso = new Date().toISOString();
         await saveCustomTemplate(
           {
@@ -1347,7 +1593,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
       heightPt: 35,
       anchorText: 'Campo aggiunto manualmente',
       derivationMethod: 'MANUAL_VERIFIED',
-      confidence: 1.0,
+      confidence: undefined,
       calibrationStatus: 'CONFIRMED',
       detectionSource: 'MANUAL_ENTRY',
       status: 'MAPPED',
@@ -1366,6 +1612,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
     });
 
     setSelectedFieldId(newId);
+    setRightPanelTab('FIELD');
     showToast('Nuovo campo creato (ID univoco generato, CONFERMATO).');
   };
 
@@ -1402,8 +1649,8 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
       heightPt: selectedField.heightPt,
       anchorText: selectedField.anchorText || 'Campo duplicato',
       derivationMethod: 'MANUAL_VERIFIED',
-      confidence: 1.0,
-      calibrationStatus: 'CONFIRMED',
+      confidence: selectedField.confidence,
+      calibrationStatus: 'MODIFIED',
       detectionSource: 'MANUAL_ENTRY',
       status: 'MAPPED',
     };
@@ -1421,6 +1668,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
     });
 
     setSelectedFieldId(newId);
+    setRightPanelTab('FIELD');
     if (keepSemantic) {
       showToast('Campo duplicato (stessa associazione semantica).');
     } else {
@@ -1449,11 +1697,17 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
   // Save draft in IndexedDB (Review Required)
   const saveDraftToIndexedDb = async () => {
     try {
-      const binary = customBinaries[selectedModelId] || (await getTemplatePdfBinary(currentModel.sourcePdfSha256));
+      const binary = customBinaries[selectedModelId] || (await loadBestTemplateBinary(currentModel, customBinaries));
       const nowIso = new Date().toISOString();
 
+      const persisted = await getCustomTemplate(currentModel.modelId);
+      const binaryHash = binary ? await computeSha256(binary) : undefined;
+      const normalizedHash = binaryHash && binaryHash !== currentModel.sourcePdfSha256 ? binaryHash : persisted?.normalizedSha256;
       await saveCustomTemplate(
         {
+          ...persisted,
+          normalizedSha256: normalizedHash,
+          normalizationSucceeded: !!normalizedHash,
           templateId: currentModel.modelId,
           name: currentModel.modelName,
           schoolOrder: currentModel.schoolOrder as SchoolOrder,
@@ -1483,6 +1737,9 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
         isDefault: false,
         isMinisterial: ['A1', 'A2', 'A3', 'A4'].includes(currentModel.modelId),
         sourceHash: currentModel.sourcePdfSha256,
+        sourceSha256: currentModel.sourcePdfSha256,
+        normalizedSha256: normalizedHash,
+        normalizationSucceeded: !!normalizedHash,
         templateId: currentModel.modelId,
         geometryMappingId: currentModel.modelId,
         calibrationStatus: 'REVIEW_REQUIRED',
@@ -1569,12 +1826,18 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
         if (!proceed) return;
       }
 
-      const binary = customBinaries[selectedModelId] || (await getTemplatePdfBinary(currentModel.sourcePdfSha256));
+      const binary = customBinaries[selectedModelId] || (await loadBestTemplateBinary(currentModel, customBinaries));
       const nowIso = new Date().toISOString();
 
       // 1. Save template to IndexedDB with CALIBRATED status
+      const persisted = await getCustomTemplate(currentModel.modelId);
+      const binaryHash = binary ? await computeSha256(binary) : undefined;
+      const normalizedHash = binaryHash && binaryHash !== currentModel.sourcePdfSha256 ? binaryHash : persisted?.normalizedSha256;
       await saveCustomTemplate(
         {
+          ...persisted,
+          normalizedSha256: normalizedHash,
+          normalizationSucceeded: normalizedHash ? true : persisted?.normalizationSucceeded,
           templateId: currentModel.modelId,
           name: currentModel.modelName,
           schoolOrder: currentModel.schoolOrder as SchoolOrder,
@@ -1596,6 +1859,11 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
         p.fields
           .filter((f) => f.calibrationStatus !== 'REJECTED')
           .map((f) => ({
+            inputType: f.inputType,
+            options: f.options,
+            defaultValue: f.defaultValue,
+            originalValue: f.originalValue,
+            observedText: f.observedText,
             fieldId: f.fieldId,
             label: f.label,
             semanticKey: f.semanticKey,
@@ -1609,8 +1877,8 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
             fieldType: (f as any).fieldType || 'TEXT_SHORT',
             overflowPolicy: (f as any).overflowPolicy || 'RIGID',
             required: (f as any).required ?? false,
-            calibrationStatus: f.calibrationStatus || 'CONFIRMED',
-            confidence: f.confidence ?? 1.0,
+            calibrationStatus: f.calibrationStatus,
+            confidence: f.confidence !== undefined && f.confidence !== null && Number.isFinite(f.confidence) ? f.confidence : undefined,
             detectionSource: f.detectionSource,
             suggestedLabel: f.suggestedLabel,
             suggestedSemanticKey: f.suggestedSemanticKey,
@@ -1644,6 +1912,9 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
         isDefault: false,
         isMinisterial: ['A1', 'A2', 'A3', 'A4'].includes(currentModel.modelId),
         sourceHash: currentModel.sourcePdfSha256,
+        sourceSha256: currentModel.sourcePdfSha256,
+        normalizedSha256: normalizedHash,
+        normalizationSucceeded: !!normalizedHash,
         templateId: currentModel.modelId,
         geometryMappingId: currentModel.modelId,
         calibrationStatus: 'CALIBRATED',
@@ -1672,6 +1943,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
     e.stopPropagation();
     e.preventDefault();
     setSelectedFieldId(field.fieldId);
+    setRightPanelTab('FIELD');
 
     setDragState({
       fieldId: field.fieldId,
@@ -1850,10 +2122,65 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
     showToast('Definizione JSON copiata negli appunti!');
   };
 
+  const handleDownloadOriginalPdf = async () => {
+    if (!currentModel) return;
+    try {
+      if (isMinisterialModel(selectedModelId, currentModel)) {
+        const res = await fetch(`/models/${currentModel.sourcePdf || `${selectedModelId}.pdf`}`);
+        if (!res.ok) throw new Error('File ministeriale non reperibile.');
+        const buf = await res.arrayBuffer();
+        triggerBrowserFileDownload(new Uint8Array(buf), `${currentModel.modelName || selectedModelId}_Originale.pdf`);
+        showToast('Download PDF originale ministeriale completato.');
+        return;
+      }
+      const orig = await getOriginalTemplatePdfBinary(currentModel);
+      if (!orig || !orig.binary) {
+        showToast('PDF originale non disponibile nel database locale.');
+        return;
+      }
+      const safeName = (currentModel.modelName || selectedModelId).replace(/[^a-zA-Z0-9_\-]/g, '_');
+      triggerBrowserFileDownload(orig.binary, `${safeName}_Originale.pdf`);
+      showToast(`Download avviato: PDF originale (${Math.round(orig.sizeBytes / 1024)} KB)`);
+    } catch (err: any) {
+      console.error('Errore download PDF originale:', err);
+      showToast(`Errore download PDF originale: ${err?.message || err}`);
+    }
+  };
+
+  const handleDownloadProcessedPdf = async () => {
+    if (!currentModel) return;
+    try {
+      // 1. Se lo sfondo visualizzato nel calibratore è verificato normalizzato ed è in memoria
+      if (resolutionState.isNormalizedBackground && activeCustomBinary && activeCustomBinary.byteLength > 0) {
+        const activeSha = await computeSha256(activeCustomBinary);
+        if (currentModel.normalizedPdfSha256 && activeSha === currentModel.normalizedPdfSha256) {
+          const safeName = (currentModel.modelName || selectedModelId).replace(/[^a-zA-Z0-9_\-]/g, '_');
+          triggerBrowserFileDownload(activeCustomBinary, `${safeName}_Elaborato_A4.pdf`);
+          showToast(`Download avviato: PDF elaborato A4 (${Math.round(activeCustomBinary.byteLength / 1024)} KB)`);
+          return;
+        }
+      }
+
+      // 2. Recupero rigoroso da IndexedDB / Memory Storage
+      const norm = await getNormalizedTemplatePdfBinary(currentModel);
+      if (!norm || !norm.binary) {
+        showToast('PDF elaborato non disponibile per questo modello (assenza binario normalizzato).');
+        return;
+      }
+      const safeName = (currentModel.modelName || selectedModelId).replace(/[^a-zA-Z0-9_\-]/g, '_');
+      triggerBrowserFileDownload(norm.binary, `${safeName}_Elaborato_A4.pdf`);
+      showToast(`Download avviato: PDF elaborato A4 (${Math.round(norm.sizeBytes / 1024)} KB)`);
+    } catch (err: any) {
+      console.error('Errore download PDF elaborato:', err);
+      showToast(`Errore download PDF elaborato: ${err?.message || err}`);
+    }
+  };
+
   // Bidirectional selection handlers: Tree ↔ Canvas ↔ Inspector (R08-R2)
   const selectFieldFromTree = useCallback(
     (field: FieldGeometry) => {
       setSelectedFieldId(field.fieldId);
+      setRightPanelTab('FIELD');
       if (containerRef.current) {
         const vp = pdfPointToViewport(field.xPt, field.yPt, field.widthPt, field.heightPt, scale);
         const container = containerRef.current;
@@ -1871,6 +2198,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
 
   const selectFieldFromCanvas = useCallback((fieldId: string) => {
     setSelectedFieldId(fieldId);
+    setRightPanelTab('FIELD');
     setTimeout(() => {
       const treeElem = document.getElementById(`tree-item-${fieldId}`);
       if (treeElem) {
@@ -1928,7 +2256,9 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
               {currentModel ? (
                 <>
                   Modello: <strong className="text-stone-200">{currentModel.modelName}</strong> ({currentModel.schoolOrder}) • SHA-256:{' '}
-                  <span className="font-mono text-emerald-400 font-bold">{currentModel.sourcePdfSha256?.slice(0, 10)}…</span>
+                  <span className="font-mono text-emerald-400 font-bold" title={`Originale: ${currentModel.sourcePdfSha256 || 'N/D'}\nNormalizzato: ${currentModel.normalizedPdfSha256 || 'N/D'}`}>
+                    {currentModel.normalizedPdfSha256 ? `${currentModel.normalizedPdfSha256.slice(0, 10)}… (A4)` : `${currentModel.sourcePdfSha256?.slice(0, 10)}…`}
+                  </span>
                 </>
               ) : resolutionState.status === 'RESOLVING_TEMPLATE' ? (
                 <>
@@ -1994,6 +2324,32 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
           >
             <Check className="w-4 h-4" />
             <span>Approva Calibrazione</span>
+          </button>
+
+          {/* Download Originale */}
+          <button
+            type="button"
+            id="btn-download-original-pdf"
+            disabled={!currentModel}
+            onClick={handleDownloadOriginalPdf}
+            className="px-2.5 py-1.5 rounded bg-stone-800 hover:bg-stone-700 text-stone-200 font-semibold border border-stone-700 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-xs"
+            title={`Scarica file PDF originale non rettificato (SHA-256: ${currentModel?.sourcePdfSha256 || 'N/D'})`}
+          >
+            <Download className="w-3.5 h-3.5 text-stone-400" />
+            <span>Scarica Originale</span>
+          </button>
+
+          {/* Download PDF Elaborato */}
+          <button
+            type="button"
+            id="btn-download-processed-pdf"
+            disabled={!currentModel}
+            onClick={handleDownloadProcessedPdf}
+            className="px-2.5 py-1.5 rounded bg-cyan-950/70 hover:bg-cyan-900 text-cyan-200 font-semibold border border-cyan-700/60 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-xs"
+            title={`Scarica il PDF elaborato/normalizzato A4 effettivamente visualizzato come sfondo (SHA-256: ${currentModel?.normalizedPdfSha256 || 'N/D'})`}
+          >
+            <Download className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Scarica PDF Elaborato</span>
           </button>
 
           <button
@@ -2382,10 +2738,12 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
                     )}
 
                     {/* Header Label Badge (Requirement 4, 5, 17, R08) */}
-                    <div className="absolute -top-4.5 left-0 bg-stone-900 text-[10px] text-stone-100 px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap opacity-90 group-hover:opacity-100 z-30 flex items-center gap-1.5 font-sans pointer-events-none">
+                    <div className={`absolute -top-4.5 left-0 bg-stone-900/95 text-[10px] text-stone-100 px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap transition-all z-30 flex items-center gap-1 font-sans pointer-events-none ${
+                      isSelected ? 'opacity-100 ring-1 ring-blue-400 scale-102' : 'opacity-85 group-hover:opacity-100'
+                    }`}>
                       {isProposed && (
                         <span className="text-[9px] text-amber-300 font-bold bg-amber-950/90 px-1 rounded border border-amber-600/60">
-                          PROPOSTO {f.confidence ? `(${(f.confidence * 100).toFixed(0)}%)` : ''}
+                          PROPOSTO ({formatConfidenceDisplay(f.confidence)})
                         </span>
                       )}
                       {isConfirmed && (
@@ -2403,12 +2761,12 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
                           RIFIUTATO
                         </span>
                       )}
-                      <span className="font-semibold text-amber-100 truncate max-w-[140px]">
+                      <span className="font-semibold text-amber-100 truncate max-w-[120px] group-hover:max-w-[220px] transition-all">
                         {f.label || f.fieldId}
                       </span>
-                      {f.semanticKey && (
-                        <span className="text-[9px] text-emerald-400 font-mono bg-emerald-950/80 px-1 rounded border border-emerald-800/50">
-                          {f.semanticKey}
+                      {f.semanticKey && (isSelected || false) && (
+                        <span className="text-[9px] text-emerald-400 font-mono bg-emerald-950/80 px-1 rounded border border-emerald-800/50 truncate max-w-[140px]">
+                          {resolveCanonicalSemanticKey(f.semanticKey)}
                         </span>
                       )}
                       {f.backgroundMode === 'OPAQUE_WHITE' && (
@@ -2482,431 +2840,170 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
           </div>
         </div>
 
-        {/* Right: Single 3-Section Panel (R08-R1 UX Refactor) */}
+        {/* Right: Resizable Multi-View Panel (CALIBRATOR-UX-01) */}
         <aside
           id="calibration-right-panel"
-          className="w-[380px] xl:w-[420px] bg-stone-900 border-l border-stone-800 flex flex-col shrink-0 text-xs shadow-xl h-full overflow-hidden"
+          style={{ width: `${panelWidth}px` }}
+          className="relative bg-stone-900 border-l border-stone-800 flex flex-col shrink-0 text-xs shadow-xl h-full overflow-hidden max-w-[calc(100vw-360px)] min-w-[320px]"
         >
-          {/* SEZIONE A: TOOLBAR CAMPI & STATO PAGINA */}
-          <div className="p-3 border-b border-stone-800 bg-stone-900/95 shrink-0 space-y-2.5">
-            {/* Header Pagina & Contatori Espliciti (Section 27) */}
-            <div className="flex items-center justify-between">
+          {/* Left-edge resize drag handle */}
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            title="Trascina per ridimensionare il pannello laterale"
+            onMouseDown={handlePanelResizeStart}
+            className={`absolute left-0 top-0 bottom-0 w-2.5 -translate-x-1 cursor-col-resize z-40 group flex items-center justify-center transition-colors ${
+              isResizingPanel ? 'bg-amber-500/50' : 'hover:bg-amber-500/30'
+            }`}
+          >
+            <div
+              className={`w-0.5 h-10 rounded-full transition-colors ${
+                isResizingPanel ? 'bg-amber-400' : 'bg-stone-600 group-hover:bg-amber-400'
+              }`}
+            />
+          </div>
+
+          {/* Top Panel Bar: Page info & real-time counter indicators */}
+          <div className="px-3 py-2 border-b border-stone-800 bg-stone-900/90 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2">
               <span className="font-bold text-stone-200 text-xs tracking-tight">
                 Pagina {currentPage} di {currentModel?.totalPages || 1}
               </span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-stone-800 border border-stone-700 text-stone-300">
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-stone-800 border border-stone-700 text-stone-300">
                 P.{currentPage}/{currentModel?.totalPages || 1}
               </span>
             </div>
-
-            {/* Contatori Pagina Real-Time (Section 27) */}
-            <div className="grid grid-cols-5 gap-1 text-center py-1.5 px-1 bg-stone-950/80 rounded border border-stone-800 font-mono">
-              <div className="flex flex-col items-center">
-                <span className="text-stone-400 text-[9px] uppercase tracking-wider font-semibold">Totali</span>
-                <span className="font-bold text-stone-100 text-xs">{rawFieldsOnPage.length}</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-amber-400 text-[9px] uppercase tracking-wider font-semibold">Proposti</span>
-                <span className="font-bold text-amber-300 text-xs">{countProposed}</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-emerald-400 text-[9px] uppercase tracking-wider font-semibold">Confermati</span>
-                <span className="font-bold text-emerald-300 text-xs">{countConfirmed}</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-blue-400 text-[9px] uppercase tracking-wider font-semibold">Modificati</span>
-                <span className="font-bold text-blue-300 text-xs">{countModified}</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-rose-400 text-[9px] uppercase tracking-wider font-semibold">Rifiutati</span>
-                <span className="font-bold text-rose-300 text-xs">{countRejected}</span>
-              </div>
+            <div className="flex items-center gap-1.5 text-[10px] font-mono text-stone-400">
+              <span>{rawFieldsOnPage.length} campi</span>
+              {countProposed > 0 && <span className="text-amber-400 font-semibold">· {countProposed} prop.</span>}
+              {countModified > 0 && <span className="text-blue-400 font-semibold">· {countModified} mod.</span>}
             </div>
-
-            {/* Semantic Reverse Engineering Diagnostic Status Strip */}
-            {diagnosticsState.reverseEngineeringAvailable && (
-              <div className="bg-stone-950 p-2.5 rounded-lg border border-stone-800 text-[11px] space-y-1">
-                <div className="flex items-center justify-between text-stone-300 font-semibold">
-                  <span className="flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-400 font-bold animate-pulse" />
-                    Reverse Engineering Semantico
-                  </span>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-800/40">
-                    ATTIVO
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-1 text-stone-400 font-mono text-[10px]">
-                  <div>Baseline: <span className={diagnosticsState.baselinePresent ? "text-emerald-400 font-bold" : "text-amber-500"}>{diagnosticsState.baselinePresent ? "Presente" : "Assente"}</span></div>
-                  <div>Evidenza: <span className={diagnosticsState.evidencePresent ? "text-emerald-400 font-bold" : "text-amber-500"}>{diagnosticsState.evidencePresent ? "Presente" : "Assente"}</span></div>
-                  <div>Mappature GLO: <span className="text-stone-200">{diagnosticsState.reverseEngineeredMappings}</span></div>
-                  <div>Campi Confermati: <span className="text-stone-200">{diagnosticsState.reverseEngineeredFields}</span></div>
-                  <div>Sfondi Opachi: <span className="text-stone-200">{diagnosticsState.reverseEngineeredOpaqueFields}</span></div>
-                  <div>Sfondi Trasp.: <span className="text-stone-200">{diagnosticsState.reverseEngineeredTransparentFields}</span></div>
-                </div>
-              </div>
-            )}
-
-            {/* In-Flight Detection Banner / Actions */}
-            {isDetecting ? (
-              <div className="bg-amber-950/70 border border-amber-600/50 p-2.5 rounded-lg text-amber-200 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3.5 h-3.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin shrink-0" />
-                    <span className="font-semibold text-xs">
-                      {detectionProgress
-                        ? `Analisi Pagina ${detectionProgress.current} di ${detectionProgress.total}...`
-                        : 'Rilevamento in corso...'}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    id="btn-cancel-detection"
-                    onClick={handleCancelDetection}
-                    className="px-2 py-0.5 rounded bg-stone-800 hover:bg-stone-700 text-stone-200 text-[10px] font-bold border border-stone-600 cursor-pointer"
-                  >
-                    Annulla
-                  </button>
-                </div>
-                {detectionProgress && (
-                  <div className="w-full bg-stone-800 rounded-full h-1.5 overflow-hidden">
-                    <div
-                      className="bg-amber-500 h-full transition-all duration-200"
-                      style={{
-                        width: `${Math.round((detectionProgress.current / Math.max(1, detectionProgress.total)) * 100)}%`,
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                {/* Primary Action Row */}
-                <div className="grid grid-cols-2 gap-1.5">
-                  <button
-                    type="button"
-                    id="btn-detect-page-fields"
-                    disabled={!currentModel || !cachedPdfDocRef.current?.doc}
-                    onClick={handleDetectPageFields}
-                    className="px-2.5 py-1.5 rounded-md bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                    title="Rileva automaticamente i campi compilabili sulla pagina corrente"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-stone-950" />
-                    <span>Rileva (Pagina)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    id="btn-detect-document-fields"
-                    disabled={!currentModel || !cachedPdfDocRef.current?.doc}
-                    onClick={handleDetectDocumentFields}
-                    className="px-2.5 py-1.5 rounded-md bg-stone-800 hover:bg-stone-750 text-amber-300 font-semibold border border-stone-700 shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                    title="Rileva campi su tutte le pagine del modello (analisi completa)"
-                  >
-                    <Layers className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Rileva (Doc)</span>
-                  </button>
-                </div>
-
-                {/* Secondary Action Row: Aggiungi & Duplica */}
-                <div className="grid grid-cols-2 gap-1.5">
-                  <button
-                    type="button"
-                    id="btn-add-candidate-field"
-                    disabled={!currentModel}
-                    onClick={addNewCandidateField}
-                    className="px-2.5 py-1.5 rounded-md bg-blue-700 hover:bg-blue-600 text-white font-semibold shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                    title="Aggiungi manualmente un nuovo campo sulla pagina corrente"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Aggiungi Campo</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    id="btn-toolbar-duplicate-field"
-                    disabled={!selectedField}
-                    onClick={() => duplicateSelectedField(false)}
-                    className="px-2.5 py-1.5 rounded-md bg-stone-800 hover:bg-stone-750 text-stone-200 font-semibold border border-stone-700 shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                    title="Duplica campo selezionato (Ctrl+D)"
-                  >
-                    <Copy className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Duplica Campo</span>
-                  </button>
-                </div>
-
-                {/* Diagnostic Trace Export (CTE-FIX-02C) */}
-                <div className="pt-1 border-t border-stone-800/80">
-                  <button
-                    type="button"
-                    id="btn-export-page-diagnostics"
-                    disabled={!currentModel || !cachedPdfDocRef.current?.doc || isDetecting}
-                    onClick={handleExportPageDiagnostics}
-                    className="w-full py-1.5 px-2 rounded-md bg-purple-950/70 hover:bg-purple-900 text-purple-200 font-semibold border border-purple-700/60 shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-[11px]"
-                    title="Esporta JSON di diagnostica runtime reale della pagina (Document, TextItems, VectorLines, VectorBoxes, Pipeline Trace, Final Fields)"
-                  >
-                    <FileText className="w-3.5 h-3.5 text-purple-400" />
-                    <span>Esporta diagnostica pagina (JSON)</span>
-                  </button>
-                </div>
-
-                {/* Confirm all proposed on page */}
-                {countProposed > 0 && (
-                  <div className="pt-0.5">
-                    <button
-                      type="button"
-                      id="btn-confirm-all-page"
-                      onClick={confirmAllProposedOnPage}
-                      className="w-full py-1.5 rounded-md bg-emerald-700 hover:bg-emerald-600 text-white font-bold shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                      title="Conferma tutti i campi proposti sulla pagina corrente"
-                    >
-                      <CheckCheck className="w-3.5 h-3.5" />
-                      <span>Conferma Tutti i Proposti ({countProposed})</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
-          {/* SEZIONE B: TREE / ELENCO DEI CAMPI DELLA PAGINA CORRENTE (R08-R2) */}
-          <div className="flex flex-col border-b border-stone-800 shrink-0 h-[34vh] max-h-[36vh] min-h-[140px] bg-stone-900/60 overflow-hidden">
-            {/* Header Sezione B & Filtri */}
-            <div className="p-2.5 border-b border-stone-800/80 space-y-2 shrink-0">
-              <div className="flex items-center justify-between">
-                <h2 className="font-bold text-stone-200 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
-                  <ListTree className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Campi Pagina Corrente</span>
-                </h2>
-                <span className="text-[10px] font-mono text-stone-400">
-                  {visuallySortedFieldsOnPage.length} di {rawFieldsOnPage.length}
+          {/* Main Navigation Tabs: Campo | Lista campi | Diagnostica */}
+          <div className="flex items-center border-b border-stone-800 bg-stone-950 px-2 pt-1.5 gap-1 shrink-0">
+            <button
+              type="button"
+              id="tab-btn-field"
+              onClick={() => setRightPanelTab('FIELD')}
+              className={`flex-1 py-1.5 px-2.5 text-xs font-semibold rounded-t-md transition-colors flex items-center justify-center gap-1.5 cursor-pointer border-t border-x ${
+                rightPanelTab === 'FIELD'
+                  ? 'bg-stone-900 text-amber-400 border-stone-700/80 border-b-transparent shadow-xs'
+                  : 'text-stone-400 hover:text-stone-200 border-transparent hover:bg-stone-900/40'
+              }`}
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>Campo</span>
+              {selectedField && (
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+              )}
+            </button>
+
+            <button
+              type="button"
+              id="tab-btn-list"
+              onClick={() => setRightPanelTab('LIST')}
+              className={`flex-1 py-1.5 px-2.5 text-xs font-semibold rounded-t-md transition-colors flex items-center justify-center gap-1.5 cursor-pointer border-t border-x ${
+                rightPanelTab === 'LIST'
+                  ? 'bg-stone-900 text-amber-400 border-stone-700/80 border-b-transparent shadow-xs'
+                  : 'text-stone-400 hover:text-stone-200 border-transparent hover:bg-stone-900/40'
+              }`}
+            >
+              <ListTree className="w-3.5 h-3.5" />
+              <span>Lista campi</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-stone-800 text-stone-300">
+                {rawFieldsOnPage.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              id="tab-btn-diagnostics"
+              onClick={() => setRightPanelTab('DIAGNOSTICS')}
+              className={`flex-1 py-1.5 px-2.5 text-xs font-semibold rounded-t-md transition-colors flex items-center justify-center gap-1.5 cursor-pointer border-t border-x ${
+                rightPanelTab === 'DIAGNOSTICS'
+                  ? 'bg-stone-900 text-amber-400 border-stone-700/80 border-b-transparent shadow-xs'
+                  : 'text-stone-400 hover:text-stone-200 border-transparent hover:bg-stone-900/40'
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>Diagnostica</span>
+              {countProposed > 0 && (
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-600/50">
+                  {countProposed}
                 </span>
-              </div>
-
-              {/* Status Filter Pills */}
-              <div className="flex items-center gap-1 overflow-x-auto pb-0.5 text-[10px]">
-                <button
-                  type="button"
-                  onClick={() => setStatusFilter('ALL')}
-                  className={`px-2 py-0.5 rounded cursor-pointer transition-colors whitespace-nowrap ${
-                    statusFilter === 'ALL'
-                      ? 'bg-stone-700 text-white font-bold'
-                      : 'bg-stone-800 text-stone-400 hover:text-stone-200'
-                  }`}
-                >
-                  Tutti ({rawFieldsOnPage.filter(f => f.calibrationStatus !== 'REJECTED' || showRejectedFields).length})
-                </button>
-                {countProposed > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setStatusFilter('PROPOSED')}
-                    className={`px-2 py-0.5 rounded cursor-pointer transition-colors whitespace-nowrap ${
-                      statusFilter === 'PROPOSED'
-                        ? 'bg-amber-600 text-stone-950 font-bold'
-                        : 'bg-amber-950/60 text-amber-300 hover:bg-amber-900/60'
-                    }`}
-                  >
-                    ? Proposti ({countProposed})
-                  </button>
-                )}
-                {countConfirmed > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setStatusFilter('CONFIRMED')}
-                    className={`px-2 py-0.5 rounded cursor-pointer transition-colors whitespace-nowrap ${
-                      statusFilter === 'CONFIRMED'
-                        ? 'bg-emerald-600 text-white font-bold'
-                        : 'bg-stone-800 text-emerald-400 hover:bg-stone-750'
-                    }`}
-                  >
-                    ✓ Confermati ({countConfirmed})
-                  </button>
-                )}
-                {countModified > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setStatusFilter('MODIFIED')}
-                    className={`px-2 py-0.5 rounded cursor-pointer transition-colors whitespace-nowrap ${
-                      statusFilter === 'MODIFIED'
-                        ? 'bg-blue-600 text-white font-bold'
-                        : 'bg-stone-800 text-blue-400 hover:bg-stone-750'
-                    }`}
-                  >
-                    M Modificati ({countModified})
-                  </button>
-                )}
-              </div>
-
-              {/* Quick Search */}
-              <input
-                type="text"
-                placeholder="Filtra campi per etichetta o ID..."
-                value={searchFilter}
-                onChange={(e) => setSearchFilter(e.target.value)}
-                className="w-full bg-stone-800/90 border border-stone-700/80 rounded px-2 py-1 text-stone-200 placeholder:text-stone-500 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
-              />
-
-              {countRejected > 0 && (
-                <label className="flex items-center gap-1.5 text-[10px] text-stone-400 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showRejectedFields}
-                    onChange={(e) => setShowRejectedFields(e.target.checked)}
-                    className="rounded bg-stone-800 border-stone-700 text-rose-500 focus:ring-0 cursor-pointer"
-                  />
-                  <span>Mostra {countRejected} campi rifiutati</span>
-                </label>
               )}
-            </div>
-
-            {/* Tree Items List (Section 13) */}
-            <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
-              {visuallySortedFieldsOnPage.length === 0 ? (
-                <div className="py-6 text-center text-stone-500 text-xs italic">
-                  Nessun campo sulla pagina corrente per i filtri attivi.
-                </div>
-              ) : (
-                visuallySortedFieldsOnPage.map((f) => {
-                  const isSelected = f.fieldId === selectedFieldId;
-                  const isProposed = f.calibrationStatus === 'PROPOSED';
-                  const isConfirmed = f.calibrationStatus === 'CONFIRMED' || (!f.calibrationStatus && f.derivationMethod === 'MANUAL_VERIFIED');
-                  const isModified = f.calibrationStatus === 'MODIFIED';
-                  const isRejected = f.calibrationStatus === 'REJECTED';
-
-                  return (
-                    <button
-                      key={f.fieldId}
-                      id={`tree-item-${f.fieldId}`}
-                      type="button"
-                      onClick={() => selectFieldFromTree(f)}
-                      className={`w-full text-left px-2 py-1.5 rounded transition-all cursor-pointer flex items-center justify-between gap-2 text-xs ${
-                        isSelected
-                          ? 'bg-blue-950/80 border border-blue-500 text-white shadow-xs font-semibold'
-                          : isRejected
-                          ? 'bg-rose-950/20 border border-rose-900/30 text-stone-400 line-through opacity-50'
-                          : isProposed
-                          ? 'bg-amber-950/20 border border-amber-600/30 text-stone-300 hover:bg-amber-900/30'
-                          : 'bg-stone-800/40 border border-stone-800 text-stone-300 hover:bg-stone-800/80'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                        {renderFieldTypeIcon((f as any).fieldType)}
-                        <span className="truncate text-stone-200">
-                          {f.label || f.fieldId}
-                        </span>
-                      </div>
-
-                      {/* Status badge: ✓, ?, M, ✕ */}
-                      <div className="shrink-0 flex items-center">
-                        {isProposed && (
-                          <span
-                            className="w-4.5 h-4.5 rounded font-bold text-[10px] flex items-center justify-center bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                            title={`Proposto (${((f.confidence ?? 0.8) * 100).toFixed(0)}%)`}
-                          >
-                            ?
-                          </span>
-                        )}
-                        {isConfirmed && (
-                          <span
-                            className="w-4.5 h-4.5 rounded font-bold text-[10px] flex items-center justify-center bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                            title="Confermato"
-                          >
-                            ✓
-                          </span>
-                        )}
-                        {isModified && (
-                          <span
-                            className="w-4.5 h-4.5 rounded font-bold text-[10px] flex items-center justify-center bg-blue-500/20 text-blue-300 border border-blue-500/40"
-                            title="Modificato"
-                          >
-                            M
-                          </span>
-                        )}
-                        {isRejected && (
-                          <span
-                            className="w-4.5 h-4.5 rounded font-bold text-[10px] flex items-center justify-center bg-rose-500/20 text-rose-300 border border-rose-500/40"
-                            title="Rifiutato"
-                          >
-                            ✕
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })
-              )}
-            </div>
+            </button>
           </div>
 
-          {/* SEZIONE C: INSPECTOR DEL CAMPO ATTIVO (R08-R2) */}
-          <div className="flex-1 flex flex-col min-h-[220px] bg-stone-950/80 overflow-hidden">
-            {selectedField ? (
-              <>
-                {/* Header Inspector (Section 18) */}
-                <div className="px-3 py-2.5 border-b border-stone-800 bg-stone-900/60 flex items-start justify-between shrink-0">
-                  <div className="min-w-0 flex-1 pr-2">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-stone-100 text-xs truncate" title={selectedField.label || selectedField.fieldId}>
+          {/* TAB 1: CAMPO SELEZIONATO (PRIORITÀ AL CAMPO SELEZIONATO - CALIBRATOR-UX-01) */}
+          {rightPanelTab === 'FIELD' && (
+            <div className="flex-1 overflow-hidden flex flex-col bg-stone-950/70">
+              {selectedField ? (
+                <div className="flex-1 overflow-y-auto p-3.5 space-y-3.5">
+                  {/* Field Top Meta Header */}
+                  <div className="p-2.5 rounded-lg bg-stone-900/80 border border-stone-800 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3
+                        className="font-bold text-stone-100 text-sm truncate flex-1"
+                        title={selectedField.label || selectedField.fieldId}
+                      >
                         {selectedField.label || 'Campo non nominato'}
                       </h3>
                       {/* Status Badge */}
                       {selectedField.calibrationStatus === 'PROPOSED' && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">
-                          PROPOSED
+                        <span className="text-[9px] px-2 py-0.5 rounded font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">
+                          PROPOSTO
                         </span>
                       )}
                       {selectedField.calibrationStatus === 'CONFIRMED' && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0">
-                          CONFIRMED
+                        <span className="text-[9px] px-2 py-0.5 rounded font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0">
+                          CONFERMATO
                         </span>
                       )}
                       {selectedField.calibrationStatus === 'MODIFIED' && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-blue-500/20 text-blue-300 border border-blue-500/40 shrink-0">
-                          MODIFIED
+                        <span className="text-[9px] px-2 py-0.5 rounded font-bold bg-blue-500/20 text-blue-300 border border-blue-500/40 shrink-0">
+                          MODIFICATO
                         </span>
                       )}
                       {selectedField.calibrationStatus === 'REJECTED' && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 shrink-0">
-                          REJECTED
+                        <span className="text-[9px] px-2 py-0.5 rounded font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 shrink-0">
+                          RIFIUTATO
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 mt-1 text-[10px] font-mono text-stone-400">
-                      <span className="truncate max-w-[130px]">{selectedField.fieldId}</span>
-                      {selectedField.confidence && (
-                        <span className="text-amber-300 font-semibold">
-                          Conf: {(selectedField.confidence * 100).toFixed(0)}%
-                        </span>
-                      )}
+                    <div className="flex items-center flex-wrap gap-2 text-[10px] font-mono text-stone-400">
+                      <span className="truncate text-stone-400">ID: {selectedField.fieldId}</span>
+                      <span className="text-amber-300 font-semibold">
+                        Conf: {formatConfidenceDisplay(selectedField.confidence)}
+                      </span>
                       {selectedField.detectionSource && (
                         <span className="text-stone-300 bg-stone-800 px-1 rounded border border-stone-700">
-                          Source: {selectedField.detectionSource}
+                          Fonte: {selectedField.detectionSource}
                         </span>
                       )}
                     </div>
                   </div>
-                </div>
 
-                {/* Body Inspector Scrollable */}
-                <div className="flex-1 overflow-y-auto p-3 space-y-3">
                   {/* Suggestions / Detection Source Info */}
                   {selectedField.detectionSource && selectedField.detectionSource !== 'MANUAL_ENTRY' && (
-                    <div className="p-2 rounded bg-amber-950/40 border border-amber-600/30 text-[11px] space-y-1.5">
-                      <div className="flex items-center justify-between text-amber-300 font-semibold">
-                        <span className="flex items-center gap-1">
+                    <div className="p-2.5 rounded-lg bg-amber-950/40 border border-amber-600/30 text-xs space-y-1.5">
+                      <div className="flex items-center justify-between text-amber-300 font-semibold text-[11px]">
+                        <span className="flex items-center gap-1.5">
                           <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                           Rilevato tramite: {selectedField.detectionSource}
                         </span>
                       </div>
 
                       {selectedField.suggestedLabel && selectedField.suggestedLabel !== selectedField.label && (
-                        <div className="flex items-center justify-between gap-1 text-[10px] bg-stone-900/80 p-1 rounded border border-stone-700">
+                        <div className="flex items-center justify-between gap-1 text-[11px] bg-stone-900/80 p-1.5 rounded border border-stone-700">
                           <span className="text-stone-300 truncate">
-                            Label: <strong className="text-amber-200">{selectedField.suggestedLabel}</strong>
+                            Suggerito: <strong className="text-amber-200">{selectedField.suggestedLabel}</strong>
                           </span>
                           <button
                             type="button"
                             onClick={() => updateSelectedField({ label: selectedField.suggestedLabel })}
-                            className="px-1.5 py-0.5 rounded bg-amber-600/80 hover:bg-amber-500 text-stone-950 font-bold text-[9px] cursor-pointer shrink-0"
+                            className="px-2 py-0.5 rounded bg-amber-600/80 hover:bg-amber-500 text-stone-950 font-bold text-[10px] cursor-pointer shrink-0"
                           >
                             Applica
                           </button>
@@ -2914,14 +3011,14 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
                       )}
 
                       {selectedField.suggestedSemanticKey && selectedField.suggestedSemanticKey !== selectedField.semanticKey && (
-                        <div className="flex items-center justify-between gap-1 text-[10px] bg-stone-900/80 p-1 rounded border border-stone-700">
-                          <span className="text-stone-300 truncate">
-                            Semantic: <strong className="text-emerald-300 font-mono">{selectedField.suggestedSemanticKey}</strong>
+                        <div className="flex items-center justify-between gap-1 text-[11px] bg-stone-900/80 p-1.5 rounded border border-stone-700">
+                          <span className="text-stone-300 truncate font-mono text-[10px]">
+                            Dato: <strong className="text-emerald-300">{selectedField.suggestedSemanticKey}</strong>
                           </span>
                           <button
                             type="button"
                             onClick={() => updateSelectedField({ semanticKey: selectedField.suggestedSemanticKey })}
-                            className="px-1.5 py-0.5 rounded bg-emerald-600/80 hover:bg-emerald-500 text-white font-bold text-[9px] cursor-pointer shrink-0"
+                            className="px-2 py-0.5 rounded bg-emerald-600/80 hover:bg-emerald-500 text-white font-bold text-[10px] cursor-pointer shrink-0"
                           >
                             Applica
                           </button>
@@ -2930,148 +3027,54 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
                     </div>
                   )}
 
-                  {/* BLOCCO GEOMETRIA CAMPO (Sections 19, 20, 21, 22) */}
-                  <div className="p-2.5 rounded-lg bg-stone-900/90 border border-stone-800 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] uppercase tracking-wider font-bold text-amber-400 flex items-center gap-1">
-                        <Maximize2 className="w-3 h-3 text-amber-400" />
-                        <span>Geometria Campo</span>
-                      </span>
-                      {/* Compact summary */}
-                      <span className="text-[10px] font-mono font-bold text-stone-200 bg-stone-800 px-1.5 py-0.5 rounded border border-stone-700">
-                        {Math.round(selectedField.widthPt)} × {Math.round(selectedField.heightPt)} pt ({(selectedField.widthPt * 0.352778).toFixed(1)} × {(selectedField.heightPt * 0.352778).toFixed(1)} mm)
-                      </span>
-                    </div>
-
-                    {/* PT Coordinates Inputs */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <div className="flex justify-between items-center mb-0.5">
-                          <label className="text-[10px] text-stone-400 font-mono font-semibold">X (pt):</label>
-                          <span className="text-[9px] font-mono text-stone-400">{(selectedField.xPt * 0.352778).toFixed(1)} mm</span>
-                        </div>
-                        <input
-                          type="number"
-                          step={snapToGrid ? gridSizePt : 0.5}
-                          value={selectedField.xPt}
-                          onChange={(e) => {
-                            let val = parseFloat(e.target.value) || 0;
-                            if (snapToGrid) val = Math.round(val / gridSizePt) * gridSizePt;
-                            updateSelectedField({ xPt: val });
-                          }}
-                          className="w-full bg-stone-800 border border-stone-700 rounded px-2 py-1 text-stone-100 font-mono text-xs focus:ring-1 focus:ring-amber-500 focus:outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between items-center mb-0.5">
-                          <label className="text-[10px] text-stone-400 font-mono font-semibold">Y (pt):</label>
-                          <span className="text-[9px] font-mono text-stone-400">{(selectedField.yPt * 0.352778).toFixed(1)} mm</span>
-                        </div>
-                        <input
-                          type="number"
-                          step={snapToGrid ? gridSizePt : 0.5}
-                          value={selectedField.yPt}
-                          onChange={(e) => {
-                            let val = parseFloat(e.target.value) || 0;
-                            if (snapToGrid) val = Math.round(val / gridSizePt) * gridSizePt;
-                            updateSelectedField({ yPt: val });
-                          }}
-                          className="w-full bg-stone-800 border border-stone-700 rounded px-2 py-1 text-stone-100 font-mono text-xs focus:ring-1 focus:ring-amber-500 focus:outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between items-center mb-0.5">
-                          <label className="text-[10px] text-stone-400 font-mono font-semibold">Larghezza L (pt):</label>
-                          <span className="text-[9px] font-mono text-stone-400">{(selectedField.widthPt * 0.352778).toFixed(1)} mm</span>
-                        </div>
-                        <input
-                          type="number"
-                          step={snapToGrid ? gridSizePt : 0.5}
-                          value={selectedField.widthPt}
-                          onChange={(e) => {
-                            let val = parseFloat(e.target.value) || 10;
-                            if (snapToGrid) val = Math.round(val / gridSizePt) * gridSizePt;
-                            updateSelectedField({ widthPt: Math.max(10, val) });
-                          }}
-                          className="w-full bg-stone-800 border border-stone-700 rounded px-2 py-1 text-stone-100 font-mono text-xs focus:ring-1 focus:ring-amber-500 focus:outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between items-center mb-0.5">
-                          <label className="text-[10px] text-stone-400 font-mono font-semibold">Altezza H (pt):</label>
-                          <span className="text-[9px] font-mono text-stone-400">{(selectedField.heightPt * 0.352778).toFixed(1)} mm</span>
-                        </div>
-                        <input
-                          type="number"
-                          step={snapToGrid ? gridSizePt : 0.5}
-                          value={selectedField.heightPt}
-                          onChange={(e) => {
-                            let val = parseFloat(e.target.value) || 10;
-                            if (snapToGrid) val = Math.round(val / gridSizePt) * gridSizePt;
-                            updateSelectedField({ heightPt: Math.max(10, val) });
-                          }}
-                          className="w-full bg-stone-800 border border-stone-700 rounded px-2 py-1 text-stone-100 font-mono text-xs focus:ring-1 focus:ring-amber-500 focus:outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Snap to grid control & badge (Section 22) */}
-                    <div className="pt-1 flex items-center justify-between border-t border-stone-800/80 text-[10px]">
-                      <div className="flex items-center gap-1.5 text-stone-400">
-                        <span className={`w-2 h-2 rounded-full ${snapToGrid ? 'bg-emerald-400' : 'bg-stone-500'}`} />
-                        <span>Snap griglia: <strong className="text-stone-300 font-mono">{gridSizePt} pt</strong> ({snapToGrid ? 'Attivo' : 'Disattivato'})</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setSnapToGrid(!snapToGrid)}
-                          className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
-                            snapToGrid ? 'bg-emerald-700 hover:bg-emerald-600 text-white font-semibold' : 'bg-stone-800 hover:bg-stone-750 text-stone-300'
-                          }`}
-                        >
-                          {snapToGrid ? 'Disattiva' : 'Attiva Snap'}
-                        </button>
-                        {snapToGrid && (
-                          <button
-                            type="button"
-                            onClick={() => setGridSizePt(gridSizePt === 5 ? 10 : 5)}
-                            className="px-1.5 py-0.5 rounded bg-stone-800 hover:bg-stone-750 text-stone-300 font-mono cursor-pointer"
-                            title="Cambia passo griglia"
-                          >
-                            {gridSizePt} pt
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Field Label */}
+                  {/* 1. Nome del Campo */}
                   <div>
-                    <label className="text-[10px] text-stone-400 block mb-1 font-semibold">
-                      Etichetta Campo (Label visualizzata):
+                    <label htmlFor="input-field-label" className="text-[11px] text-stone-300 block mb-1 font-semibold">
+                      Nome / Etichetta del Campo:
                     </label>
                     <input
                       id="input-field-label"
                       type="text"
                       value={selectedField.label || ''}
-                      placeholder="Es. Nome Alunno, Anno Scolastico..."
+                      placeholder="Es. Nome e Cognome, Data di nascita..."
                       onChange={(e) => updateSelectedField({ label: e.target.value })}
-                      className="w-full bg-stone-800 border border-stone-700 rounded px-2.5 py-1 text-stone-200 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      className="w-full bg-stone-800 border border-stone-700 rounded-md px-3 py-1.5 text-stone-100 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium placeholder:text-stone-500"
                     />
                   </div>
 
-                  {/* Semantic Key */}
+                  {/* 2. Tipo di Campo con descrizioni comprensibili */}
+                  <div>
+                    <label htmlFor="select-field-type" className="text-[11px] text-stone-300 block mb-1 font-semibold">
+                      Tipo di Campo:
+                    </label>
+                    <select
+                      id="select-field-type"
+                      value={(selectedField as any).fieldType || 'TEXT_SHORT'}
+                      onChange={(e) =>
+                        updateSelectedField({ fieldType: e.target.value as any })
+                      }
+                      className="w-full bg-stone-800 border border-stone-700 rounded-md px-3 py-1.5 text-stone-100 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
+                    >
+                      <option value="TEXT_SHORT">Testo breve (riga singola, es. nome, data, codice)</option>
+                      <option value="TEXT_LONG">Testo esteso (paragrafo multilinea, osservazioni, note)</option>
+                      <option value="DATE">Data (formato GG/MM/AAAA)</option>
+                      <option value="NUMBER">Numero (cifre o valore numerico)</option>
+                      <option value="SINGLE_CHOICE">Scelta singola (casella o opzione)</option>
+                      <option value="MULTI_CHOICE">Scelta multipla (più caselle di spunta)</option>
+                      <option value="TABLE">Tabella strutturata (griglia dati)</option>
+                      <option value="STATIC_OR_NON_EDITABLE">Statico / Non modificabile</option>
+                    </select>
+                  </div>
+
+                  {/* 3. Associazione Semantica */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="text-[10px] text-stone-400 font-semibold">
-                        Associazione Semantica (semanticKey):
+                      <label htmlFor="select-semantic-key" className="text-[11px] text-stone-300 font-semibold">
+                        Associazione Semantica:
                       </label>
                       {selectedField.semanticKey && (
-                        <span className="text-[9px] text-emerald-400 font-mono">
-                          {selectedField.semanticKey}
+                        <span className="text-[10px] text-emerald-400 font-mono font-semibold">
+                          {resolveCanonicalSemanticKey(selectedField.semanticKey)}
                         </span>
                       )}
                     </div>
@@ -3080,7 +3083,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
                       value={
                         isCustomSemanticKey(selectedField.semanticKey)
                           ? '__CUSTOM__'
-                          : selectedField.semanticKey || ''
+                          : resolveCanonicalSemanticKey(selectedField.semanticKey) || ''
                       }
                       onChange={(e) => {
                         const val = e.target.value;
@@ -3102,7 +3105,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
                           }
                         }
                       }}
-                      className="w-full bg-stone-800 border border-stone-700 rounded px-2 py-1 text-stone-200 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      className="w-full bg-stone-800 border border-stone-700 rounded-md px-3 py-1.5 text-stone-100 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium"
                     >
                       <option value="">-- Non assegnata (Nessun binding) --</option>
                       {Object.entries(CATEGORIZED_SEMANTIC_CATALOG).map(([catKey, cat]) => (
@@ -3119,7 +3122,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
 
                     {isCustomSemanticKey(selectedField.semanticKey) && (
                       <div className="mt-1.5 p-2 bg-stone-900/90 border border-amber-600/40 rounded text-xs space-y-1">
-                        <label className="text-[10px] text-amber-300 font-semibold block">
+                        <label htmlFor="input-custom-semantic-suffix" className="text-[10px] text-amber-300 font-semibold block">
                           Chiave modello personalizzata:
                         </label>
                         <div className="flex items-center gap-1">
@@ -3143,79 +3146,225 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
                     )}
                   </div>
 
-                  {/* Sfondo Campo */}
+                  {/* 4. Sfondo Campo: Trasparente / Bianco opaco */}
                   <div>
-                    <label className="text-[10px] text-stone-400 block mb-1 font-semibold">
-                      Sfondo Campo (backgroundMode):
+                    <label className="text-[11px] text-stone-300 block mb-1.5 font-semibold">
+                      Sfondo Campo:
                     </label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         id="btn-bg-transparent"
                         onClick={() => updateSelectedField({ backgroundMode: 'TRANSPARENT' })}
-                        className={`py-1.5 px-2 rounded text-xs font-semibold border flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${
+                        className={`py-2 px-3 rounded-md text-xs font-semibold border flex items-center justify-center gap-2 cursor-pointer transition-colors ${
                           (selectedField.backgroundMode || 'TRANSPARENT') === 'TRANSPARENT'
-                            ? 'bg-amber-600/30 border-amber-500 text-amber-200'
-                            : 'bg-stone-800 border-stone-700 text-stone-400 hover:bg-stone-750'
+                            ? 'bg-amber-600/30 border-amber-500 text-amber-200 font-bold shadow-xs'
+                            : 'bg-stone-800 border-stone-700 text-stone-400 hover:bg-stone-750 hover:text-stone-300'
                         }`}
                       >
-                        <span className="w-2 h-2 rounded-full border border-stone-400" />
+                        <span className="w-3 h-3 rounded-full border-2 border-stone-400 shrink-0" />
                         <span>Trasparente</span>
                       </button>
                       <button
                         type="button"
                         id="btn-bg-opaque"
                         onClick={() => updateSelectedField({ backgroundMode: 'OPAQUE_WHITE' })}
-                        className={`py-1.5 px-2 rounded text-xs font-semibold border flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${
+                        className={`py-2 px-3 rounded-md text-xs font-semibold border flex items-center justify-center gap-2 cursor-pointer transition-colors ${
                           selectedField.backgroundMode === 'OPAQUE_WHITE'
-                            ? 'bg-stone-100 text-stone-950 border-white shadow-xs font-bold'
-                            : 'bg-stone-800 border-stone-700 text-stone-400 hover:bg-stone-750'
+                            ? 'bg-stone-100 text-stone-950 border-white shadow-xs font-bold ring-1 ring-amber-400/50'
+                            : 'bg-stone-800 border-stone-700 text-stone-400 hover:bg-stone-750 hover:text-stone-300'
                         }`}
                       >
-                        <span className="w-2 h-2 rounded-full bg-white border border-stone-300" />
+                        <span className="w-3 h-3 rounded-xs bg-white border border-stone-300 shrink-0 shadow-xs" />
                         <span>Bianco opaco</span>
                       </button>
                     </div>
                   </div>
 
-                  {/* Field Type and Overflow */}
-                  <div className="space-y-2 pt-1 border-t border-stone-800">
-                    <div>
-                      <label className="text-[10px] text-stone-400 block mb-1 font-semibold">
-                        Tipo di Campo (fieldType):
-                      </label>
-                      <select
-                        value={(selectedField as any).fieldType || 'TEXT_SHORT'}
-                        onChange={(e) =>
-                          updateSelectedField({ fieldType: e.target.value as any })
-                        }
-                        className="w-full bg-stone-800 border border-stone-700 rounded px-2 py-1 text-stone-200 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
-                      >
-                        <option value="TEXT_SHORT">Testo Breve (TEXT_SHORT)</option>
-                        <option value="TEXT_LONG">Testo Esteso (TEXT_LONG)</option>
-                        <option value="DATE">Data (DATE)</option>
-                        <option value="NUMBER">Numero (NUMBER)</option>
-                        <option value="SINGLE_CHOICE">Scelta Singola (SINGLE_CHOICE)</option>
-                        <option value="MULTI_CHOICE">Scelta Multipla (MULTI_CHOICE)</option>
-                        <option value="TABLE">Tabella Strutturata (TABLE)</option>
-                        <option value="STATIC_OR_NON_EDITABLE">Statico / Non Modificabile</option>
-                      </select>
-                    </div>
+                  {/* 5. Azioni Rapide Conferma / Ignora */}
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <button
+                      type="button"
+                      id="btn-confirm-field"
+                      onClick={confirmFieldManualVerified}
+                      className="py-2 px-3 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer text-xs"
+                      title="Conferma il campo come valido per il template"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>Conferma</span>
+                    </button>
 
+                    <button
+                      type="button"
+                      id="btn-reject-field"
+                      onClick={rejectSelectedField}
+                      className="py-2 px-3 rounded-md bg-rose-950/70 hover:bg-rose-900 border border-rose-700 text-rose-300 font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer text-xs"
+                      title="Ignora o rifiuta questo campo per la compilazione"
+                    >
+                      <X className="w-4 h-4" />
+                      <span>Ignora / Rifiuta</span>
+                    </button>
+                  </div>
+
+                  {/* 6. GEOMETRIA ACCESSIBILE: Posizione e dimensioni (Espandibile) */}
+                  <div className="rounded-lg bg-stone-900/90 border border-stone-800 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setIsGeometryExpanded(!isGeometryExpanded)}
+                      className="w-full px-3 py-2.5 bg-stone-900/90 hover:bg-stone-850 flex items-center justify-between text-left transition-colors cursor-pointer"
+                    >
+                      <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1.5">
+                        <Maximize2 className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Posizione e dimensioni</span>
+                        {isGeometryExpanded ? (
+                          <ChevronUp className="w-3.5 h-3.5 text-stone-400 ml-1" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5 text-stone-400 ml-1" />
+                        )}
+                      </span>
+                      {/* Compact summary */}
+                      <span className="text-[10px] font-mono font-bold text-stone-300 bg-stone-800 px-2 py-0.5 rounded border border-stone-700">
+                        {Math.round(selectedField.widthPt)} × {Math.round(selectedField.heightPt)} pt ({((selectedField.widthPt * 0.352778)).toFixed(1)} × {((selectedField.heightPt * 0.352778)).toFixed(1)} mm)
+                      </span>
+                    </button>
+
+                    {isGeometryExpanded && (
+                      <div className="p-3 border-t border-stone-800/80 space-y-2.5">
+                        {/* Coordinates Grid */}
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <div className="bg-stone-950/60 p-2 rounded border border-stone-800">
+                            <div className="flex justify-between items-center mb-1">
+                              <label className="text-[10px] text-stone-300 font-mono font-semibold">X (Orizzontale):</label>
+                              <span className="text-[9px] font-mono text-stone-400">{(selectedField.xPt * 0.352778).toFixed(1)} mm</span>
+                            </div>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                step={snapToGrid ? gridSizePt : 0.5}
+                                value={selectedField.xPt}
+                                onChange={(e) => {
+                                  let val = parseFloat(e.target.value) || 0;
+                                  if (snapToGrid) val = Math.round(val / gridSizePt) * gridSizePt;
+                                  updateSelectedField({ xPt: val });
+                                }}
+                                className="w-full bg-stone-800 border border-stone-700 rounded px-2.5 py-1 text-stone-100 font-mono text-xs focus:ring-1 focus:ring-amber-500 focus:outline-none"
+                              />
+                              <span className="absolute right-2 top-1 text-[10px] text-stone-500 font-mono pointer-events-none">pt</span>
+                            </div>
+                          </div>
+
+                          <div className="bg-stone-950/60 p-2 rounded border border-stone-800">
+                            <div className="flex justify-between items-center mb-1">
+                              <label className="text-[10px] text-stone-300 font-mono font-semibold">Y (Verticale):</label>
+                              <span className="text-[9px] font-mono text-stone-400">{(selectedField.yPt * 0.352778).toFixed(1)} mm</span>
+                            </div>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                step={snapToGrid ? gridSizePt : 0.5}
+                                value={selectedField.yPt}
+                                onChange={(e) => {
+                                  let val = parseFloat(e.target.value) || 0;
+                                  if (snapToGrid) val = Math.round(val / gridSizePt) * gridSizePt;
+                                  updateSelectedField({ yPt: val });
+                                }}
+                                className="w-full bg-stone-800 border border-stone-700 rounded px-2.5 py-1 text-stone-100 font-mono text-xs focus:ring-1 focus:ring-amber-500 focus:outline-none"
+                              />
+                              <span className="absolute right-2 top-1 text-[10px] text-stone-500 font-mono pointer-events-none">pt</span>
+                            </div>
+                          </div>
+
+                          <div className="bg-stone-950/60 p-2 rounded border border-stone-800">
+                            <div className="flex justify-between items-center mb-1">
+                              <label className="text-[10px] text-stone-300 font-mono font-semibold">Larghezza (L):</label>
+                              <span className="text-[9px] font-mono text-stone-400">{(selectedField.widthPt * 0.352778).toFixed(1)} mm</span>
+                            </div>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                step={snapToGrid ? gridSizePt : 0.5}
+                                value={selectedField.widthPt}
+                                onChange={(e) => {
+                                  let val = parseFloat(e.target.value) || 10;
+                                  if (snapToGrid) val = Math.round(val / gridSizePt) * gridSizePt;
+                                  updateSelectedField({ widthPt: Math.max(10, val) });
+                                }}
+                                className="w-full bg-stone-800 border border-stone-700 rounded px-2.5 py-1 text-stone-100 font-mono text-xs focus:ring-1 focus:ring-amber-500 focus:outline-none"
+                              />
+                              <span className="absolute right-2 top-1 text-[10px] text-stone-500 font-mono pointer-events-none">pt</span>
+                            </div>
+                          </div>
+
+                          <div className="bg-stone-950/60 p-2 rounded border border-stone-800">
+                            <div className="flex justify-between items-center mb-1">
+                              <label className="text-[10px] text-stone-300 font-mono font-semibold">Altezza (H):</label>
+                              <span className="text-[9px] font-mono text-stone-400">{(selectedField.heightPt * 0.352778).toFixed(1)} mm</span>
+                            </div>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                step={snapToGrid ? gridSizePt : 0.5}
+                                value={selectedField.heightPt}
+                                onChange={(e) => {
+                                  let val = parseFloat(e.target.value) || 10;
+                                  if (snapToGrid) val = Math.round(val / gridSizePt) * gridSizePt;
+                                  updateSelectedField({ heightPt: Math.max(10, val) });
+                                }}
+                                className="w-full bg-stone-800 border border-stone-700 rounded px-2.5 py-1 text-stone-100 font-mono text-xs focus:ring-1 focus:ring-amber-500 focus:outline-none"
+                              />
+                              <span className="absolute right-2 top-1 text-[10px] text-stone-500 font-mono pointer-events-none">pt</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Snap to grid control */}
+                        <div className="pt-2 flex items-center justify-between border-t border-stone-800/80 text-[10px]">
+                          <div className="flex items-center gap-1.5 text-stone-400">
+                            <span className={`w-2 h-2 rounded-full ${snapToGrid ? 'bg-emerald-400' : 'bg-stone-500'}`} />
+                            <span>Snap: <strong className="text-stone-300 font-mono">{gridSizePt} pt</strong> ({snapToGrid ? 'Attivo' : 'Disattivato'})</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setSnapToGrid(!snapToGrid)}
+                              className={`px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                                snapToGrid ? 'bg-emerald-700 hover:bg-emerald-600 text-white font-semibold' : 'bg-stone-800 hover:bg-stone-750 text-stone-300'
+                              }`}
+                            >
+                              {snapToGrid ? 'Disattiva' : 'Attiva Snap'}
+                            </button>
+                            {snapToGrid && (
+                              <button
+                                type="button"
+                                onClick={() => setGridSizePt(gridSizePt === 5 ? 10 : 5)}
+                                className="px-2 py-0.5 rounded bg-stone-800 hover:bg-stone-750 text-stone-300 font-mono cursor-pointer"
+                                title="Cambia passo griglia (5 pt / 10 pt)"
+                              >
+                                {gridSizePt} pt
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 7. Opzioni e Azioni Avanzate del Campo */}
+                  <div className="p-3 rounded-lg bg-stone-900/60 border border-stone-800 space-y-2.5">
                     <div>
                       <label className="text-[10px] text-stone-400 block mb-1 font-semibold">
-                        Politica Finale Overflow (overflowPolicy):
+                        Politica Spazio Finale (Overflow):
                       </label>
                       <select
                         value={(selectedField as any).overflowPolicy || 'RIGID'}
                         onChange={(e) =>
                           updateSelectedField({ overflowPolicy: e.target.value as any })
                         }
-                        className="w-full bg-stone-800 border border-stone-700 rounded px-2 py-1 text-stone-200 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
+                        className="w-full bg-stone-800 border border-stone-700 rounded px-2.5 py-1 text-stone-200 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
                       >
-                        <option value="RIGID">RIGID — Spazio rigido</option>
-                        <option value="CONTINUABLE">CONTINUABLE — Continuazione</option>
-                        <option value="EXPANDABLE_OR_TABULAR">EXPANDABLE_OR_TABULAR — Tabellare</option>
+                        <option value="RIGID">RIGID — Spazio rigido predefinito</option>
+                        <option value="CONTINUABLE">CONTINUABLE — Sezione continuativa</option>
+                        <option value="EXPANDABLE_OR_TABULAR">EXPANDABLE_OR_TABULAR — Tabellare espandibile</option>
                       </select>
                     </div>
 
@@ -3238,39 +3387,15 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
                     </div>
                   </div>
 
-                  {/* Field Actions */}
-                  <div className="pt-2 flex flex-col gap-2 border-t border-stone-800">
-                    {/* Confirm / Reject Buttons */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        id="btn-confirm-field"
-                        onClick={confirmFieldManualVerified}
-                        className="py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Conferma</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        id="btn-reject-field"
-                        onClick={rejectSelectedField}
-                        className="py-1.5 rounded bg-rose-950/70 hover:bg-rose-900 border border-rose-700 text-rose-300 font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                        <span>Rifiuta</span>
-                      </button>
-                    </div>
-
-                    {/* Duplicate Actions */}
+                  {/* Duplica ed Elimina */}
+                  <div className="pt-1 flex flex-col gap-2">
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         id="btn-duplicate-field"
                         onClick={() => duplicateSelectedField(false)}
                         title="Copia geometria e stile (nuovo ID univoco) - Scorciatoia: Ctrl+D"
-                        className="py-1.5 rounded bg-stone-800 hover:bg-stone-700 border border-stone-700 text-stone-200 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="py-1.5 px-2 rounded-md bg-stone-800 hover:bg-stone-750 border border-stone-700 text-stone-200 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <Copy className="w-3.5 h-3.5 text-amber-400" />
                         <span>Duplica (Ctrl+D)</span>
@@ -3281,7 +3406,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
                         id="btn-duplicate-field-same-semantic"
                         onClick={() => duplicateSelectedField(true)}
                         title="Duplica mantenendo la stessa associazione semantica"
-                        className="py-1.5 rounded bg-stone-800 hover:bg-stone-700 border border-stone-700 text-stone-200 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="py-1.5 px-2 rounded-md bg-stone-800 hover:bg-stone-750 border border-stone-700 text-stone-200 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <CopyPlus className="w-3.5 h-3.5 text-emerald-400" />
                         <span>Stesso dato</span>
@@ -3292,36 +3417,540 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
                       type="button"
                       id="btn-delete-candidate"
                       onClick={deleteCandidateField}
-                      className="w-full py-1.5 rounded bg-stone-800 hover:bg-rose-950/60 border border-stone-700 hover:border-rose-800 text-stone-400 hover:text-rose-300 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="w-full py-1.5 rounded-md bg-stone-800 hover:bg-rose-950/60 border border-stone-700 hover:border-rose-800 text-stone-400 hover:text-rose-300 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       <span>Elimina definitivamente dal template</span>
                     </button>
                   </div>
                 </div>
-              </>
-            ) : (
-              <div className="flex-1 p-6 flex flex-col items-center justify-center text-center text-stone-500 gap-3">
-                <div className="w-10 h-10 rounded-full bg-stone-800/80 border border-stone-700/60 flex items-center justify-center text-stone-400">
-                  <Sliders className="w-5 h-5 opacity-60 text-amber-400" />
+              ) : (
+                /* Empty state when no field is selected */
+                <div className="flex-1 p-6 flex flex-col items-center justify-center text-center text-stone-500 gap-3">
+                  <div className="w-12 h-12 rounded-full bg-stone-800/80 border border-stone-700/60 flex items-center justify-center text-stone-400">
+                    <Sliders className="w-6 h-6 opacity-60 text-amber-400" />
+                  </div>
+                  <div className="space-y-1.5 max-w-[260px]">
+                    <p className="text-xs font-semibold text-stone-200">Nessun campo selezionato</p>
+                    <p className="text-[11px] text-stone-400 leading-normal">
+                      Fai clic su un riquadro sul documento oppure seleziona un elemento nella scheda <strong>Lista campi</strong> per visualizzarne e modificarne subito le proprietà.
+                    </p>
+                  </div>
+                  <div className="pt-2 flex flex-col gap-2 w-full max-w-[200px]">
+                    <button
+                      type="button"
+                      onClick={addNewCandidateField}
+                      className="w-full px-3 py-2 rounded-md bg-blue-700 hover:bg-blue-600 text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Aggiungi Nuovo Campo</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRightPanelTab('LIST')}
+                      className="w-full px-3 py-1.5 rounded-md bg-stone-800 hover:bg-stone-750 text-stone-300 border border-stone-700 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <ListTree className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Apri Lista Campi ({rawFieldsOnPage.length})</span>
+                    </button>
+                  </div>
                 </div>
-                <div className="space-y-1 max-w-[240px]">
-                  <p className="text-xs font-semibold text-stone-300">Nessun campo selezionato</p>
-                  <p className="text-[11px] text-stone-500 leading-normal">
-                    Seleziona un campo sul canvas o nel Tree per visualizzarne e modificarne le proprietà geometriche e semantiche.
-                  </p>
+              )}
+            </div>
+          )}
+
+          {/* TAB 2: LISTA CAMPI DELLA PAGINA CORRENTE */}
+          {rightPanelTab === 'LIST' && (
+            <div className="flex-1 flex flex-col overflow-hidden bg-stone-900/60">
+              {/* Header Sezione & Filtri */}
+              <div className="p-3 border-b border-stone-800 bg-stone-900/95 space-y-2 shrink-0">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-stone-200 text-xs flex items-center gap-1.5">
+                    <ListTree className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Campi Pagina {currentPage}</span>
+                  </span>
+                  <span className="text-[10px] font-mono text-stone-400">
+                    {visuallySortedFieldsOnPage.length} di {rawFieldsOnPage.length}
+                  </span>
                 </div>
+
+                {/* Quick Action row */}
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    id="btn-list-add-field"
+                    disabled={!currentModel}
+                    onClick={addNewCandidateField}
+                    className="px-2.5 py-1.5 rounded bg-blue-700 hover:bg-blue-600 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Aggiungi Campo</span>
+                  </button>
+
+                  {countProposed > 0 ? (
+                    <button
+                      type="button"
+                      id="btn-list-confirm-all"
+                      onClick={confirmAllProposedOnPage}
+                      className="px-2.5 py-1.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <CheckCheck className="w-3.5 h-3.5" />
+                      <span>Conferma ({countProposed})</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={!selectedField}
+                      onClick={() => duplicateSelectedField(false)}
+                      className="px-2.5 py-1.5 rounded bg-stone-800 hover:bg-stone-750 text-stone-200 font-semibold border border-stone-700 text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-30"
+                    >
+                      <Copy className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Duplica (Ctrl+D)</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Status Filter Pills */}
+                <div className="flex items-center gap-1 overflow-x-auto pb-0.5 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('ALL')}
+                    className={`px-2 py-0.5 rounded cursor-pointer transition-colors whitespace-nowrap ${
+                      statusFilter === 'ALL'
+                        ? 'bg-stone-700 text-white font-bold'
+                        : 'bg-stone-800 text-stone-400 hover:text-stone-200'
+                    }`}
+                  >
+                    Tutti ({rawFieldsOnPage.filter(f => f.calibrationStatus !== 'REJECTED' || showRejectedFields).length})
+                  </button>
+                  {countProposed > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setStatusFilter('PROPOSED')}
+                      className={`px-2 py-0.5 rounded cursor-pointer transition-colors whitespace-nowrap ${
+                        statusFilter === 'PROPOSED'
+                          ? 'bg-amber-600 text-stone-950 font-bold'
+                          : 'bg-amber-950/60 text-amber-300 hover:bg-amber-900/60'
+                      }`}
+                    >
+                      ? Proposti ({countProposed})
+                    </button>
+                  )}
+                  {countConfirmed > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setStatusFilter('CONFIRMED')}
+                      className={`px-2 py-0.5 rounded cursor-pointer transition-colors whitespace-nowrap ${
+                        statusFilter === 'CONFIRMED'
+                          ? 'bg-emerald-600 text-white font-bold'
+                          : 'bg-stone-800 text-emerald-400 hover:bg-stone-750'
+                      }`}
+                    >
+                      ✓ Confermati ({countConfirmed})
+                    </button>
+                  )}
+                  {countModified > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setStatusFilter('MODIFIED')}
+                      className={`px-2 py-0.5 rounded cursor-pointer transition-colors whitespace-nowrap ${
+                        statusFilter === 'MODIFIED'
+                          ? 'bg-blue-600 text-white font-bold'
+                          : 'bg-stone-800 text-blue-400 hover:bg-stone-750'
+                      }`}
+                    >
+                      M Modificati ({countModified})
+                    </button>
+                  )}
+                </div>
+
+                {/* Quick Search */}
+                <input
+                  type="text"
+                  placeholder="Filtra per etichetta o ID..."
+                  value={searchFilter}
+                  onChange={(e) => setSearchFilter(e.target.value)}
+                  className="w-full bg-stone-800/90 border border-stone-700/80 rounded px-2.5 py-1 text-stone-200 placeholder:text-stone-500 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
+
+                {countRejected > 0 && (
+                  <label className="flex items-center gap-1.5 text-[10px] text-stone-400 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showRejectedFields}
+                      onChange={(e) => setShowRejectedFields(e.target.checked)}
+                      className="rounded bg-stone-800 border-stone-700 text-rose-500 focus:ring-0 cursor-pointer"
+                    />
+                    <span>Mostra {countRejected} campi rifiutati</span>
+                  </label>
+                )}
+              </div>
+
+              {/* Tree Items List - Single Full Height Scroll */}
+              <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                {visuallySortedFieldsOnPage.length === 0 ? (
+                  <div className="py-8 text-center text-stone-500 text-xs italic">
+                    Nessun campo sulla pagina corrente per i filtri attivi.
+                  </div>
+                ) : (
+                  visuallySortedFieldsOnPage.map((f) => {
+                    const isSelected = f.fieldId === selectedFieldId;
+                    const isProposed = f.calibrationStatus === 'PROPOSED';
+                    const isConfirmed = f.calibrationStatus === 'CONFIRMED' || (!f.calibrationStatus && f.derivationMethod === 'MANUAL_VERIFIED');
+                    const isModified = f.calibrationStatus === 'MODIFIED';
+                    const isRejected = f.calibrationStatus === 'REJECTED';
+
+                    return (
+                      <button
+                        key={f.fieldId}
+                        id={`tree-item-${f.fieldId}`}
+                        type="button"
+                        onClick={() => selectFieldFromTree(f)}
+                        className={`w-full text-left px-2.5 py-2 rounded-md transition-all cursor-pointer flex items-center justify-between gap-2 text-xs ${
+                          isSelected
+                            ? 'bg-blue-950/80 border border-blue-500 text-white shadow-xs font-semibold'
+                            : isRejected
+                            ? 'bg-rose-950/20 border border-rose-900/30 text-stone-400 line-through opacity-50'
+                            : isProposed
+                            ? 'bg-amber-950/20 border border-amber-600/30 text-stone-300 hover:bg-amber-900/30'
+                            : 'bg-stone-800/40 border border-stone-800 text-stone-300 hover:bg-stone-800/80'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          {renderFieldTypeIcon((f as any).fieldType)}
+                          <span className="truncate text-stone-200">
+                            {f.label || f.fieldId}
+                          </span>
+                        </div>
+
+                        {/* Status badge: ✓, ?, M, ✕ */}
+                        <div className="shrink-0 flex items-center gap-1.5">
+                          <span className="text-[10px] font-mono text-stone-400 font-medium">
+                            {formatConfidenceDisplay(f.confidence)}
+                          </span>
+                          {isProposed && (
+                            <span
+                              className="w-5 h-5 rounded font-bold text-[10px] flex items-center justify-center bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                              title={`Proposto (${formatConfidenceDisplay(f.confidence)})`}
+                            >
+                              ?
+                            </span>
+                          )}
+                          {isConfirmed && (
+                            <span
+                              className="w-5 h-5 rounded font-bold text-[10px] flex items-center justify-center bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                              title="Confermato"
+                            >
+                              ✓
+                            </span>
+                          )}
+                          {isModified && (
+                            <span
+                              className="w-5 h-5 rounded font-bold text-[10px] flex items-center justify-center bg-blue-500/20 text-blue-300 border border-blue-500/40"
+                              title="Modificato"
+                            >
+                              M
+                            </span>
+                          )}
+                          {isRejected && (
+                            <span
+                              className="w-5 h-5 rounded font-bold text-[10px] flex items-center justify-center bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                              title="Rifiutato"
+                            >
+                              ✕
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: DIAGNOSTICA IN UN'AREA SECONDARIA VISIBILE (CALIBRATOR-UX-01) */}
+          {rightPanelTab === 'DIAGNOSTICS' && (() => {
+            const normReport = (currentModel as any)?.normalizationReport;
+            const pageMetricsList = (currentModel as any)?.pageMetrics || normReport?.pageMetrics || normReport?.rectificationMetrics;
+            const activePageMetrics = Array.isArray(pageMetricsList) && pageMetricsList.length >= currentPage
+              ? pageMetricsList[currentPage - 1]
+              : null;
+            const effEngine = activePageMetrics?.engineUsed || (currentModel as any)?.engineUsed;
+            const effSkew = activePageMetrics?.globalSkewDegrees !== undefined ? activePageMetrics.globalSkewDegrees : (currentModel as any)?.globalSkewDegrees;
+            const effPerspective = activePageMetrics?.perspectiveApplied !== undefined ? activePageMetrics.perspectiveApplied : (currentModel as any)?.perspectiveApplied;
+            const effDewarping = activePageMetrics?.dewarpingMapApplied !== undefined ? activePageMetrics.dewarpingMapApplied : (currentModel as any)?.dewarpingMapApplied;
+            const effMaxCurv = activePageMetrics?.localCurvatureMaxDeviationPx !== undefined ? activePageMetrics.localCurvatureMaxDeviationPx : (currentModel as any)?.localCurvatureMaxDeviationPx;
+
+            return (
+            <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-stone-900/40">
+              {/* Card Diagnostica Rettifica & Sfondo */}
+              <div className="bg-stone-950 p-3 rounded-lg border border-stone-800 text-xs space-y-2">
+                <div className="flex items-center justify-between text-stone-200 font-semibold">
+                  <span className="flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-amber-400" />
+                    Diagnostica Rettifica & Sfondo (Pagina {currentPage})
+                  </span>
+                  <span className="text-[9px] px-2 py-0.5 rounded-full bg-stone-900 text-amber-300 border border-stone-800 font-mono font-bold">
+                    {effEngine || 'Non disponibile'}
+                  </span>
+                </div>
+                <div className="space-y-1.5 text-[10px] font-mono text-stone-400 bg-stone-900/80 p-2.5 rounded border border-stone-800">
+                  <div className="truncate"><strong>Hash Originale:</strong> {currentModel?.sourcePdfSha256 || (currentModel as any)?.sourceSha256 || 'Non disponibile'}</div>
+                  <div className="truncate"><strong>Hash Normalizzato (A4):</strong> {currentModel?.normalizedPdfSha256 || (currentModel as any)?.normalizedSha256 || 'Non disponibile'}</div>
+                  <div className="truncate"><strong>Hash Visualizzato:</strong> {resolutionState.displayedHash || 'Non disponibile'}</div>
+                  <div><strong>Dimensioni Pagina:</strong> {activePageWidthPt.toFixed(2)} × {activePageHeightPt.toFixed(2)} pt ({ ((activePageWidthPt * 2.54) / 72).toFixed(1) } × { ((activePageHeightPt * 2.54) / 72).toFixed(1) } cm)</div>
+                  <div><strong>Formato Pagina A4 (21 × 29,7 cm):</strong> <span className={Math.abs(activePageWidthPt - 595.32) <= 10 && Math.abs(activePageHeightPt - 841.92) <= 10 ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>{Math.abs(activePageWidthPt - 595.32) <= 10 && Math.abs(activePageHeightPt - 841.92) <= 10 ? 'Conforme A4 Standard (21 × 29,7 cm)' : 'Dimensioni Native (Non A4 Standard)'}</span></div>
+                  <div><strong>Deskew Globale:</strong> <span className="text-stone-200 font-semibold">{effSkew !== undefined ? `${effSkew}° (Eseguito)` : 'Non disponibile'}</span></div>
+                  <div><strong>Correzione Prospettica:</strong> <span className="text-stone-200 font-semibold">{effPerspective !== undefined ? (effPerspective ? 'Eseguita' : 'Non eseguita') : 'Non disponibile'}</span></div>
+                  <div><strong>Dewarping / Curvatura Griglia:</strong> <span className="text-stone-200 font-semibold">{effDewarping !== undefined ? (effDewarping ? 'Eseguito' : 'Non eseguito') : 'Non disponibile'}</span></div>
+                  <div><strong>Fallback Canvas:</strong> <span className="text-stone-200 font-semibold">{effEngine === 'HIGH_PRECISION_CANVAS_FALLBACK' ? 'Attivo (Fallback)' : (effEngine ? 'Non utilizzato' : 'Non disponibile')}</span></div>
+                  <div><strong>Deviazione massima di griglia:</strong> <span className="text-stone-200 font-semibold">{effMaxCurv !== undefined ? `${effMaxCurv} px` : 'Non disponibile'}</span></div>
+                </div>
+
+                {/* Pulsanti Download File PDF nella Diagnostica */}
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-stone-800/80">
+                  <button
+                    type="button"
+                    onClick={handleDownloadOriginalPdf}
+                    disabled={!currentModel}
+                    className="py-1.5 px-2 rounded bg-stone-900 hover:bg-stone-800 text-stone-300 font-medium border border-stone-800 flex items-center justify-center gap-1.5 text-[11px] cursor-pointer disabled:opacity-40"
+                    title={`Scarica file originale (${currentModel?.sourcePdfSha256?.slice(0, 8)}…)`}
+                  >
+                    <Download className="w-3 h-3 text-stone-400" />
+                    <span>Scarica originale</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadProcessedPdf}
+                    disabled={!currentModel}
+                    className="py-1.5 px-2 rounded bg-cyan-950/60 hover:bg-cyan-900 text-cyan-200 font-semibold border border-cyan-800/60 flex items-center justify-center gap-1.5 text-[11px] cursor-pointer disabled:opacity-40"
+                    title={`Scarica PDF elaborato A4 (${currentModel?.normalizedPdfSha256?.slice(0, 8) || 'A4'}…)`}
+                  >
+                    <Download className="w-3 h-3 text-cyan-400" />
+                    <span>Scarica PDF elaborato</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Contatori Diagnostica & Stato Esecuzione */}
+              <div className="bg-stone-950 p-3 rounded-lg border border-stone-800 space-y-2.5">
+                <div className="flex items-center justify-between text-stone-200 text-xs font-semibold">
+                  <span className="flex items-center gap-1.5">
+                    <Sliders className="w-3.5 h-3.5 text-amber-400" />
+                    Stato Diagnostico (Pagina {currentPage})
+                  </span>
+                  <span className="text-[10px] font-mono text-stone-400 bg-stone-900 px-1.5 py-0.5 rounded border border-stone-800">
+                    P.{currentPage} / Doc ({currentModel?.totalPages || 12} pag.)
+                  </span>
+                </div>
+
+                {/* Execution Status Row */}
+                <div className="grid grid-cols-2 gap-2 text-[10px] font-mono bg-stone-900/80 p-2 rounded border border-stone-800">
+                  <div>
+                    <span className="text-stone-400 block text-[9px] uppercase font-semibold">Rilevamento Automatico:</span>
+                    <span className={detectedPages.has(currentPage) ? "text-emerald-400 font-bold" : "text-amber-400 font-medium"}>
+                      {detectedPages.has(currentPage) ? "Eseguito" : "Non eseguito"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-stone-400 block text-[9px] uppercase font-semibold">Reverse Engineering:</span>
+                    <span className={diagnosticsState.reverseEngineeringAvailable ? "text-emerald-400 font-bold" : "text-stone-500 font-medium"}>
+                      {diagnosticsState.reverseEngineeringAvailable ? "Eseguito" : "Non eseguito"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Contatori Pagina Real-Time */}
+                <div className="grid grid-cols-5 gap-1 text-center py-2 px-1 bg-stone-900 rounded border border-stone-800 font-mono">
+                  <div className="flex flex-col items-center">
+                    <span className="text-stone-400 text-[9px] uppercase tracking-wider font-semibold">Presenti</span>
+                    <span className="font-bold text-stone-100 text-xs">{rawFieldsOnPage.length}</span>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <span className="text-amber-400 text-[9px] uppercase tracking-wider font-semibold">Proposti</span>
+                    <span className="font-bold text-amber-300 text-xs">{countProposed}</span>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <span className="text-emerald-400 text-[9px] uppercase tracking-wider font-semibold">Confermati</span>
+                    <span className="font-bold text-emerald-300 text-xs">{countConfirmed}</span>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <span className="text-blue-400 text-[9px] uppercase tracking-wider font-semibold">Modificati</span>
+                    <span className="font-bold text-blue-300 text-xs">{countModified}</span>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <span className="text-rose-400 text-[9px] uppercase tracking-wider font-semibold">Scartati</span>
+                    <span className="font-bold text-rose-300 text-xs">{countRejected}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Semantic Reverse Engineering Diagnostic Status Strip */}
+              {diagnosticsState.reverseEngineeringAvailable && (
+                <div className="bg-stone-950 p-3 rounded-lg border border-stone-800 text-[11px] space-y-1.5">
+                  <div className="flex items-center justify-between text-stone-300 font-semibold">
+                    <span className="flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-400 font-bold animate-pulse" />
+                      Reverse Engineering Semantico
+                    </span>
+                    <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-800/40 font-bold">
+                      ATTIVO
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-1 text-stone-400 font-mono text-[10px]">
+                    <div>Baseline: <span className={diagnosticsState.baselinePresent ? "text-emerald-400 font-bold" : "text-amber-500"}>{diagnosticsState.baselinePresent ? "Presente" : "Assente"}</span></div>
+                    <div>Evidenza: <span className={diagnosticsState.evidencePresent ? "text-emerald-400 font-bold" : "text-amber-500"}>{diagnosticsState.evidencePresent ? "Presente" : "Assente"}</span></div>
+                    <div>Mappature GLO: <span className="text-stone-200">{diagnosticsState.reverseEngineeredMappings}</span></div>
+                    <div>Campi Confermati: <span className="text-stone-200">{diagnosticsState.reverseEngineeredFields}</span></div>
+                    <div>Sfondi Opachi: <span className="text-stone-200">{diagnosticsState.reverseEngineeredOpaqueFields}</span></div>
+                    <div>Sfondi Trasp.: <span className="text-stone-200">{diagnosticsState.reverseEngineeredTransparentFields}</span></div>
+                  </div>
+                </div>
+              )}
+
+              {/* In-Flight Detection Banner */}
+              {isDetecting && (
+                <div className="bg-amber-950/70 border border-amber-600/50 p-3 rounded-lg text-amber-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3.5 h-3.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                      <span className="font-semibold text-xs">
+                        {detectionProgress
+                          ? `Analisi Pagina ${detectionProgress.current} di ${detectionProgress.total}...`
+                          : 'Rilevamento in corso...'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      id="btn-cancel-detection"
+                      onClick={handleCancelDetection}
+                      className="px-2 py-0.5 rounded bg-stone-800 hover:bg-stone-700 text-stone-200 text-[10px] font-bold border border-stone-600 cursor-pointer"
+                    >
+                      Annulla
+                    </button>
+                  </div>
+                  {detectionProgress && (
+                    <div className="w-full bg-stone-800 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="bg-amber-500 h-full transition-all duration-200"
+                        style={{
+                          width: `${Math.round((detectionProgress.current / Math.max(1, detectionProgress.total)) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Strumenti Avanzati e Rilevamento (Collapsible) */}
+              <div className="rounded-lg bg-stone-950 border border-stone-800 overflow-hidden">
                 <button
                   type="button"
-                  onClick={addNewCandidateField}
-                  className="mt-1 px-3 py-1.5 rounded bg-blue-700/80 hover:bg-blue-600 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+                  onClick={() => setIsAdvancedToolsExpanded(!isAdvancedToolsExpanded)}
+                  className="w-full px-3 py-2.5 bg-stone-900/80 hover:bg-stone-850 flex items-center justify-between text-left transition-colors cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Aggiungi Campo</span>
+                  <span className="text-xs font-bold text-stone-200 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Strumenti Avanzati e Rilevamento</span>
+                  </span>
+                  {isAdvancedToolsExpanded ? (
+                    <ChevronUp className="w-3.5 h-3.5 text-stone-400" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
+                  )}
                 </button>
+
+                {isAdvancedToolsExpanded && (
+                  <div className="p-3 border-t border-stone-800/80 space-y-2.5">
+                    {/* Primary Action Row */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        id="btn-detect-page-fields"
+                        disabled={!currentModel || !cachedPdfDocRef.current?.doc || isDetecting}
+                        onClick={handleDetectPageFields}
+                        className="px-2.5 py-2 rounded-md bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-xs"
+                        title="Rileva automaticamente i campi compilabili sulla pagina corrente"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-stone-950" />
+                        <span>Rileva (Pagina)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        id="btn-detect-document-fields"
+                        disabled={!currentModel || !cachedPdfDocRef.current?.doc || isDetecting}
+                        onClick={handleDetectDocumentFields}
+                        className="px-2.5 py-2 rounded-md bg-stone-800 hover:bg-stone-750 text-amber-300 font-semibold border border-stone-700 shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-xs"
+                        title="Rileva campi su tutte le pagine del modello (analisi completa)"
+                      >
+                        <Layers className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Rileva (Doc)</span>
+                      </button>
+                    </div>
+
+                    {/* Secondary Action Row: Aggiungi & Duplica */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        id="btn-add-candidate-field"
+                        disabled={!currentModel}
+                        onClick={addNewCandidateField}
+                        className="px-2.5 py-1.5 rounded-md bg-blue-700 hover:bg-blue-600 text-white font-semibold text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        title="Aggiungi manualmente un nuovo campo sulla pagina corrente"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Aggiungi Campo</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        id="btn-toolbar-duplicate-field"
+                        disabled={!selectedField}
+                        onClick={() => duplicateSelectedField(false)}
+                        className="px-2.5 py-1.5 rounded-md bg-stone-800 hover:bg-stone-750 text-stone-200 font-semibold border border-stone-700 text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Duplica campo selezionato (Ctrl+D)"
+                      >
+                        <Copy className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Duplica Campo</span>
+                      </button>
+                    </div>
+
+                    {/* Confirm all proposed on page */}
+                    {countProposed > 0 && (
+                      <button
+                        type="button"
+                        id="btn-confirm-all-page"
+                        onClick={confirmAllProposedOnPage}
+                        className="w-full py-2 rounded-md bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                        title="Conferma tutti i campi proposti sulla pagina corrente"
+                      >
+                        <CheckCheck className="w-3.5 h-3.5" />
+                        <span>Conferma Tutti i Proposti ({countProposed})</span>
+                      </button>
+                    )}
+
+                    {/* Diagnostic Trace Export */}
+                    <div className="pt-2 border-t border-stone-800/80">
+                      <button
+                        type="button"
+                        id="btn-export-page-diagnostics"
+                        disabled={!currentModel || !cachedPdfDocRef.current?.doc || isDetecting}
+                        onClick={handleExportPageDiagnostics}
+                        className="w-full py-2 px-2.5 rounded-md bg-purple-950/70 hover:bg-purple-900 text-purple-200 font-semibold border border-purple-700/60 shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed text-xs"
+                        title="Esporta JSON di diagnostica runtime reale della pagina (Document, TextItems, VectorLines, VectorBoxes, Pipeline Trace, Final Fields)"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-purple-400" />
+                        <span>Esporta diagnostica pagina (JSON)</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </div>
+            );
+          })()}
         </aside>
       </div>
 

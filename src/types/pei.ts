@@ -130,6 +130,7 @@ export interface PeiModelDefinition {
   sourcePath?: string;
   templateId?: string;
   sourceSha256?: string;
+  normalizedSha256?: string;
   templateSchemaId?: string;
   geometryMappingId?: string;
   calibrationStatus?:
@@ -152,13 +153,28 @@ export interface PeiModelDefinition {
   derivedFromBaselineId?: string;
   modelVersion?: string;
   semanticSignature?: string[];
+  sourcePdfSha256?: string;
+  normalizedPdfSha256?: string;
+  normalizationSucceeded?: boolean;
+  engineUsed?: string;
+  globalSkewDegrees?: number;
+  perspectiveApplied?: boolean;
+  dewarpingMapApplied?: boolean;
+  localCurvatureMaxDeviationPx?: number;
+  normalizationReport?: any;
+  pageMetrics?: any[];
 }
 
 export interface PeiDocument {
+  originalSourceBinary?: Uint8Array;
+  originalSourceSha256?: string;
+  acquiredSchema?: import('../core/templateSchemaTypes').TemplateSchema;
+  acquiredBinarySha256?: string;
   id: string;
   schoolOrder: SchoolOrder;
   schoolYear: string;
   studentCode: string; // Fittizio, es. "ALU-2026-X9"
+  studentName?: string; // Nome e cognome reale dell'alunno se presente (riga BAMBINO/A)
   schoolName: string;
   classOrSection: string;
   creationDate: string;

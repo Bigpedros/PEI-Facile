@@ -1,3 +1,4 @@
+import { documentSchema } from '../../core/documental/bridge';
 import React, { useState, useEffect } from 'react';
 import type { SchoolOrder, PeiModelDefinition } from '../../types/pei';
 import type {
@@ -28,10 +29,14 @@ import {
 } from 'lucide-react';
 
 export interface AcquisitionSuccessPayload {
+  acquiredSchema?: import('../../core/templateSchemaTypes').TemplateSchema;
+  acquiredBinarySha256?: string;
+  originalSourceSha256?: string;
   schoolOrder: SchoolOrder;
   modelId?: string;
   modelName?: string;
   studentCode: string;
+  studentName?: string;
   schoolName: string;
   classOrSection: string;
   compilationDate: string;
@@ -73,6 +78,7 @@ export const AcquisitionModal: React.FC<AcquisitionModalProps> = ({
   const [selectedModelId, setSelectedModelId] = useState<string>('');
   const [editableEvidences, setEditableEvidences] = useState<MappingEvidence[]>([]);
   const [studentCodeInput, setStudentCodeInput] = useState<string>('');
+  const [studentNameInput, setStudentNameInput] = useState<string>('');
   const [schoolNameInput, setSchoolNameInput] = useState<string>('');
   const [classInput, setClassInput] = useState<string>('');
   const [dateInput, setDateInput] = useState<string>('');
@@ -272,7 +278,20 @@ export const AcquisitionModal: React.FC<AcquisitionModalProps> = ({
       setAcquisitionResult(result);
       setEditableEvidences(result.evidenceList);
       setSelectedSchoolOrder(result.classification.detectedOrder || 'A2');
-      setSelectedModelId(result.classification.detectedModelId || `MINISTERIAL_${result.classification.detectedOrder || 'A2'}`);
+
+      const detectedModelId = result.classification.detectedModelId;
+      const isRecognizedCustom = customModels.some((m) => m.id === detectedModelId);
+      const isSample = inputMode === 'SAMPLE';
+
+      let effectiveModelId = detectedModelId;
+      if (!isSample && !isRecognizedCustom && (!detectedModelId || detectedModelId.startsWith('MINISTERIAL_'))) {
+        effectiveModelId = `tpl_custom_${targetName.replace(/[^a-zA-Z0-9_-]/g, '_')}_${Date.now().toString(36)}`;
+      } else if (!effectiveModelId) {
+        effectiveModelId = `MINISTERIAL_${result.classification.detectedOrder || 'A2'}`;
+      }
+
+      setSelectedModelId(effectiveModelId);
+      setStudentNameInput(result.studentName || '');
       setStudentCodeInput(result.studentCode || 'ALU-ACQUISITO');
       setSchoolNameInput(result.schoolName || 'Istituzione Scolastica');
       setClassInput(result.classOrSection || 'Classe 1^');
@@ -337,11 +356,33 @@ export const AcquisitionModal: React.FC<AcquisitionModalProps> = ({
     const chosenModel = allAvailableModels.find((m) => m.id === selectedModelId);
     const chosenModelName = chosenModel ? chosenModel.name : (acquisitionResult.classification.detectedModelName || 'Modello Selezionato');
 
+    // Distingui identificativo interno, nome alunno e codice sostitutivo personale
+    if (studentCodeInput.trim()) {
+      finalValues['f-01-codice-sostitutivo'] = studentCodeInput.trim();
+    }
+    if (studentNameInput.trim()) {
+      finalValues['f-01-studente'] = studentNameInput.trim();
+    } else if (finalValues['f-01-studente'] && /^ALU-[A-Z0-9_-]+$/i.test(finalValues['f-01-studente'])) {
+      // Non usare il valore sostitutivo come nome estratto sulla riga BAMBINO/A
+      delete finalValues['f-01-studente'];
+    }
+
+    if (acquisitionResult.section) {
+      finalValues['f-01-sezione'] = acquisitionResult.section;
+    }
+    if (acquisitionResult.site) {
+      finalValues['f-01-plesso'] = acquisitionResult.site;
+    }
+
     onAcquisitionSuccess({
+      acquiredSchema: acquisitionResult.documentalResult ? documentSchema(acquisitionResult.documentalResult, acquisitionResult.normalizedSha256!, selectedSchoolOrder) : undefined,
+      acquiredBinarySha256: acquisitionResult.normalizedSha256,
+      originalSourceSha256: acquisitionResult.sourceSha256,
       schoolOrder: selectedSchoolOrder,
       modelId: selectedModelId,
       modelName: chosenModelName,
       studentCode: studentCodeInput.trim() || 'ALU-ACQUISITO',
+      studentName: studentNameInput.trim() || undefined,
       schoolName: schoolNameInput.trim() || 'Istituzione Scolastica',
       classOrSection: classInput.trim() || 'Classe 1^',
       compilationDate: dateInput.trim() || new Date().toISOString().split('T')[0],
@@ -414,7 +455,7 @@ export const AcquisitionModal: React.FC<AcquisitionModalProps> = ({
                 <input
                   type="file"
                   multiple
-                  accept=".pdf,.jpg,.jpeg,.png,.tiff,.tif,.docx,.doc"
+                  accept=".pdf,.jpg,.jpeg,.png,.tiff,.tif,.docx"
                   onChange={handleSingleFileInput}
                   disabled={isProcessing}
                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
@@ -691,17 +732,29 @@ export const AcquisitionModal: React.FC<AcquisitionModalProps> = ({
                 <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">
                   Dati Identificativi per il Nuovo PEI
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
-                      Identificativo Alunno
+                      Nome Alunno (BAMBINO/A)
+                    </label>
+                    <input
+                      type="text"
+                      value={studentNameInput}
+                      onChange={(e) => setStudentNameInput(e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-xs bg-[var(--input-bg)] border border-[var(--border)] rounded text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-amber-800 font-medium"
+                      placeholder="Nome e cognome reale..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                      Codice Sostitutivo Personale
                     </label>
                     <input
                       type="text"
                       value={studentCodeInput}
                       onChange={(e) => setStudentCodeInput(e.target.value)}
                       className="w-full px-2.5 py-1.5 text-xs bg-[var(--input-bg)] border border-[var(--border)] rounded text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-amber-800 font-medium"
-                      placeholder="Codice alunno..."
+                      placeholder="Codice anonimizzato (es. ALU-2026)..."
                     />
                   </div>
                   <div>
@@ -813,14 +866,14 @@ export const AcquisitionModal: React.FC<AcquisitionModalProps> = ({
                           <div className="flex items-center gap-2">
                             <span
                               className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                ev.confidence >= 80
+                                ev.confidence !== undefined && ev.confidence !== null && ev.confidence >= 80
                                   ? 'bg-emerald-950/40 text-emerald-700 border border-emerald-800/30'
-                                  : ev.confidence >= 60
+                                  : ev.confidence !== undefined && ev.confidence !== null && ev.confidence >= 60
                                   ? 'bg-amber-950/40 text-amber-700 border border-amber-800/30'
                                   : 'bg-neutral-800 text-neutral-400'
                               }`}
                             >
-                              Confidenza: {ev.confidence}%
+                              Confidenza: {ev.confidence !== undefined && ev.confidence !== null && Number.isFinite(ev.confidence) ? `${Math.round(ev.confidence)}%` : 'Non disponibile'}
                             </span>
                             <span className="text-[10px] text-[var(--text-secondary)]">
                               Pag. {ev.pageNumber}

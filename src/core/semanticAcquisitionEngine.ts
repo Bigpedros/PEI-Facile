@@ -289,6 +289,20 @@ export function extractSemanticFieldEvidences(
 ): MappingEvidence[] {
   const evidences: MappingEvidence[] = [];
 
+  // Helper to remove template boilerplate (diciture del modello) from extracted values
+  const cleanModelBoilerplate = (val: string): string => {
+    if (!val) return '';
+    return val
+      .replace(/(?:Plesso\s+o\s+sede|Plesso|Sede)[:\s]*.*$/i, '')
+      .replace(/(?:codice\s+sostitutivo\s+personale|codice\s+sostitutivo)[:\s]*.*$/i, '')
+      .replace(/(?:Anno\s+Scolastico)[:\s]*.*$/i, '')
+      .replace(/(?:BAMBINO\/A|ALUNNO\/A)[:\s]*/i, '')
+      .replace(/_{2,}/g, '')
+      .replace(/\.{3,}/g, '')
+      .replace(/…+/g, '')
+      .trim();
+  };
+
   // Mappa di pattern semantici per i campi standard
   interface FieldExtractor {
     fieldId: string;
@@ -318,16 +332,71 @@ export function extractSemanticFieldEvidences(
     },
     {
       fieldId: 'f-01-studente',
-      fieldLabel: 'Identificativo Alunno/a',
+      fieldLabel: 'Nome dell’Alunno/a (BAMBINO/A)',
       sectionId: 'sec-01',
       sectionTitle: '1. Quadro informativo',
       regexes: [
-        /(?:Codice\s+alunno|Identificativo|Alunno\/a|Studente|Allievo|Codice\s+Fiscale)[:\s]+([^\n\r]{2,40})/i,
+        /(?:BAMBINO\/A|ALUNNO\/A|Nome\s+dell['’]alunno\/a|Nome\s+e\s+Cognome|Cognome\s+e\s+Nome|Codice\s+alunno)[:\s]+([^_\n\r\t]+?)(?=(?:codice\s+sostitutivo|\n|\r|$))/i,
+        /(?:Nome\s+Alunno|Nome\s+Studente|Studente\s*:)\s*([^_\n\r\t]{2,50})/i,
+      ],
+      confidence: 90,
+      reason: 'Rilevato nome o codice dell’alunno/a (riga BAMBINO/A)',
+      cleaner: (s) => {
+        let cleaned = cleanModelBoilerplate(s)
+          .replace(/^(BAMBINO\/A|ALUNNO\/A|Nome\s+dell['’]alunno\/a|Nome\s+e\s+Cognome|Cognome\s+e\s+Nome|Nome\s+Alunno|Studente|Codice\s+alunno)[:\s]*/i, '')
+          .trim();
+        return cleaned;
+      },
+    },
+    {
+      fieldId: 'f-01-codice-sostitutivo',
+      fieldLabel: 'Codice sostitutivo personale',
+      sectionId: 'sec-01',
+      sectionTitle: '1. Quadro informativo',
+      regexes: [
+        /(?:codice\s+sostitutivo\s+personale|codice\s+sostitutivo|codice\s+alunno|pseudonimo)[:\s]+([A-Z0-9_-]{3,40})/i,
         /(?:ALU-[A-Z0-9_-]+)/i,
       ],
-      confidence: 88,
-      reason: 'Rilevato marcatore identificativo studente',
-      cleaner: (s) => s.replace(/^(Codice\s+alunno|Identificativo|Alunno\/a|Studente|Allievo|Codice\s+Fiscale)[:\s]*/i, '').trim(),
+      confidence: 92,
+      reason: 'Rilevato codice sostitutivo personale dell’alunno/a',
+      cleaner: (s) =>
+        cleanModelBoilerplate(s)
+          .replace(/^(codice\s+sostitutivo\s+personale|codice\s+sostitutivo|codice\s+alunno|pseudonimo)[:\s]*/i, '')
+          .trim(),
+    },
+    {
+      fieldId: 'f-01-sezione',
+      fieldLabel: 'Sezione',
+      sectionId: 'sec-01',
+      sectionTitle: '1. Quadro informativo',
+      regexes: [
+        /(?:Sezione)[:\s]+([^_\n\r\t]+?)(?=(?:Plesso\s+o\s+sede|Plesso|Sede|\n|\r|$))/i,
+        /(?:Sezione\s+([A-Za-z0-9]{1,10}))/i,
+      ],
+      confidence: 92,
+      reason: 'Rilevata indicazione distinta della sezione',
+      cleaner: (s) => {
+        let cleaned = s.replace(/^(Sezione)[:\s]*/i, '').trim();
+        cleaned = cleanModelBoilerplate(cleaned);
+        cleaned = cleaned.replace(/(?:Plesso\s+o\s+sede|Plesso|Sede).*$/i, '').trim();
+        return cleaned;
+      },
+    },
+    {
+      fieldId: 'f-01-plesso',
+      fieldLabel: 'Plesso o sede',
+      sectionId: 'sec-01',
+      sectionTitle: '1. Quadro informativo',
+      regexes: [
+        /(?:Plesso\s+o\s+sede|Plesso|Sede)[:\s]+([^_\n\r\t]{2,80})/i,
+      ],
+      confidence: 92,
+      reason: 'Rilevata indicazione distinta del plesso o sede',
+      cleaner: (s) => {
+        let cleaned = s.replace(/^(Plesso\s+o\s+sede|Plesso|Sede)[:\s]*/i, '').trim();
+        cleaned = cleanModelBoilerplate(cleaned);
+        return cleaned;
+      },
     },
     {
       fieldId: 'f-01-classe',
@@ -335,13 +404,17 @@ export function extractSemanticFieldEvidences(
       sectionId: 'sec-01',
       sectionTitle: '1. Quadro informativo',
       regexes: [
-        /(?:Classe|Sezione|Plesso)[:\s]+([^\n\r]{2,50})/i,
-        /(?:Classe\s+\d+\^?\s*[A-Z]?(?:\s*-\s*[^\n\r]{3,40})?)/i,
-        /(?:Sezione\s+[A-Z](?:\s*-\s*[^\n\r]{3,40})?)/i,
+        /(?:Classe)[:\s]+([^_\n\r\t]{1,40}?)(?=(?:Sezione|Plesso|Plesso\s+o\s+sede|Sede|\n|\r|$))/i,
+        /(?:Classe\s+\d+\^?\s*[A-Z]?(?:\s*-\s*[^_\n\r\t]{3,40})?)/i,
       ],
       confidence: 90,
       reason: 'Rilevata indicazione della classe/sezione frequentata',
-      cleaner: (s) => s.replace(/^(Classe|Sezione|Plesso)[:\s]*/i, '').trim(),
+      cleaner: (s) => {
+        let cleaned = s.replace(/^(Classe)[:\s]*/i, '').trim();
+        cleaned = cleanModelBoilerplate(cleaned);
+        cleaned = cleaned.replace(/(?:Plesso\s+o\s+sede|Plesso|Sede).*$/i, '').trim();
+        return cleaned;
+      },
     },
     {
       fieldId: 'f-01-data-redazione',

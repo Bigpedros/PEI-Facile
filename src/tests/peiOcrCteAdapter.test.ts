@@ -31,7 +31,7 @@ import {
   type FieldGeometry,
 } from 'motore-ocr-cte';
 
-import { detectFieldsOnPdfPage } from '../core/assistedFieldDetectionService';
+import { detectFieldsOnPdfPage } from './pdfPageFixture';
 
 describe('PEI FACILE — Motore OCR-CTE v1.0 Integration Suite', () => {
   beforeAll(() => {
@@ -106,7 +106,7 @@ describe('PEI FACILE — Motore OCR-CTE v1.0 Integration Suite', () => {
       widthPt: 150,
       heightPt: 25,
       calibrationStatus: 'PROPOSED',
-      derivationMethod: 'SPATIAL_EMPTY_REGION',
+      derivationMethod: 'MANUAL_VERIFIED',
       label: 'Campo Creato Manualmente',
       fieldType: 'TEXT_SHORT',
       anchorText: 'Campo Manuale',

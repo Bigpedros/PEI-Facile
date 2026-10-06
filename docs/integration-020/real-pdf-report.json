@@ -1,0 +1,76 @@
+{
+  "cases": [
+    {
+      "file": "ALLEGATO A1_PEI_INFANZIA[617] 2.pdf",
+      "pages": 13,
+      "sourceHash": "485e7b1c7bd4b42c9d2afdd91fbde7f8511276f4c1e2f8a90bcdf9c9656c90f3",
+      "canonicalHash": "bb049cbf07e12aca7e17cb50b26680bca3fb56641522d7467bc36ae852fd4fa7",
+      "nativeSpans": 928,
+      "nativeSpansRetained": 928,
+      "filledFieldsPreserved": 37,
+      "boundsValid": true,
+      "persistenceHash": "bb049cbf07e12aca7e17cb50b26680bca3fb56641522d7467bc36ae852fd4fa7",
+      "sampleChecks": [],
+      "schemaPreserved": true,
+      "sources": [
+        "pdf",
+        "pdf",
+        "pdf",
+        "pdf",
+        "pdf",
+        "pdf",
+        "pdf",
+        "pdf",
+        "pdf",
+        "pdf",
+        "pdf",
+        "pdf",
+        "pdf"
+      ]
+    },
+    {
+      "file": "ALLEGATO_A1_PEI_INFANZIA[2387] NUOVO PEI DI R.M.T 2.pdf",
+      "pages": 12,
+      "sourceHash": "a9b27df1bcfea401f98966105a8ae16b1cc46f6d5b1bd1720eb507838635dc63",
+      "canonicalHash": "4c33f248a1bf09b4a41b61cbce3d725062553e206b81358f219a92535e8343c0",
+      "nativeSpans": 0,
+      "nativeSpansRetained": 0,
+      "filledFieldsPreserved": 17,
+      "boundsValid": true,
+      "persistenceHash": "4c33f248a1bf09b4a41b61cbce3d725062553e206b81358f219a92535e8343c0",
+      "sampleChecks": [
+        {
+          "key": "anno_scolastico",
+          "textFound": true,
+          "originalValueFound": true
+        },
+        {
+          "key": "nome_compilato",
+          "textFound": true,
+          "originalValueFound": true
+        },
+        {
+          "key": "plesso",
+          "textFound": true,
+          "originalValueFound": true
+        }
+      ],
+      "schemaPreserved": true,
+      "sources": [
+        "ocr",
+        "ocr",
+        "ocr",
+        "ocr",
+        "ocr",
+        "ocr",
+        "ocr",
+        "ocr",
+        "ocr",
+        "ocr",
+        "ocr",
+        "ocr"
+      ]
+    }
+  ],
+  "errors": []
+}

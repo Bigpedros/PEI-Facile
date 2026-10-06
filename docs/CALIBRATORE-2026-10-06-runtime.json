@@ -1,0 +1,3390 @@
+{
+  "pageNumber": 1,
+  "width": 1653,
+  "height": 2338,
+  "unit": "px",
+  "text": "ROMA @           [INTESTAZIONE DELLA SCUOLA\nPIANO EDUCATIVO INDIVIDUALIZZATO\n(ART. 7, D. Los. 13 APRILE 2017, N. 66 e s.m.i.)                         |\nAnno Scolastico                                   .\nBAMBINOA\ncodice sostitutivo personale                                                                                     ‘\nSezione                                Plesso o sede\nACCERTAMENTO DELLA CONDIZIONE DI DISABILITÀ IN ETÀ EVOLUTIVA AI FINI DELL'INCLUSIONE\nSCOLASTICA rilasciato in data\nData scadenza o rivedibilità: (1                     LD) Non indicata\nPROFILO DI FUNZIONAMENTO redatto in data\nNella fase transitoria:\nO PROFILO DI FUNZIONAMENTO NON DISPONIBILE\nDIAGNOSI FUNZIONALE redatta in data\nPROFILO DINAMICO FUNZIONALE IN VIGORE approvato in data\nPROGETTO INDIVIDUALE redatto in data                     C] non redatto\nPEI PROVVISORIO                  DATA                                           FIRMA DEL DIRIGENTE SCOLASTICO!\nVERDALE ALLEGATO N, |   eee O\n“APPROV AZIONE DEL PEI        DATA                                          FIRMA DEL DIRIGENTE SCOLASTICO!\nE PRIMA SOTTOSCRIZIONE                                                                               @\nVERDALE ALLEGATO N, |              eee           i\nVERIFICA INTERMEDIA         DATA                                  FIRMA DEL DIRIGENTE SCOLASTICO!\nVERDALE ALLEGATO N.          RITI   O     .\nVERIFICA FINALE È                DATA                 FIRMA DEL DIRIGENTI SCOLASTICO!\nPROPOSTE PER L'AS.                                                                                     @\nSUCCESSIVO                   ” | VERDALE ALLEGATO N.                  TITTI             .\n-       O                                                                                                            (10 sto delegato\nComposizione del GLO - Gruppo di Lavoro Operativo per l'inclusione _______________\nNt 15, commi 10 o 11 della L. 104/1992 (como modif, dal D.Lgs 96/2019)\nNome e Cognome                                 *specificare a quale titolo ciascun componente Interviene al GLO\n1.                                                                     1. Figura di coordinamento\n1\n",
+  "tokens": [
+    {
+      "id": "p1-t0",
+      "text": "ROMA",
+      "confidence": 91,
+      "source": "ocr",
+      "lineId": "p1-l0",
+      "box": {
+        "x": 104,
+        "y": 179,
+        "width": 164,
+        "height": 45
+      }
+    },
+    {
+      "id": "p1-t1",
+      "text": "@",
+      "confidence": 42,
+      "source": "ocr",
+      "lineId": "p1-l0",
+      "box": {
+        "x": 308,
+        "y": 159,
+        "width": 40,
+        "height": 61
+      }
+    },
+    {
+      "id": "p1-t2",
+      "text": "[INTESTAZIONE",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l0",
+      "box": {
+        "x": 532,
+        "y": 178,
+        "width": 367,
+        "height": 59
+      }
+    },
+    {
+      "id": "p1-t3",
+      "text": "DELLA",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l0",
+      "box": {
+        "x": 915,
+        "y": 181,
+        "width": 158,
+        "height": 37
+      }
+    },
+    {
+      "id": "p1-t4",
+      "text": "SCUOLA",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l0",
+      "box": {
+        "x": 1116,
+        "y": 181,
+        "width": 165,
+        "height": 38
+      }
+    },
+    {
+      "id": "p1-t5",
+      "text": "PIANO",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l1",
+      "box": {
+        "x": 337,
+        "y": 286,
+        "width": 158,
+        "height": 44
+      }
+    },
+    {
+      "id": "p1-t6",
+      "text": "EDUCATIVO",
+      "confidence": 93,
+      "source": "ocr",
+      "lineId": "p1-l1",
+      "box": {
+        "x": 515,
+        "y": 283,
+        "width": 302,
+        "height": 44
+      }
+    },
+    {
+      "id": "p1-t7",
+      "text": "INDIVIDUALIZZATO",
+      "confidence": 89,
+      "source": "ocr",
+      "lineId": "p1-l1",
+      "box": {
+        "x": 834,
+        "y": 278,
+        "width": 496,
+        "height": 54
+      }
+    },
+    {
+      "id": "p1-t8",
+      "text": "(ART.",
+      "confidence": 81,
+      "source": "ocr",
+      "lineId": "p1-l2",
+      "box": {
+        "x": 517,
+        "y": 353,
+        "width": 70,
+        "height": 31
+      }
+    },
+    {
+      "id": "p1-t9",
+      "text": "7,",
+      "confidence": 81,
+      "source": "ocr",
+      "lineId": "p1-l2",
+      "box": {
+        "x": 597,
+        "y": 351,
+        "width": 24,
+        "height": 30
+      }
+    },
+    {
+      "id": "p1-t10",
+      "text": "D.",
+      "confidence": 90,
+      "source": "ocr",
+      "lineId": "p1-l2",
+      "box": {
+        "x": 631,
+        "y": 351,
+        "width": 29,
+        "height": 27
+      }
+    },
+    {
+      "id": "p1-t11",
+      "text": "Los.",
+      "confidence": 82,
+      "source": "ocr",
+      "lineId": "p1-l2",
+      "box": {
+        "x": 671,
+        "y": 351,
+        "width": 59,
+        "height": 26
+      }
+    },
+    {
+      "id": "p1-t12",
+      "text": "13",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l2",
+      "box": {
+        "x": 743,
+        "y": 349,
+        "width": 26,
+        "height": 27
+      }
+    },
+    {
+      "id": "p1-t13",
+      "text": "APRILE",
+      "confidence": 94,
+      "source": "ocr",
+      "lineId": "p1-l2",
+      "box": {
+        "x": 781,
+        "y": 353,
+        "width": 92,
+        "height": 23
+      }
+    },
+    {
+      "id": "p1-t14",
+      "text": "2017,",
+      "confidence": 92,
+      "source": "ocr",
+      "lineId": "p1-l2",
+      "box": {
+        "x": 881,
+        "y": 347,
+        "width": 74,
+        "height": 29
+      }
+    },
+    {
+      "id": "p1-t15",
+      "text": "N.",
+      "confidence": 92,
+      "source": "ocr",
+      "lineId": "p1-l2",
+      "box": {
+        "x": 964,
+        "y": 351,
+        "width": 25,
+        "height": 21
+      }
+    },
+    {
+      "id": "p1-t16",
+      "text": "66",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l2",
+      "box": {
+        "x": 998,
+        "y": 346,
+        "width": 32,
+        "height": 26
+      }
+    },
+    {
+      "id": "p1-t17",
+      "text": "e",
+      "confidence": 76,
+      "source": "ocr",
+      "lineId": "p1-l2",
+      "box": {
+        "x": 1039,
+        "y": 354,
+        "width": 13,
+        "height": 18
+      }
+    },
+    {
+      "id": "p1-t18",
+      "text": "s.m.i.)",
+      "confidence": 85,
+      "source": "ocr",
+      "lineId": "p1-l2",
+      "box": {
+        "x": 1063,
+        "y": 345,
+        "width": 83,
+        "height": 34
+      }
+    },
+    {
+      "id": "p1-t19",
+      "text": "|",
+      "confidence": 56,
+      "source": "ocr",
+      "lineId": "p1-l2",
+      "box": {
+        "x": 1398,
+        "y": 376,
+        "width": 2,
+        "height": 4
+      }
+    },
+    {
+      "id": "p1-t20",
+      "text": "Anno",
+      "confidence": 94,
+      "source": "ocr",
+      "lineId": "p1-l3",
+      "box": {
+        "x": 562,
+        "y": 423,
+        "width": 103,
+        "height": 33
+      }
+    },
+    {
+      "id": "p1-t21",
+      "text": "Scolastico",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l3",
+      "box": {
+        "x": 680,
+        "y": 418,
+        "width": 186,
+        "height": 37
+      }
+    },
+    {
+      "id": "p1-t22",
+      "text": ".",
+      "confidence": 63,
+      "source": "ocr",
+      "lineId": "p1-l3",
+      "box": {
+        "x": 1396,
+        "y": 434,
+        "width": 2,
+        "height": 3
+      }
+    },
+    {
+      "id": "p1-t23",
+      "text": "BAMBINOA",
+      "confidence": 46,
+      "source": "ocr",
+      "lineId": "p1-l4",
+      "box": {
+        "x": 101,
+        "y": 506,
+        "width": 241,
+        "height": 40
+      }
+    },
+    {
+      "id": "p1-t24",
+      "text": "codice",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l5",
+      "box": {
+        "x": 98,
+        "y": 587,
+        "width": 76,
+        "height": 27
+      }
+    },
+    {
+      "id": "p1-t25",
+      "text": "sostitutivo",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l5",
+      "box": {
+        "x": 183,
+        "y": 584,
+        "width": 123,
+        "height": 27
+      }
+    },
+    {
+      "id": "p1-t26",
+      "text": "personale",
+      "confidence": 37,
+      "source": "ocr",
+      "lineId": "p1-l5",
+      "box": {
+        "x": 316,
+        "y": 582,
+        "width": 114,
+        "height": 33
+      }
+    },
+    {
+      "id": "p1-t27",
+      "text": "‘",
+      "confidence": 36,
+      "source": "ocr",
+      "lineId": "p1-l5",
+      "box": {
+        "x": 1472,
+        "y": 557,
+        "width": 2,
+        "height": 5
+      }
+    },
+    {
+      "id": "p1-t28",
+      "text": "Sezione",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l6",
+      "box": {
+        "x": 100,
+        "y": 650,
+        "width": 117,
+        "height": 32
+      }
+    },
+    {
+      "id": "p1-t29",
+      "text": "Plesso",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l6",
+      "box": {
+        "x": 598,
+        "y": 643,
+        "width": 98,
+        "height": 31
+      }
+    },
+    {
+      "id": "p1-t30",
+      "text": "o",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l6",
+      "box": {
+        "x": 708,
+        "y": 651,
+        "width": 18,
+        "height": 21
+      }
+    },
+    {
+      "id": "p1-t31",
+      "text": "sede",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l6",
+      "box": {
+        "x": 738,
+        "y": 641,
+        "width": 67,
+        "height": 31
+      }
+    },
+    {
+      "id": "p1-t32",
+      "text": "ACCERTAMENTO",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l7",
+      "box": {
+        "x": 99,
+        "y": 726,
+        "width": 251,
+        "height": 29
+      }
+    },
+    {
+      "id": "p1-t33",
+      "text": "DELLA",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l7",
+      "box": {
+        "x": 360,
+        "y": 725,
+        "width": 96,
+        "height": 25
+      }
+    },
+    {
+      "id": "p1-t34",
+      "text": "CONDIZIONE",
+      "confidence": 84,
+      "source": "ocr",
+      "lineId": "p1-l7",
+      "box": {
+        "x": 466,
+        "y": 722,
+        "width": 190,
+        "height": 28
+      }
+    },
+    {
+      "id": "p1-t35",
+      "text": "DI",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l7",
+      "box": {
+        "x": 667,
+        "y": 722,
+        "width": 28,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t36",
+      "text": "DISABILITÀ",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l7",
+      "box": {
+        "x": 708,
+        "y": 713,
+        "width": 169,
+        "height": 33
+      }
+    },
+    {
+      "id": "p1-t37",
+      "text": "IN",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l7",
+      "box": {
+        "x": 889,
+        "y": 720,
+        "width": 27,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t38",
+      "text": "ETÀ",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l7",
+      "box": {
+        "x": 928,
+        "y": 712,
+        "width": 56,
+        "height": 32
+      }
+    },
+    {
+      "id": "p1-t39",
+      "text": "EVOLUTIVA",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l7",
+      "box": {
+        "x": 996,
+        "y": 718,
+        "width": 174,
+        "height": 25
+      }
+    },
+    {
+      "id": "p1-t40",
+      "text": "AI",
+      "confidence": 90,
+      "source": "ocr",
+      "lineId": "p1-l7",
+      "box": {
+        "x": 1181,
+        "y": 716,
+        "width": 29,
+        "height": 25
+      }
+    },
+    {
+      "id": "p1-t41",
+      "text": "FINI",
+      "confidence": 90,
+      "source": "ocr",
+      "lineId": "p1-l7",
+      "box": {
+        "x": 1222,
+        "y": 714,
+        "width": 55,
+        "height": 26
+      }
+    },
+    {
+      "id": "p1-t42",
+      "text": "DELL'INCLUSIONE",
+      "confidence": 90,
+      "source": "ocr",
+      "lineId": "p1-l7",
+      "box": {
+        "x": 1289,
+        "y": 704,
+        "width": 266,
+        "height": 43
+      }
+    },
+    {
+      "id": "p1-t43",
+      "text": "SCOLASTICA",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l8",
+      "box": {
+        "x": 100,
+        "y": 778,
+        "width": 180,
+        "height": 26
+      }
+    },
+    {
+      "id": "p1-t44",
+      "text": "rilasciato",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l8",
+      "box": {
+        "x": 292,
+        "y": 773,
+        "width": 118,
+        "height": 28
+      }
+    },
+    {
+      "id": "p1-t45",
+      "text": "in",
+      "confidence": 94,
+      "source": "ocr",
+      "lineId": "p1-l8",
+      "box": {
+        "x": 421,
+        "y": 772,
+        "width": 24,
+        "height": 28
+      }
+    },
+    {
+      "id": "p1-t46",
+      "text": "data",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l8",
+      "box": {
+        "x": 455,
+        "y": 772,
+        "width": 54,
+        "height": 28
+      }
+    },
+    {
+      "id": "p1-t47",
+      "text": "Data",
+      "confidence": 89,
+      "source": "ocr",
+      "lineId": "p1-l9",
+      "box": {
+        "x": 101,
+        "y": 822,
+        "width": 53,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t48",
+      "text": "scadenza",
+      "confidence": 92,
+      "source": "ocr",
+      "lineId": "p1-l9",
+      "box": {
+        "x": 164,
+        "y": 819,
+        "width": 106,
+        "height": 26
+      }
+    },
+    {
+      "id": "p1-t49",
+      "text": "o",
+      "confidence": 83,
+      "source": "ocr",
+      "lineId": "p1-l9",
+      "box": {
+        "x": 279,
+        "y": 826,
+        "width": 14,
+        "height": 17
+      }
+    },
+    {
+      "id": "p1-t50",
+      "text": "rivedibilità:",
+      "confidence": 91,
+      "source": "ocr",
+      "lineId": "p1-l9",
+      "box": {
+        "x": 302,
+        "y": 817,
+        "width": 138,
+        "height": 26
+      }
+    },
+    {
+      "id": "p1-t51",
+      "text": "(1",
+      "confidence": 73,
+      "source": "ocr",
+      "lineId": "p1-l9",
+      "box": {
+        "x": 454,
+        "y": 820,
+        "width": 17,
+        "height": 20
+      }
+    },
+    {
+      "id": "p1-t52",
+      "text": "LD)",
+      "confidence": 22,
+      "source": "ocr",
+      "lineId": "p1-l9",
+      "box": {
+        "x": 711,
+        "y": 817,
+        "width": 17,
+        "height": 19
+      }
+    },
+    {
+      "id": "p1-t53",
+      "text": "Non",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l9",
+      "box": {
+        "x": 740,
+        "y": 813,
+        "width": 51,
+        "height": 25
+      }
+    },
+    {
+      "id": "p1-t54",
+      "text": "indicata",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l9",
+      "box": {
+        "x": 802,
+        "y": 813,
+        "width": 95,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t55",
+      "text": "PROFILO",
+      "confidence": 65,
+      "source": "ocr",
+      "lineId": "p1-l10",
+      "box": {
+        "x": 102,
+        "y": 886,
+        "width": 125,
+        "height": 29
+      }
+    },
+    {
+      "id": "p1-t56",
+      "text": "DI",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l10",
+      "box": {
+        "x": 238,
+        "y": 888,
+        "width": 27,
+        "height": 25
+      }
+    },
+    {
+      "id": "p1-t57",
+      "text": "FUNZIONAMENTO",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l10",
+      "box": {
+        "x": 277,
+        "y": 887,
+        "width": 263,
+        "height": 26
+      }
+    },
+    {
+      "id": "p1-t58",
+      "text": "redatto",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l10",
+      "box": {
+        "x": 550,
+        "y": 883,
+        "width": 91,
+        "height": 28
+      }
+    },
+    {
+      "id": "p1-t59",
+      "text": "in",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l10",
+      "box": {
+        "x": 653,
+        "y": 880,
+        "width": 23,
+        "height": 28
+      }
+    },
+    {
+      "id": "p1-t60",
+      "text": "data",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l10",
+      "box": {
+        "x": 686,
+        "y": 880,
+        "width": 55,
+        "height": 27
+      }
+    },
+    {
+      "id": "p1-t61",
+      "text": "Nella",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l11",
+      "box": {
+        "x": 101,
+        "y": 955,
+        "width": 67,
+        "height": 29
+      }
+    },
+    {
+      "id": "p1-t62",
+      "text": "fase",
+      "confidence": 94,
+      "source": "ocr",
+      "lineId": "p1-l11",
+      "box": {
+        "x": 180,
+        "y": 955,
+        "width": 50,
+        "height": 27
+      }
+    },
+    {
+      "id": "p1-t63",
+      "text": "transitoria:",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l11",
+      "box": {
+        "x": 240,
+        "y": 953,
+        "width": 139,
+        "height": 29
+      }
+    },
+    {
+      "id": "p1-t64",
+      "text": "O",
+      "confidence": 58,
+      "source": "ocr",
+      "lineId": "p1-l12",
+      "box": {
+        "x": 147,
+        "y": 1022,
+        "width": 34,
+        "height": 38
+      }
+    },
+    {
+      "id": "p1-t65",
+      "text": "PROFILO",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l12",
+      "box": {
+        "x": 198,
+        "y": 1023,
+        "width": 127,
+        "height": 29
+      }
+    },
+    {
+      "id": "p1-t66",
+      "text": "DI",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l12",
+      "box": {
+        "x": 335,
+        "y": 1027,
+        "width": 28,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t67",
+      "text": "FUNZIONAMENTO",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l12",
+      "box": {
+        "x": 375,
+        "y": 1021,
+        "width": 270,
+        "height": 30
+      }
+    },
+    {
+      "id": "p1-t68",
+      "text": "NON",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l12",
+      "box": {
+        "x": 655,
+        "y": 1022,
+        "width": 63,
+        "height": 26
+      }
+    },
+    {
+      "id": "p1-t69",
+      "text": "DISPONIBILE",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l12",
+      "box": {
+        "x": 730,
+        "y": 1022,
+        "width": 186,
+        "height": 25
+      }
+    },
+    {
+      "id": "p1-t70",
+      "text": "DIAGNOSI",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l13",
+      "box": {
+        "x": 199,
+        "y": 1072,
+        "width": 146,
+        "height": 29
+      }
+    },
+    {
+      "id": "p1-t71",
+      "text": "FUNZIONALE",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l13",
+      "box": {
+        "x": 357,
+        "y": 1075,
+        "width": 192,
+        "height": 25
+      }
+    },
+    {
+      "id": "p1-t72",
+      "text": "redatta",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l13",
+      "box": {
+        "x": 559,
+        "y": 1072,
+        "width": 90,
+        "height": 28
+      }
+    },
+    {
+      "id": "p1-t73",
+      "text": "in",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l13",
+      "box": {
+        "x": 660,
+        "y": 1070,
+        "width": 24,
+        "height": 27
+      }
+    },
+    {
+      "id": "p1-t74",
+      "text": "data",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l13",
+      "box": {
+        "x": 694,
+        "y": 1070,
+        "width": 54,
+        "height": 26
+      }
+    },
+    {
+      "id": "p1-t75",
+      "text": "PROFILO",
+      "confidence": 94,
+      "source": "ocr",
+      "lineId": "p1-l14",
+      "box": {
+        "x": 199,
+        "y": 1121,
+        "width": 127,
+        "height": 29
+      }
+    },
+    {
+      "id": "p1-t76",
+      "text": "DINAMICO",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l14",
+      "box": {
+        "x": 336,
+        "y": 1120,
+        "width": 159,
+        "height": 29
+      }
+    },
+    {
+      "id": "p1-t77",
+      "text": "FUNZIONALE",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l14",
+      "box": {
+        "x": 506,
+        "y": 1119,
+        "width": 199,
+        "height": 30
+      }
+    },
+    {
+      "id": "p1-t78",
+      "text": "IN",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l14",
+      "box": {
+        "x": 716,
+        "y": 1120,
+        "width": 27,
+        "height": 25
+      }
+    },
+    {
+      "id": "p1-t79",
+      "text": "VIGORE",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l14",
+      "box": {
+        "x": 755,
+        "y": 1120,
+        "width": 113,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t80",
+      "text": "approvato",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l14",
+      "box": {
+        "x": 877,
+        "y": 1122,
+        "width": 132,
+        "height": 29
+      }
+    },
+    {
+      "id": "p1-t81",
+      "text": "in",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l14",
+      "box": {
+        "x": 1020,
+        "y": 1117,
+        "width": 23,
+        "height": 26
+      }
+    },
+    {
+      "id": "p1-t82",
+      "text": "data",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l14",
+      "box": {
+        "x": 1053,
+        "y": 1117,
+        "width": 54,
+        "height": 26
+      }
+    },
+    {
+      "id": "p1-t83",
+      "text": "PROGETTO",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l15",
+      "box": {
+        "x": 103,
+        "y": 1194,
+        "width": 158,
+        "height": 29
+      }
+    },
+    {
+      "id": "p1-t84",
+      "text": "INDIVIDUALE",
+      "confidence": 65,
+      "source": "ocr",
+      "lineId": "p1-l15",
+      "box": {
+        "x": 273,
+        "y": 1192,
+        "width": 198,
+        "height": 30
+      }
+    },
+    {
+      "id": "p1-t85",
+      "text": "redatto",
+      "confidence": 0,
+      "source": "ocr",
+      "lineId": "p1-l15",
+      "box": {
+        "x": 556,
+        "y": 1194,
+        "width": 92,
+        "height": 27
+      }
+    },
+    {
+      "id": "p1-t86",
+      "text": "in",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l15",
+      "box": {
+        "x": 659,
+        "y": 1192,
+        "width": 23,
+        "height": 28
+      }
+    },
+    {
+      "id": "p1-t87",
+      "text": "data",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l15",
+      "box": {
+        "x": 692,
+        "y": 1191,
+        "width": 55,
+        "height": 27
+      }
+    },
+    {
+      "id": "p1-t88",
+      "text": "C]",
+      "confidence": 0,
+      "source": "ocr",
+      "lineId": "p1-l15",
+      "box": {
+        "x": 981,
+        "y": 1185,
+        "width": 35,
+        "height": 38
+      }
+    },
+    {
+      "id": "p1-t89",
+      "text": "non",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l15",
+      "box": {
+        "x": 1026,
+        "y": 1197,
+        "width": 48,
+        "height": 19
+      }
+    },
+    {
+      "id": "p1-t90",
+      "text": "redatto",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l15",
+      "box": {
+        "x": 1084,
+        "y": 1189,
+        "width": 91,
+        "height": 27
+      }
+    },
+    {
+      "id": "p1-t91",
+      "text": "PEI",
+      "confidence": 57,
+      "source": "ocr",
+      "lineId": "p1-l16",
+      "box": {
+        "x": 172,
+        "y": 1266,
+        "width": 51,
+        "height": 30
+      }
+    },
+    {
+      "id": "p1-t92",
+      "text": "PROVVISORIO",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l16",
+      "box": {
+        "x": 237,
+        "y": 1266,
+        "width": 205,
+        "height": 30
+      }
+    },
+    {
+      "id": "p1-t93",
+      "text": "DATA",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l16",
+      "box": {
+        "x": 616,
+        "y": 1263,
+        "width": 70,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t94",
+      "text": "FIRMA",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l16",
+      "box": {
+        "x": 1098,
+        "y": 1258,
+        "width": 79,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t95",
+      "text": "DEL",
+      "confidence": 91,
+      "source": "ocr",
+      "lineId": "p1-l16",
+      "box": {
+        "x": 1186,
+        "y": 1261,
+        "width": 46,
+        "height": 20
+      }
+    },
+    {
+      "id": "p1-t96",
+      "text": "DIRIGENTE",
+      "confidence": 90,
+      "source": "ocr",
+      "lineId": "p1-l16",
+      "box": {
+        "x": 1241,
+        "y": 1261,
+        "width": 131,
+        "height": 20
+      }
+    },
+    {
+      "id": "p1-t97",
+      "text": "SCOLASTICO!",
+      "confidence": 51,
+      "source": "ocr",
+      "lineId": "p1-l16",
+      "box": {
+        "x": 1380,
+        "y": 1255,
+        "width": 161,
+        "height": 26
+      }
+    },
+    {
+      "id": "p1-t98",
+      "text": "VERDALE",
+      "confidence": 89,
+      "source": "ocr",
+      "lineId": "p1-l17",
+      "box": {
+        "x": 617,
+        "y": 1376,
+        "width": 117,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t99",
+      "text": "ALLEGATO",
+      "confidence": 48,
+      "source": "ocr",
+      "lineId": "p1-l17",
+      "box": {
+        "x": 750,
+        "y": 1375,
+        "width": 121,
+        "height": 23
+      }
+    },
+    {
+      "id": "p1-t100",
+      "text": "N,",
+      "confidence": 48,
+      "source": "ocr",
+      "lineId": "p1-l17",
+      "box": {
+        "x": 882,
+        "y": 1375,
+        "width": 22,
+        "height": 21
+      }
+    },
+    {
+      "id": "p1-t101",
+      "text": "|",
+      "confidence": 76,
+      "source": "ocr",
+      "lineId": "p1-l17",
+      "box": {
+        "x": 918,
+        "y": 1371,
+        "width": 5,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t102",
+      "text": "eee",
+      "confidence": 40,
+      "source": "ocr",
+      "lineId": "p1-l17",
+      "box": {
+        "x": 1099,
+        "y": 1365,
+        "width": 268,
+        "height": 8
+      }
+    },
+    {
+      "id": "p1-t103",
+      "text": "O",
+      "confidence": 57,
+      "source": "ocr",
+      "lineId": "p1-l17",
+      "box": {
+        "x": 1425,
+        "y": 1287,
+        "width": 92,
+        "height": 85
+      }
+    },
+    {
+      "id": "p1-t104",
+      "text": "“APPROV",
+      "confidence": 0,
+      "source": "ocr",
+      "lineId": "p1-l18",
+      "box": {
+        "x": 163,
+        "y": 1425,
+        "width": 132,
+        "height": 41
+      }
+    },
+    {
+      "id": "p1-t105",
+      "text": "AZIONE",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l18",
+      "box": {
+        "x": 298,
+        "y": 1441,
+        "width": 111,
+        "height": 25
+      }
+    },
+    {
+      "id": "p1-t106",
+      "text": "DEL",
+      "confidence": 79,
+      "source": "ocr",
+      "lineId": "p1-l18",
+      "box": {
+        "x": 419,
+        "y": 1441,
+        "width": 57,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t107",
+      "text": "PEI",
+      "confidence": 79,
+      "source": "ocr",
+      "lineId": "p1-l18",
+      "box": {
+        "x": 487,
+        "y": 1436,
+        "width": 53,
+        "height": 30
+      }
+    },
+    {
+      "id": "p1-t108",
+      "text": "DATA",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l18",
+      "box": {
+        "x": 617,
+        "y": 1434,
+        "width": 71,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t109",
+      "text": "FIRMA",
+      "confidence": 91,
+      "source": "ocr",
+      "lineId": "p1-l18",
+      "box": {
+        "x": 1099,
+        "y": 1427,
+        "width": 78,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t110",
+      "text": "DEL",
+      "confidence": 91,
+      "source": "ocr",
+      "lineId": "p1-l18",
+      "box": {
+        "x": 1186,
+        "y": 1430,
+        "width": 46,
+        "height": 20
+      }
+    },
+    {
+      "id": "p1-t111",
+      "text": "DIRIGENTE",
+      "confidence": 91,
+      "source": "ocr",
+      "lineId": "p1-l18",
+      "box": {
+        "x": 1241,
+        "y": 1430,
+        "width": 131,
+        "height": 20
+      }
+    },
+    {
+      "id": "p1-t112",
+      "text": "SCOLASTICO!",
+      "confidence": 88,
+      "source": "ocr",
+      "lineId": "p1-l18",
+      "box": {
+        "x": 1380,
+        "y": 1423,
+        "width": 160,
+        "height": 27
+      }
+    },
+    {
+      "id": "p1-t113",
+      "text": "E",
+      "confidence": 66,
+      "source": "ocr",
+      "lineId": "p1-l19",
+      "box": {
+        "x": 173,
+        "y": 1491,
+        "width": 16,
+        "height": 23
+      }
+    },
+    {
+      "id": "p1-t114",
+      "text": "PRIMA",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l19",
+      "box": {
+        "x": 199,
+        "y": 1490,
+        "width": 93,
+        "height": 25
+      }
+    },
+    {
+      "id": "p1-t115",
+      "text": "SOTTOSCRIZIONE",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l19",
+      "box": {
+        "x": 303,
+        "y": 1490,
+        "width": 256,
+        "height": 25
+      }
+    },
+    {
+      "id": "p1-t116",
+      "text": "@",
+      "confidence": 62,
+      "source": "ocr",
+      "lineId": "p1-l19",
+      "box": {
+        "x": 1426,
+        "y": 1456,
+        "width": 86,
+        "height": 84
+      }
+    },
+    {
+      "id": "p1-t117",
+      "text": "VERDALE",
+      "confidence": 88,
+      "source": "ocr",
+      "lineId": "p1-l20",
+      "box": {
+        "x": 618,
+        "y": 1544,
+        "width": 117,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t118",
+      "text": "ALLEGATO",
+      "confidence": 0,
+      "source": "ocr",
+      "lineId": "p1-l20",
+      "box": {
+        "x": 748,
+        "y": 1547,
+        "width": 125,
+        "height": 20
+      }
+    },
+    {
+      "id": "p1-t119",
+      "text": "N,",
+      "confidence": 0,
+      "source": "ocr",
+      "lineId": "p1-l20",
+      "box": {
+        "x": 883,
+        "y": 1534,
+        "width": 20,
+        "height": 44
+      }
+    },
+    {
+      "id": "p1-t120",
+      "text": "|",
+      "confidence": 86,
+      "source": "ocr",
+      "lineId": "p1-l20",
+      "box": {
+        "x": 919,
+        "y": 1542,
+        "width": 5,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t121",
+      "text": "eee",
+      "confidence": 45,
+      "source": "ocr",
+      "lineId": "p1-l20",
+      "box": {
+        "x": 1100,
+        "y": 1533,
+        "width": 268,
+        "height": 9
+      }
+    },
+    {
+      "id": "p1-t122",
+      "text": "i",
+      "confidence": 77,
+      "source": "ocr",
+      "lineId": "p1-l20",
+      "box": {
+        "x": 1512,
+        "y": 1532,
+        "width": 4,
+        "height": 7
+      }
+    },
+    {
+      "id": "p1-t123",
+      "text": "VERIFICA",
+      "confidence": 93,
+      "source": "ocr",
+      "lineId": "p1-l21",
+      "box": {
+        "x": 174,
+        "y": 1603,
+        "width": 143,
+        "height": 30
+      }
+    },
+    {
+      "id": "p1-t124",
+      "text": "INTERMEDIA",
+      "confidence": 94,
+      "source": "ocr",
+      "lineId": "p1-l21",
+      "box": {
+        "x": 329,
+        "y": 1609,
+        "width": 185,
+        "height": 25
+      }
+    },
+    {
+      "id": "p1-t125",
+      "text": "DATA",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l21",
+      "box": {
+        "x": 619,
+        "y": 1602,
+        "width": 70,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t126",
+      "text": "FIRMA",
+      "confidence": 88,
+      "source": "ocr",
+      "lineId": "p1-l21",
+      "box": {
+        "x": 1100,
+        "y": 1597,
+        "width": 78,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t127",
+      "text": "DEL",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l21",
+      "box": {
+        "x": 1187,
+        "y": 1598,
+        "width": 46,
+        "height": 21
+      }
+    },
+    {
+      "id": "p1-t128",
+      "text": "DIRIGENTE",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l21",
+      "box": {
+        "x": 1241,
+        "y": 1598,
+        "width": 131,
+        "height": 21
+      }
+    },
+    {
+      "id": "p1-t129",
+      "text": "SCOLASTICO!",
+      "confidence": 52,
+      "source": "ocr",
+      "lineId": "p1-l21",
+      "box": {
+        "x": 1380,
+        "y": 1590,
+        "width": 161,
+        "height": 28
+      }
+    },
+    {
+      "id": "p1-t130",
+      "text": "VERDALE",
+      "confidence": 64,
+      "source": "ocr",
+      "lineId": "p1-l22",
+      "box": {
+        "x": 618,
+        "y": 1695,
+        "width": 118,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t131",
+      "text": "ALLEGATO",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l22",
+      "box": {
+        "x": 749,
+        "y": 1698,
+        "width": 124,
+        "height": 21
+      }
+    },
+    {
+      "id": "p1-t132",
+      "text": "N.",
+      "confidence": 94,
+      "source": "ocr",
+      "lineId": "p1-l22",
+      "box": {
+        "x": 884,
+        "y": 1697,
+        "width": 23,
+        "height": 21
+      }
+    },
+    {
+      "id": "p1-t133",
+      "text": "RITI",
+      "confidence": 22,
+      "source": "ocr",
+      "lineId": "p1-l22",
+      "box": {
+        "x": 1101,
+        "y": 1703,
+        "width": 267,
+        "height": 10
+      }
+    },
+    {
+      "id": "p1-t134",
+      "text": "O",
+      "confidence": 79,
+      "source": "ocr",
+      "lineId": "p1-l22",
+      "box": {
+        "x": 1426,
+        "y": 1623,
+        "width": 91,
+        "height": 86
+      }
+    },
+    {
+      "id": "p1-t135",
+      "text": ".",
+      "confidence": 56,
+      "source": "ocr",
+      "lineId": "p1-l22",
+      "box": {
+        "x": 1614,
+        "y": 1697,
+        "width": 5,
+        "height": 6
+      }
+    },
+    {
+      "id": "p1-t136",
+      "text": "VERIFICA",
+      "confidence": 93,
+      "source": "ocr",
+      "lineId": "p1-l23",
+      "box": {
+        "x": 176,
+        "y": 1757,
+        "width": 142,
+        "height": 29
+      }
+    },
+    {
+      "id": "p1-t137",
+      "text": "FINALE",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l23",
+      "box": {
+        "x": 329,
+        "y": 1762,
+        "width": 105,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t138",
+      "text": "È",
+      "confidence": 55,
+      "source": "ocr",
+      "lineId": "p1-l23",
+      "box": {
+        "x": 445,
+        "y": 1763,
+        "width": 15,
+        "height": 23
+      }
+    },
+    {
+      "id": "p1-t139",
+      "text": "DATA",
+      "confidence": 0,
+      "source": "ocr",
+      "lineId": "p1-l23",
+      "box": {
+        "x": 619,
+        "y": 1754,
+        "width": 308,
+        "height": 30
+      }
+    },
+    {
+      "id": "p1-t140",
+      "text": "FIRMA",
+      "confidence": 91,
+      "source": "ocr",
+      "lineId": "p1-l23",
+      "box": {
+        "x": 1100,
+        "y": 1751,
+        "width": 78,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t141",
+      "text": "DEL",
+      "confidence": 93,
+      "source": "ocr",
+      "lineId": "p1-l23",
+      "box": {
+        "x": 1187,
+        "y": 1754,
+        "width": 46,
+        "height": 20
+      }
+    },
+    {
+      "id": "p1-t142",
+      "text": "DIRIGENTI",
+      "confidence": 57,
+      "source": "ocr",
+      "lineId": "p1-l23",
+      "box": {
+        "x": 1242,
+        "y": 1753,
+        "width": 130,
+        "height": 21
+      }
+    },
+    {
+      "id": "p1-t143",
+      "text": "SCOLASTICO!",
+      "confidence": 93,
+      "source": "ocr",
+      "lineId": "p1-l23",
+      "box": {
+        "x": 1381,
+        "y": 1744,
+        "width": 160,
+        "height": 30
+      }
+    },
+    {
+      "id": "p1-t144",
+      "text": "PROPOSTE",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l24",
+      "box": {
+        "x": 176,
+        "y": 1811,
+        "width": 149,
+        "height": 23
+      }
+    },
+    {
+      "id": "p1-t145",
+      "text": "PER",
+      "confidence": 92,
+      "source": "ocr",
+      "lineId": "p1-l24",
+      "box": {
+        "x": 336,
+        "y": 1811,
+        "width": 52,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t146",
+      "text": "L'AS.",
+      "confidence": 33,
+      "source": "ocr",
+      "lineId": "p1-l24",
+      "box": {
+        "x": 399,
+        "y": 1805,
+        "width": 95,
+        "height": 30
+      }
+    },
+    {
+      "id": "p1-t147",
+      "text": "@",
+      "confidence": 43,
+      "source": "ocr",
+      "lineId": "p1-l24",
+      "box": {
+        "x": 1426,
+        "y": 1779,
+        "width": 87,
+        "height": 86
+      }
+    },
+    {
+      "id": "p1-t148",
+      "text": "SUCCESSIVO",
+      "confidence": 63,
+      "source": "ocr",
+      "lineId": "p1-l25",
+      "box": {
+        "x": 176,
+        "y": 1859,
+        "width": 183,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t149",
+      "text": "”",
+      "confidence": 14,
+      "source": "ocr",
+      "lineId": "p1-l25",
+      "box": {
+        "x": 568,
+        "y": 1847,
+        "width": 15,
+        "height": 13
+      }
+    },
+    {
+      "id": "p1-t150",
+      "text": "|",
+      "confidence": 86,
+      "source": "ocr",
+      "lineId": "p1-l25",
+      "box": {
+        "x": 597,
+        "y": 1843,
+        "width": 16,
+        "height": 41
+      }
+    },
+    {
+      "id": "p1-t151",
+      "text": "VERDALE",
+      "confidence": 35,
+      "source": "ocr",
+      "lineId": "p1-l25",
+      "box": {
+        "x": 618,
+        "y": 1847,
+        "width": 117,
+        "height": 24
+      }
+    },
+    {
+      "id": "p1-t152",
+      "text": "ALLEGATO",
+      "confidence": 90,
+      "source": "ocr",
+      "lineId": "p1-l25",
+      "box": {
+        "x": 744,
+        "y": 1849,
+        "width": 163,
+        "height": 21
+      }
+    },
+    {
+      "id": "p1-t153",
+      "text": "N.",
+      "confidence": 90,
+      "source": "ocr",
+      "lineId": "p1-l25",
+      "box": {
+        "x": 884,
+        "y": 1843,
+        "width": 26,
+        "height": 41
+      }
+    },
+    {
+      "id": "p1-t154",
+      "text": "TITTI",
+      "confidence": 6,
+      "source": "ocr",
+      "lineId": "p1-l25",
+      "box": {
+        "x": 1101,
+        "y": 1856,
+        "width": 268,
+        "height": 8
+      }
+    },
+    {
+      "id": "p1-t155",
+      "text": ".",
+      "confidence": 3,
+      "source": "ocr",
+      "lineId": "p1-l25",
+      "box": {
+        "x": 1513,
+        "y": 1856,
+        "width": 4,
+        "height": 7
+      }
+    },
+    {
+      "id": "p1-t156",
+      "text": "-",
+      "confidence": 0,
+      "source": "ocr",
+      "lineId": "p1-l26",
+      "box": {
+        "x": 166,
+        "y": 1911,
+        "width": 25,
+        "height": 2
+      }
+    },
+    {
+      "id": "p1-t157",
+      "text": "O",
+      "confidence": 0,
+      "source": "ocr",
+      "lineId": "p1-l26",
+      "box": {
+        "x": 258,
+        "y": 1910,
+        "width": 88,
+        "height": 4
+      }
+    },
+    {
+      "id": "p1-t158",
+      "text": "(10",
+      "confidence": 39,
+      "source": "ocr",
+      "lineId": "p1-l26",
+      "box": {
+        "x": 1430,
+        "y": 1918,
+        "width": 30,
+        "height": 14
+      }
+    },
+    {
+      "id": "p1-t159",
+      "text": "sto",
+      "confidence": 65,
+      "source": "ocr",
+      "lineId": "p1-l26",
+      "box": {
+        "x": 1466,
+        "y": 1918,
+        "width": 31,
+        "height": 13
+      }
+    },
+    {
+      "id": "p1-t160",
+      "text": "delegato",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l26",
+      "box": {
+        "x": 1503,
+        "y": 1913,
+        "width": 74,
+        "height": 22
+      }
+    },
+    {
+      "id": "p1-t161",
+      "text": "Composizione",
+      "confidence": 89,
+      "source": "ocr",
+      "lineId": "p1-l27",
+      "box": {
+        "x": 115,
+        "y": 1980,
+        "width": 72,
+        "height": 42
+      }
+    },
+    {
+      "id": "p1-t162",
+      "text": "del",
+      "confidence": 93,
+      "source": "ocr",
+      "lineId": "p1-l27",
+      "box": {
+        "x": 352,
+        "y": 1966,
+        "width": 51,
+        "height": 73
+      }
+    },
+    {
+      "id": "p1-t163",
+      "text": "GLO",
+      "confidence": 93,
+      "source": "ocr",
+      "lineId": "p1-l27",
+      "box": {
+        "x": 421,
+        "y": 1966,
+        "width": 55,
+        "height": 73
+      }
+    },
+    {
+      "id": "p1-t164",
+      "text": "-",
+      "confidence": 93,
+      "source": "ocr",
+      "lineId": "p1-l27",
+      "box": {
+        "x": 489,
+        "y": 1966,
+        "width": 19,
+        "height": 73
+      }
+    },
+    {
+      "id": "p1-t165",
+      "text": "Gruppo",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l27",
+      "box": {
+        "x": 526,
+        "y": 1966,
+        "width": 106,
+        "height": 73
+      }
+    },
+    {
+      "id": "p1-t166",
+      "text": "di",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l27",
+      "box": {
+        "x": 649,
+        "y": 1966,
+        "width": 33,
+        "height": 73
+      }
+    },
+    {
+      "id": "p1-t167",
+      "text": "Lavoro",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l27",
+      "box": {
+        "x": 699,
+        "y": 1966,
+        "width": 106,
+        "height": 73
+      }
+    },
+    {
+      "id": "p1-t168",
+      "text": "Operativo",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l27",
+      "box": {
+        "x": 822,
+        "y": 1966,
+        "width": 156,
+        "height": 73
+      }
+    },
+    {
+      "id": "p1-t169",
+      "text": "per",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l27",
+      "box": {
+        "x": 996,
+        "y": 1966,
+        "width": 46,
+        "height": 73
+      }
+    },
+    {
+      "id": "p1-t170",
+      "text": "l'inclusione",
+      "confidence": 61,
+      "source": "ocr",
+      "lineId": "p1-l27",
+      "box": {
+        "x": 1055,
+        "y": 1966,
+        "width": 206,
+        "height": 73
+      }
+    },
+    {
+      "id": "p1-t171",
+      "text": "_______________",
+      "confidence": 4,
+      "source": "ocr",
+      "lineId": "p1-l27",
+      "box": {
+        "x": 1279,
+        "y": 1966,
+        "width": 306,
+        "height": 73
+      }
+    },
+    {
+      "id": "p1-t172",
+      "text": "Nt",
+      "confidence": 57,
+      "source": "ocr",
+      "lineId": "p1-l28",
+      "box": {
+        "x": 106,
+        "y": 2049,
+        "width": 32,
+        "height": 18
+      }
+    },
+    {
+      "id": "p1-t173",
+      "text": "15,",
+      "confidence": 70,
+      "source": "ocr",
+      "lineId": "p1-l28",
+      "box": {
+        "x": 147,
+        "y": 2049,
+        "width": 24,
+        "height": 19
+      }
+    },
+    {
+      "id": "p1-t174",
+      "text": "commi",
+      "confidence": 61,
+      "source": "ocr",
+      "lineId": "p1-l28",
+      "box": {
+        "x": 178,
+        "y": 2049,
+        "width": 60,
+        "height": 17
+      }
+    },
+    {
+      "id": "p1-t175",
+      "text": "10",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l28",
+      "box": {
+        "x": 246,
+        "y": 2049,
+        "width": 35,
+        "height": 17
+      }
+    },
+    {
+      "id": "p1-t176",
+      "text": "o",
+      "confidence": 59,
+      "source": "ocr",
+      "lineId": "p1-l28",
+      "box": {
+        "x": 273,
+        "y": 2041,
+        "width": 7,
+        "height": 33
+      }
+    },
+    {
+      "id": "p1-t177",
+      "text": "11",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l28",
+      "box": {
+        "x": 290,
+        "y": 2049,
+        "width": 17,
+        "height": 18
+      }
+    },
+    {
+      "id": "p1-t178",
+      "text": "della",
+      "confidence": 93,
+      "source": "ocr",
+      "lineId": "p1-l28",
+      "box": {
+        "x": 315,
+        "y": 2049,
+        "width": 41,
+        "height": 17
+      }
+    },
+    {
+      "id": "p1-t179",
+      "text": "L.",
+      "confidence": 60,
+      "source": "ocr",
+      "lineId": "p1-l28",
+      "box": {
+        "x": 363,
+        "y": 2050,
+        "width": 13,
+        "height": 16
+      }
+    },
+    {
+      "id": "p1-t180",
+      "text": "104/1992",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l28",
+      "box": {
+        "x": 385,
+        "y": 2048,
+        "width": 82,
+        "height": 21
+      }
+    },
+    {
+      "id": "p1-t181",
+      "text": "(como",
+      "confidence": 89,
+      "source": "ocr",
+      "lineId": "p1-l28",
+      "box": {
+        "x": 475,
+        "y": 2048,
+        "width": 55,
+        "height": 21
+      }
+    },
+    {
+      "id": "p1-t182",
+      "text": "modif,",
+      "confidence": 72,
+      "source": "ocr",
+      "lineId": "p1-l28",
+      "box": {
+        "x": 537,
+        "y": 2046,
+        "width": 57,
+        "height": 19
+      }
+    },
+    {
+      "id": "p1-t183",
+      "text": "dal",
+      "confidence": 94,
+      "source": "ocr",
+      "lineId": "p1-l28",
+      "box": {
+        "x": 601,
+        "y": 2047,
+        "width": 27,
+        "height": 18
+      }
+    },
+    {
+      "id": "p1-t184",
+      "text": "D.Lgs",
+      "confidence": 78,
+      "source": "ocr",
+      "lineId": "p1-l28",
+      "box": {
+        "x": 634,
+        "y": 2047,
+        "width": 47,
+        "height": 21
+      }
+    },
+    {
+      "id": "p1-t185",
+      "text": "96/2019)",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l28",
+      "box": {
+        "x": 687,
+        "y": 2045,
+        "width": 81,
+        "height": 22
+      }
+    },
+    {
+      "id": "p1-t186",
+      "text": "Nome",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l29",
+      "box": {
+        "x": 406,
+        "y": 2104,
+        "width": 70,
+        "height": 23
+      }
+    },
+    {
+      "id": "p1-t187",
+      "text": "e",
+      "confidence": 95,
+      "source": "ocr",
+      "lineId": "p1-l29",
+      "box": {
+        "x": 485,
+        "y": 2107,
+        "width": 14,
+        "height": 19
+      }
+    },
+    {
+      "id": "p1-t188",
+      "text": "Cognome",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l29",
+      "box": {
+        "x": 509,
+        "y": 2102,
+        "width": 116,
+        "height": 29
+      }
+    },
+    {
+      "id": "p1-t189",
+      "text": "*specificare",
+      "confidence": 54,
+      "source": "ocr",
+      "lineId": "p1-l29",
+      "box": {
+        "x": 886,
+        "y": 2098,
+        "width": 98,
+        "height": 20
+      }
+    },
+    {
+      "id": "p1-t190",
+      "text": "a",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l29",
+      "box": {
+        "x": 991,
+        "y": 2101,
+        "width": 8,
+        "height": 14
+      }
+    },
+    {
+      "id": "p1-t191",
+      "text": "quale",
+      "confidence": 92,
+      "source": "ocr",
+      "lineId": "p1-l29",
+      "box": {
+        "x": 1006,
+        "y": 2097,
+        "width": 46,
+        "height": 21
+      }
+    },
+    {
+      "id": "p1-t192",
+      "text": "titolo",
+      "confidence": 92,
+      "source": "ocr",
+      "lineId": "p1-l29",
+      "box": {
+        "x": 1059,
+        "y": 2097,
+        "width": 41,
+        "height": 18
+      }
+    },
+    {
+      "id": "p1-t193",
+      "text": "ciascun",
+      "confidence": 88,
+      "source": "ocr",
+      "lineId": "p1-l29",
+      "box": {
+        "x": 1107,
+        "y": 2099,
+        "width": 62,
+        "height": 16
+      }
+    },
+    {
+      "id": "p1-t194",
+      "text": "componente",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l29",
+      "box": {
+        "x": 1175,
+        "y": 2099,
+        "width": 106,
+        "height": 19
+      }
+    },
+    {
+      "id": "p1-t195",
+      "text": "Interviene",
+      "confidence": 0,
+      "source": "ocr",
+      "lineId": "p1-l29",
+      "box": {
+        "x": 1287,
+        "y": 2098,
+        "width": 84,
+        "height": 17
+      }
+    },
+    {
+      "id": "p1-t196",
+      "text": "al",
+      "confidence": 92,
+      "source": "ocr",
+      "lineId": "p1-l29",
+      "box": {
+        "x": 1378,
+        "y": 2101,
+        "width": 9,
+        "height": 14
+      }
+    },
+    {
+      "id": "p1-t197",
+      "text": "GLO",
+      "confidence": 92,
+      "source": "ocr",
+      "lineId": "p1-l29",
+      "box": {
+        "x": 1398,
+        "y": 2097,
+        "width": 37,
+        "height": 18
+      }
+    },
+    {
+      "id": "p1-t198",
+      "text": "1.",
+      "confidence": 90,
+      "source": "ocr",
+      "lineId": "p1-l30",
+      "box": {
+        "x": 180,
+        "y": 2165,
+        "width": 18,
+        "height": 23
+      }
+    },
+    {
+      "id": "p1-t199",
+      "text": "1.",
+      "confidence": 89,
+      "source": "ocr",
+      "lineId": "p1-l30",
+      "box": {
+        "x": 888,
+        "y": 2166,
+        "width": 19,
+        "height": 22
+      }
+    },
+    {
+      "id": "p1-t200",
+      "text": "Figura",
+      "confidence": 94,
+      "source": "ocr",
+      "lineId": "p1-l30",
+      "box": {
+        "x": 917,
+        "y": 2162,
+        "width": 76,
+        "height": 33
+      }
+    },
+    {
+      "id": "p1-t201",
+      "text": "di",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l30",
+      "box": {
+        "x": 1003,
+        "y": 2163,
+        "width": 22,
+        "height": 25
+      }
+    },
+    {
+      "id": "p1-t202",
+      "text": "coordinamento",
+      "confidence": 96,
+      "source": "ocr",
+      "lineId": "p1-l30",
+      "box": {
+        "x": 1035,
+        "y": 2163,
+        "width": 194,
+        "height": 26
+      }
+    },
+    {
+      "id": "p1-t203",
+      "text": "1",
+      "confidence": 90,
+      "source": "ocr",
+      "lineId": "p1-l31",
+      "box": {
+        "x": 1570,
+        "y": 2280,
+        "width": 11,
+        "height": 24
+      }
+    }
+  ],
+  "regions": [
+    {
+      "id": "r-0",
+      "kind": "cell",
+      "box": {
+        "x": 1023.6792857142857,
+        "y": 87.37285714285714,
+        "width": 583.8632142857142,
+        "height": 92.09571428571428
+      },
+      "text": "",
+      "status": "review",
+      "checked": null
+    },
+    {
+      "id": "r-1",
+      "kind": "checkbox",
+      "box": {
+        "x": 148.17964285714285,
+        "y": 1023.0889285714285,
+        "width": 30.698571428571427,
+        "height": 31.87928571428571
+      },
+      "text": "O",
+      "status": "review",
+      "checked": null
+    },
+    {
+      "id": "r-5",
+      "kind": "checkbox",
+      "box": {
+        "x": 981.7639285714286,
+        "y": 1186.0275,
+        "width": 30.698571428571427,
+        "height": 33.059999999999995
+      },
+      "text": "C]",
+      "status": "review",
+      "checked": null
+    },
+    {
+      "id": "r-9",
+      "kind": "checkbox",
+      "box": {
+        "x": 510.65892857142853,
+        "y": 1191.9310714285714,
+        "width": 31.87928571428571,
+        "height": 31.87928571428571
+      },
+      "text": "",
+      "status": "review",
+      "checked": null
+    },
+    {
+      "id": "r-14",
+      "kind": "cell",
+      "box": {
+        "x": 156.44464285714284,
+        "y": 1263.3642857142856,
+        "width": 439.8160714285714,
+        "height": 169.43249999999998
+      },
+      "text": "PEI PROVVISORIO",
+      "status": "review",
+      "checked": null
+    },
+    {
+      "id": "r-15",
+      "kind": "cell",
+      "box": {
+        "x": 596.2607142857142,
+        "y": 1263.3642857142856,
+        "width": 485.2735714285714,
+        "height": 170.02285714285713
+      },
+      "text": "DATA VERDALE ALLEGATO N, |",
+      "status": "review",
+      "checked": null
+    },
+    {
+      "id": "r-13",
+      "kind": "cell",
+      "box": {
+        "x": 1081.5342857142857,
+        "y": 1263.3642857142856,
+        "width": 489.99642857142857,
+        "height": 152.9025
+      },
+      "text": "FIRMA DEL DIRIGENTE SCOLASTICO! eee O",
+      "status": "review",
+      "checked": null
+    },
+    {
+      "id": "r-16",
+      "kind": "cell",
+      "box": {
+        "x": 1081.5342857142857,
+        "y": 1429.2546428571427,
+        "width": 489.99642857142857,
+        "height": 164.1192857142857
+      },
+      "text": "FIRMA DEL DIRIGENTE SCOLASTICO! @ eee i",
+      "status": "review",
+      "checked": null
+    },
+    {
+      "id": "r-17",
+      "kind": "cell",
+      "box": {
+        "x": 156.44464285714284,
+        "y": 1432.7967857142855,
+        "width": 439.8160714285714,
+        "height": 170.02285714285713
+      },
+      "text": "“APPROV AZIONE DEL PEI E PRIMA SOTTOSCRIZIONE",
+      "status": "review",
+      "checked": null
+    },
+    {
+      "id": "r-18",
+      "kind": "cell",
+      "box": {
+        "x": 596.2607142857142,
+        "y": 1433.3871428571429,
+        "width": 485.2735714285714,
+        "height": 159.9867857142857
+      },
+      "text": "DATA VERDALE ALLEGATO N, |",
+      "status": "review",
+      "checked": null
+    },
+    {
+      "id": "r-20",
+      "kind": "cell",
+      "box": {
+        "x": 1081.5342857142857,
+        "y": 1593.3739285714285,
+        "width": 489.99642857142857,
+        "height": 147.5892857142857
+      },
+      "text": "FIRMA DEL DIRIGENTE SCOLASTICO! RITI O",
+      "status": "review",
+      "checked": null
+    },
+    {
+      "id": "r-22",
+      "kind": "cell",
+      "box": {
+        "x": 156.44464285714284,
+        "y": 1602.8196428571428,
+        "width": 443.9485714285714,
+        "height": 155.8542857142857
+      },
+      "text": "VERIFICA INTERMEDIA",
+      "status": "review",
+      "checked": null
+    },
+    {
+      "id": "r-21",
+      "kind": "cell",
+      "box": {
+        "x": 600.3932142857143,
+        "y": 1602.8196428571428,
+        "width": 481.1410714285714,
+        "height": 138.14357142857142
+      },
+      "text": "DATA VERDALE ALLEGATO N.",
+      "status": "review",
+      "checked": null
+    },
+    {
+      "id": "r-23",
+      "kind": "checkbox",
+      "box": {
+        "x": 600.3932142857143,
+        "y": 1740.9632142857142,
+        "width": 20.072142857142858,
+        "height": 17.710714285714285
+      },
+      "text": "",
+      "status": "review",
+      "checked": null
+    },
+    {
+      "id": "r-24",
+      "kind": "cell",
+      "box": {
+        "x": 1081.5342857142857,
+        "y": 1740.9632142857142,
+        "width": 489.99642857142857,
+        "height": 164.70964285714285
+      },
+      "text": "FIRMA DEL DIRIGENTI SCOLASTICO! @ TITTI .",
+      "status": "review",
+      "checked": null
+    },
+    {
+      "id": "r-26",
+      "kind": "cell",
+      "box": {
+        "x": 156.44464285714284,
+        "y": 1758.6739285714284,
+        "width": 443.9485714285714,
+        "height": 161.75785714285712
+      },
+      "text": "VERIFICA FINALE È PROPOSTE PER L'AS. SUCCESSIVO ” - O",
+      "status": "review",
+      "checked": null
+    },
+    {
+      "id": "r-25",
+      "kind": "cell",
+      "box": {
+        "x": 600.3932142857143,
+        "y": 1758.6739285714284,
+        "width": 481.1410714285714,
+        "height": 146.99892857142856
+      },
+      "text": "DATA | VERDALE ALLEGATO N.",
+      "status": "review",
+      "checked": null
+    },
+    {
+      "id": "r-28",
+      "kind": "cell",
+      "box": {
+        "x": 159.9867857142857,
+        "y": 2109.936428571428,
+        "width": 709.6092857142856,
+        "height": 60.216428571428565
+      },
+      "text": "Nome e Cognome",
+      "status": "review",
+      "checked": null
+    },
+    {
+      "id": "r-27",
+      "kind": "cell",
+      "box": {
+        "x": 869.5960714285713,
+        "y": 2109.936428571428,
+        "width": 704.8864285714285,
+        "height": 41.324999999999996
+      },
+      "text": "",
+      "status": "review",
+      "checked": null
+    },
+    {
+      "id": "r-29",
+      "kind": "cell",
+      "box": {
+        "x": 159.9867857142857,
+        "y": 2170.152857142857,
+        "width": 709.6092857142856,
+        "height": 52.54178571428571
+      },
+      "text": "1.",
+      "status": "review",
+      "checked": null
+    },
+    {
+      "id": "r-30",
+      "kind": "cell",
+      "box": {
+        "x": 869.5960714285713,
+        "y": 2170.152857142857,
+        "width": 704.8864285714285,
+        "height": 52.54178571428571
+      },
+      "text": "1. Figura di coordinamento",
+      "status": "review",
+      "checked": null
+    }
+  ],
+  "fields": [
+    {
+      "id": "9359f13c-e122-4922-83ae-1ff0ebd54461",
+      "box": {
+        "x": 877.2707142857142,
+        "y": 417.3460714285714,
+        "width": 226.69714285714284,
+        "height": 39
+      },
+      "label": "Anno Scolastico",
+      "semanticKey": "anno_scolastico",
+      "type": "text",
+      "value": "",
+      "originalValue": "",
+      "observedText": "",
+      "status": "review",
+      "origin": "line",
+      "confidence": 0.8,
+      "reason": "Riga continua o tratteggiata fuori dai bordi delle celle.",
+      "options": [],
+      "required": false,
+      "fontSize": 12,
+      "maskOriginal": false
+    },
+    {
+      "id": "3f315501-bdde-4777-aacc-f42678178db7",
+      "box": {
+        "x": 354.21428571428567,
+        "y": 503.5382142857143,
+        "width": 630.5014285714285,
+        "height": 39
+      },
+      "label": "BAMBINO/A",
+      "semanticKey": "bambino_a",
+      "type": "text",
+      "value": "",
+      "originalValue": "",
+      "observedText": "",
+      "status": "review",
+      "origin": "line",
+      "confidence": 0.8,
+      "reason": "Riga continua o tratteggiata fuori dai bordi delle celle.",
+      "options": [],
+      "required": false,
+      "fontSize": 12,
+      "maskOriginal": false
+    },
+    {
+      "id": "522dfb93-9ca3-4540-9623-4ca71fdfb161",
+      "box": {
+        "x": 436.8642857142857,
+        "y": 568.4775,
+        "width": 187.73357142857142,
+        "height": 39
+      },
+      "label": "codice sostitutivo personale",
+      "semanticKey": "codice_sostitutivo_personale",
+      "type": "text",
+      "value": "",
+      "originalValue": "",
+      "observedText": "",
+      "status": "review",
+      "origin": "line",
+      "confidence": 0.8,
+      "reason": "Riga continua o tratteggiata fuori dai bordi delle celle.",
+      "options": [],
+      "required": false,
+      "fontSize": 12,
+      "maskOriginal": false
+    },
+    {
+      "id": "4f048665-18d9-4a98-94fb-99de5df704a1",
+      "box": {
+        "x": 805.2471428571428,
+        "y": 635.7782142857143,
+        "width": 353.0335714285714,
+        "height": 39
+      },
+      "label": "Plesso o sede",
+      "semanticKey": "plesso_o_sede",
+      "type": "text",
+      "value": "",
+      "originalValue": "",
+      "observedText": "",
+      "status": "review",
+      "origin": "line",
+      "confidence": 0.8,
+      "reason": "Riga continua o tratteggiata fuori dai bordi delle celle.",
+      "options": [],
+      "required": false,
+      "fontSize": 12,
+      "maskOriginal": false
+    },
+    {
+      "id": "9f1a7b22-97c0-4886-bf7f-a56e924d722f",
+      "box": {
+        "x": 226.69714285714284,
+        "y": 644.0432142857143,
+        "width": 330.59999999999997,
+        "height": 39
+      },
+      "label": "Sezione",
+      "semanticKey": "sezione",
+      "type": "text",
+      "value": "",
+      "originalValue": "",
+      "observedText": "",
+      "status": "review",
+      "origin": "line",
+      "confidence": 0.8,
+      "reason": "Riga continua o tratteggiata fuori dai bordi delle celle.",
+      "options": [],
+      "required": false,
+      "fontSize": 12,
+      "maskOriginal": false
+    },
+    {
+      "id": "7c52e404-5101-49e1-9d0c-e1df3ee64a0b",
+      "box": {
+        "x": 518.3335714285714,
+        "y": 760.9339285714285,
+        "width": 152.31214285714285,
+        "height": 39
+      },
+      "label": "SCOLASTICA rilasciato in data",
+      "semanticKey": "scolastica_rilasciato_in_data",
+      "type": "date",
+      "value": "",
+      "originalValue": "",
+      "observedText": "",
+      "status": "review",
+      "origin": "line",
+      "confidence": 0.8,
+      "reason": "Riga continua o tratteggiata fuori dai bordi delle celle.",
+      "options": [],
+      "required": false,
+      "fontSize": 12,
+      "maskOriginal": false
+    },
+    {
+      "id": "960a41da-570c-43ed-b01b-d0e73104518a",
+      "box": {
+        "x": 481.7314285714285,
+        "y": 802.2589285714286,
+        "width": 217.25142857142856,
+        "height": 39
+      },
+      "label": "Data scadenza o rivedibilità: (1",
+      "semanticKey": "data_scadenza_o_rivedibilita_1",
+      "type": "date",
+      "value": "",
+      "originalValue": "",
+      "observedText": "",
+      "status": "review",
+      "origin": "line",
+      "confidence": 0.8,
+      "reason": "Riga continua o tratteggiata fuori dai bordi delle celle.",
+      "options": [],
+      "required": false,
+      "fontSize": 12,
+      "maskOriginal": false
+    },
+    {
+      "id": "df76c670-e7a4-4907-bebb-75e5cf9d3f4b",
+      "box": {
+        "x": 689.5371428571428,
+        "y": 872.5114285714285,
+        "width": 310.5278571428571,
+        "height": 39
+      },
+      "label": "PROFILO DI FUNZIONAMENTO redatto in data",
+      "semanticKey": "profilo_di_funzionamento_redatto_in_data",
+      "type": "date",
+      "value": "",
+      "originalValue": "",
+      "observedText": "",
+      "status": "review",
+      "origin": "line",
+      "confidence": 0.8,
+      "reason": "Riga continua o tratteggiata fuori dai bordi delle celle.",
+      "options": [],
+      "required": false,
+      "fontSize": 12,
+      "maskOriginal": false
+    },
+    {
+      "id": "306befe2-4f56-4717-be6a-4e8f16c1acfc",
+      "box": {
+        "x": 148.17964285714285,
+        "y": 1023.0889285714285,
+        "width": 30.698571428571427,
+        "height": 31.87928571428571
+      },
+      "label": "PROFILO DI FUNZIONAMENTO NON DISPONIBILE",
+      "semanticKey": "profilo_di_funzionamento_non_disponibile",
+      "type": "checkbox",
+      "value": false,
+      "originalValue": false,
+      "observedText": "",
+      "status": "review",
+      "origin": "checkbox",
+      "confidence": 0.85,
+      "reason": "Quadratino e contenuto interno rilevati.",
+      "options": [],
+      "required": false,
+      "fontSize": 12,
+      "maskOriginal": true
+    },
+    {
+      "id": "40e0932f-f05d-4b8d-9a68-158b95dbe2ec",
+      "box": {
+        "x": 745.0307142857142,
+        "y": 1062.0160714285714,
+        "width": 342.40714285714284,
+        "height": 39
+      },
+      "label": "DIAGNOSI FUNZIONALE redatta in data",
+      "semanticKey": "diagnosi_funzionale_redatta_in_data",
+      "type": "date",
+      "value": "",
+      "originalValue": "",
+      "observedText": "",
+      "status": "review",
+      "origin": "line",
+      "confidence": 0.8,
+      "reason": "Riga continua o tratteggiata fuori dai bordi delle celle.",
+      "options": [],
+      "required": false,
+      "fontSize": 12,
+      "maskOriginal": false
+    },
+    {
+      "id": "55ead6bc-af36-4a61-add5-ba79482dbaaf",
+      "box": {
+        "x": 1113.4135714285715,
+        "y": 1108.0639285714285,
+        "width": 236.14285714285714,
+        "height": 39
+      },
+      "label": "PROFILO DINAMICO FUNZIONALE IN VIGORE approvato in data",
+      "semanticKey": "profilo_dinamico_funzionale_in_vigore_approvato_in_data",
+      "type": "date",
+      "value": "",
+      "originalValue": "",
+      "observedText": "",
+      "status": "review",
+      "origin": "line",
+      "confidence": 0.8,
+      "reason": "Riga continua o tratteggiata fuori dai bordi delle celle.",
+      "options": [],
+      "required": false,
+      "fontSize": 12,
+      "maskOriginal": false
+    },
+    {
+      "id": "06a8889d-9d24-432d-922f-fc1cff36ac8a",
+      "box": {
+        "x": 754.4764285714285,
+        "y": 1180.0874999999999,
+        "width": 218.43214285714285,
+        "height": 39
+      },
+      "label": "redatto in data",
+      "semanticKey": "redatto_in_data",
+      "type": "date",
+      "value": "",
+      "originalValue": "",
+      "observedText": "",
+      "status": "review",
+      "origin": "line",
+      "confidence": 0.8,
+      "reason": "Riga continua o tratteggiata fuori dai bordi delle celle.",
+      "options": [],
+      "required": false,
+      "fontSize": 12,
+      "maskOriginal": false
+    },
+    {
+      "id": "5a41c6cc-dd99-43e9-bf83-a95dcd0d83b7",
+      "box": {
+        "x": 981.7639285714286,
+        "y": 1186.0275,
+        "width": 30.698571428571427,
+        "height": 33.059999999999995
+      },
+      "label": "non redatto",
+      "semanticKey": "non_redatto",
+      "type": "checkbox",
+      "value": false,
+      "originalValue": false,
+      "observedText": "",
+      "status": "review",
+      "origin": "checkbox",
+      "confidence": 0.85,
+      "reason": "Quadratino e contenuto interno rilevati.",
+      "options": [],
+      "required": false,
+      "fontSize": 12,
+      "maskOriginal": true
+    },
+    {
+      "id": "c048ab01-0253-4ad6-9250-07de6f91eab6",
+      "box": {
+        "x": 510.65892857142853,
+        "y": 1191.9310714285714,
+        "width": 31.87928571428571,
+        "height": 31.87928571428571
+      },
+      "label": "redatto in data",
+      "semanticKey": "redatto_in_data",
+      "type": "checkbox",
+      "value": false,
+      "originalValue": false,
+      "observedText": "",
+      "status": "review",
+      "origin": "checkbox",
+      "confidence": 0.85,
+      "reason": "Quadratino e contenuto interno rilevati.",
+      "options": [],
+      "required": false,
+      "fontSize": 12,
+      "maskOriginal": true
+    },
+    {
+      "id": "15567041-d353-407e-8ce6-3c27a9d7d9e0",
+      "box": {
+        "x": 693.0792857142857,
+        "y": 1246.2075,
+        "width": 231.42,
+        "height": 39
+      },
+      "label": "DATA",
+      "semanticKey": "data",
+      "type": "date",
+      "value": "",
+      "originalValue": "",
+      "observedText": "",
+      "status": "review",
+      "origin": "line",
+      "confidence": 0.8,
+      "reason": "Riga continua o tratteggiata fuori dai bordi delle celle.",
+      "options": [],
+      "required": false,
+      "fontSize": 12,
+      "maskOriginal": false
+    },
+    {
+      "id": "cbcf9021-19b1-470e-9bae-7a9f341215a0",
+      "box": {
+        "x": 694.26,
+        "y": 1417.4110714285714,
+        "width": 230.2392857142857,
+        "height": 39
+      },
+      "label": "DATA",
+      "semanticKey": "data",
+      "type": "date",
+      "value": "",
+      "originalValue": "",
+      "observedText": "",
+      "status": "review",
+      "origin": "line",
+      "confidence": 0.8,
+      "reason": "Riga continua o tratteggiata fuori dai bordi delle celle.",
+      "options": [],
+      "required": false,
+      "fontSize": 12,
+      "maskOriginal": false
+    },
+    {
+      "id": "e7c5a264-b2db-4616-b0af-97cddd30a6da",
+      "box": {
+        "x": 695.4407142857142,
+        "y": 1587.4339285714284,
+        "width": 231.42,
+        "height": 39
+      },
+      "label": "DATA",
+      "semanticKey": "data",
+      "type": "date",
+      "value": "",
+      "originalValue": "",
+      "observedText": "",
+      "status": "review",
+      "origin": "line",
+      "confidence": 0.8,
+      "reason": "Riga continua o tratteggiata fuori dai bordi delle celle.",
+      "options": [],
+      "required": false,
+      "fontSize": 12,
+      "maskOriginal": false
+    },
+    {
+      "id": "b49d58bd-5627-483f-bd43-c3ff65eb1633",
+      "box": {
+        "x": 695.4407142857142,
+        "y": 1739.7460714285712,
+        "width": 231.42,
+        "height": 39
+      },
+      "label": "DATA",
+      "semanticKey": "data",
+      "type": "date",
+      "value": "",
+      "originalValue": "",
+      "observedText": "",
+      "status": "review",
+      "origin": "line",
+      "confidence": 0.8,
+      "reason": "Riga continua o tratteggiata fuori dai bordi delle celle.",
+      "options": [],
+      "required": false,
+      "fontSize": 12,
+      "maskOriginal": false
+    },
+    {
+      "id": "919e29e1-ac74-4c41-a6aa-61596a0377f0",
+      "box": {
+        "x": 165.3867857142857,
+        "y": 2175.552857142857,
+        "width": 698.8092857142857,
+        "height": 41.74178571428571
+      },
+      "label": "Nome e Cognome",
+      "semanticKey": "nome_e_cognome",
+      "type": "text",
+      "value": "1.",
+      "originalValue": "1.",
+      "observedText": "1.",
+      "status": "review",
+      "origin": "cell",
+      "confidence": 0.85,
+      "reason": "Cella associata a etichetta adiacente; contenuto presente conservato.",
+      "options": [],
+      "required": false,
+      "fontSize": 12,
+      "maskOriginal": true
+    }
+  ],
+  "source": "ocr",
+  "transform": {
+    "sourceWidth": 1653,
+    "sourceHeight": 2338,
+    "scale": 1,
+    "offsetX": 0,
+    "offsetY": 0,
+    "rotation": 0
+  },
+  "physicalSizeMm": {
+    "width": 209.931,
+    "height": 296.926
+  },
+  "warnings": [],
+  "elapsedMs": 3407
+}

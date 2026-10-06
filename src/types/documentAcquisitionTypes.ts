@@ -81,8 +81,26 @@ export interface ModelClassificationResult {
   schoolYear?: string;
 }
 
+export interface PageCoordinateTransform {
+  sourceUnit?: 'px' | 'pt';
+  targetUnit?: 'pt';
+  pageIndex: number;
+  originalSize: { width: number; height: number };
+  targetSize: { width: number; height: number };
+  scaleX: number;
+  scaleY: number;
+  rotationCorrection: number;
+  skewCorrection: number;
+  deltaX: number;
+  deltaY: number;
+  affineMatrix: [number, number, number, number, number, number];
+  inverseMatrix: [number, number, number, number, number, number];
+  isNormalizedA4: boolean;
+}
+
 /** Risultato complessivo dell'acquisizione del documento */
 export interface DocumentAcquisitionResult {
+  documentalResult?: import('../core/documental/engine/types').DocumentResult;
   fileName: string;
   detectedFormat: SupportedDocumentFormat;
   totalPages: number;
@@ -91,12 +109,28 @@ export interface DocumentAcquisitionResult {
   fullText: string;
   evidenceList: MappingEvidence[];
   studentCode?: string;
+  studentName?: string;
+  section?: string;
+  site?: string;
   schoolName?: string;
   classOrSection?: string;
   compilationDate?: string;
   sourceBinary?: Uint8Array;
   canonicalDocument?: Uint8Array;
+  sourceSha256?: string;
+  normalizedSha256?: string;
+  normalizationSucceeded?: boolean;
+  normalizationReport?: any;
+  coordinateTransform?: PageCoordinateTransform & {
+    pageTransforms?: PageCoordinateTransform[];
+  };
   processingTimeMs: number;
+  engineUsed?: string;
+  globalSkewDegrees?: number;
+  perspectiveApplied?: boolean;
+  dewarpingMapApplied?: boolean;
+  localCurvatureMaxDeviationPx?: number;
+  pageMetrics?: any[];
   warnings: string[];
   logs: string[];
 }
@@ -105,6 +139,7 @@ export interface DocumentAcquisitionResult {
 export interface DocumentAcquisitionOptions {
   renderScale?: number;
   onProgress?: (progress: AcquisitionProgress) => void;
+  signal?: AbortSignal;
   customOcrRunner?: (canvas: HTMLCanvasElement) => Promise<{ text: string; confidence?: number }>;
   forcedSchoolOrder?: SchoolOrder;
   customModels?: PeiModelDefinition[];

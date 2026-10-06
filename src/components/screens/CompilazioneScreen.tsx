@@ -18,6 +18,8 @@ import {
   AlertCircle,
   Clock,
   Layers,
+  Compass,
+  Sliders,
 } from 'lucide-react';
 
 interface CompilazioneScreenProps {
@@ -200,6 +202,28 @@ export const CompilazioneScreen: React.FC<CompilazioneScreenProps> = ({
 
             <button
               type="button"
+              id="btn-open-calibrator-top"
+              onClick={() => onOpenCalibration?.()}
+              className="px-2.5 py-1 text-xs font-bold bg-amber-900/10 hover:bg-amber-900/20 text-amber-900 dark:text-amber-300 rounded border border-amber-800/30 inline-flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+              title="Apri lo strumento di calibrazione visiva e geometria campi A4"
+            >
+              <Compass className="w-3.5 h-3.5 text-amber-800 dark:text-amber-400" />
+              <span>Calibra Geometria</span>
+            </button>
+
+            <button
+              type="button"
+              id="btn-open-diagnostics-top"
+              onClick={() => onOpenCalibration?.()}
+              className="px-2.5 py-1 text-xs font-bold bg-[var(--badge-bg)] hover:bg-[var(--hover-bg)] text-[var(--text)] rounded border border-[var(--border)] inline-flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+              title="Visualizza la diagnostica del modello e la verifica del rilevamento campi"
+            >
+              <Sliders className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
+              <span>Diagnostica</span>
+            </button>
+
+            <button
+              type="button"
               id="btn-go-to-preview"
               onClick={onGoToPreview}
               className="px-2.5 py-1 text-xs font-bold bg-[var(--badge-bg)] hover:bg-[var(--hover-bg)] text-[var(--text)] rounded border border-[var(--border)] inline-flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
@@ -240,6 +264,7 @@ export const CompilazioneScreen: React.FC<CompilazioneScreenProps> = ({
           onInsertTextIntoField={handleInsertTextFromLibrary}
           isOpen={isContextPanelOpen}
           onToggle={() => setIsContextPanelOpen(!isContextPanelOpen)}
+          onOpenCalibration={onOpenCalibration}
         />
       </aside>
     </div>

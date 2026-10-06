@@ -184,6 +184,101 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           )}
         </div>
 
+        {/* Artefatti e Download Diagnostici */}
+        <div className="bg-[var(--card-bg)] border border-[var(--border)] rounded-lg p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between text-xs border-b border-[var(--border)] pb-2">
+            <span className="font-bold text-[var(--text-title)] flex items-center gap-1.5 uppercase tracking-wider">
+              <FileText className="w-4 h-4 text-amber-800 dark:text-[var(--accent-paglierino)]" />
+              Artefatti e Download Diagnostici
+            </span>
+            <span className="text-[var(--text-secondary)] font-medium">File disponibili in public/downloads/</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <a
+              href="/downloads/PEI_Comune_Roma_Canonico_A4_020.pdf"
+              download
+              className="p-3 rounded border border-[var(--border)] bg-[var(--card-sub-bg)] hover:bg-[var(--hover-bg)] flex items-center justify-between group transition-colors"
+            >
+              <div>
+                <div className="font-bold text-[var(--text-title)] group-hover:text-amber-800 dark:group-hover:text-[var(--accent-paglierino)]">
+                  Sfondo canonico A4 - nucleo 0.2.0 (PDF)
+                </div>
+                <div className="text-[11px] text-[var(--text-secondary)]">
+                  public/downloads/PEI_Comune_Roma_Canonico_A4_020.pdf
+                </div>
+              </div>
+              <span className="px-2.5 py-1 bg-amber-800 text-white rounded font-bold text-[11px] shrink-0 group-hover:bg-amber-900 transition-colors">
+                Scarica
+              </span>
+            </a>
+
+            <a
+              href="/downloads/PEI_Comune_Roma_Canonico_A4_020.pdf"
+              download
+              className="p-3 rounded border border-[var(--border)] bg-[var(--card-sub-bg)] hover:bg-[var(--hover-bg)] flex items-center justify-between group transition-colors"
+            >
+              <div>
+                <div className="font-bold text-[var(--text-title)] group-hover:text-amber-800 dark:group-hover:text-[var(--accent-paglierino)]">
+                  Sfondo A4 verificato (PDF)
+                </div>
+                <div className="text-[11px] text-[var(--text-secondary)]">
+                  public/downloads/PEI_Comune_Roma_Canonico_A4_020.pdf
+                </div>
+              </div>
+              <span className="px-2.5 py-1 bg-amber-800 text-white rounded font-bold text-[11px] shrink-0 group-hover:bg-amber-900 transition-colors">
+                Scarica
+              </span>
+            </a>
+
+            <a
+              href="/downloads/PEI_Roma_Pagina_1_Prima_Dopo_Confronto.png"
+              download
+              className="p-3 rounded border border-[var(--border)] bg-[var(--card-sub-bg)] hover:bg-[var(--hover-bg)] flex items-center justify-between group transition-colors"
+            >
+              <div>
+                <div className="font-bold text-[var(--text-title)] group-hover:text-amber-800 dark:group-hover:text-[var(--accent-paglierino)]">
+                  Confronto Pagina 1 (PNG)
+                </div>
+                <div className="text-[11px] text-[var(--text-secondary)]">
+                  public/downloads/PEI_Roma_Pagina_1_Prima_Dopo_Confronto.png
+                </div>
+              </div>
+              <span className="px-2.5 py-1 bg-amber-800 text-white rounded font-bold text-[11px] shrink-0 group-hover:bg-amber-900 transition-colors">
+                Scarica
+              </span>
+            </a>
+
+            <a
+              href="/downloads/PEI_Roma_Pagina_3_Prima_Dopo_Confronto.png"
+              download
+              className="p-3 rounded border border-[var(--border)] bg-[var(--card-sub-bg)] hover:bg-[var(--hover-bg)] flex items-center justify-between group transition-colors"
+            >
+              <div>
+                <div className="font-bold text-[var(--text-title)] group-hover:text-amber-800 dark:group-hover:text-[var(--accent-paglierino)]">
+                  Confronto Pagina 3 (PNG)
+                </div>
+                <div className="text-[11px] text-[var(--text-secondary)]">
+                  public/downloads/PEI_Roma_Pagina_3_Prima_Dopo_Confronto.png
+                </div>
+              </div>
+              <span className="px-2.5 py-1 bg-amber-800 text-white rounded font-bold text-[11px] shrink-0 group-hover:bg-amber-900 transition-colors">
+                Scarica
+              </span>
+            </a>
+          </div>
+
+          <div className="p-3 bg-[var(--card-sub-bg)] rounded border border-[var(--border)] text-[11px] text-[var(--text-secondary)] space-y-1">
+            <div className="font-bold text-[var(--text)]">Stato verifica artefatti richiesti:</div>
+            <ul className="list-disc list-inside space-y-0.5">
+              <li><code className="font-mono">test-output/debug_page1_source.png</code> — <span className="text-amber-700 dark:text-amber-400 font-semibold">Mancante (non rigenerato)</span></li>
+              <li><code className="font-mono">test-output/debug_page1_rectified.png</code> — <span className="text-amber-700 dark:text-amber-400 font-semibold">Mancante (non rigenerato)</span></li>
+              <li><code className="font-mono">test-output/debug_page1_single.pdf</code> — <span className="text-amber-700 dark:text-amber-400 font-semibold">Mancante (non rigenerato)</span></li>
+              <li><code className="font-mono">test-output/debug_page1_reopened.png</code> — <span className="text-amber-700 dark:text-amber-400 font-semibold">Mancante (non rigenerato)</span></li>
+            </ul>
+          </div>
+        </div>
+
         {/* Modale di Conferma Eliminazione Documento Recente */}
         {isConfirmingDelete && savedDocument && (
           <div

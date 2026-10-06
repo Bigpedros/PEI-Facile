@@ -6,6 +6,7 @@
  */
 
 import type { PersistedTemplateRecord } from './templateAcquisitionTypes';
+import { computeSha256, isPdfBinary } from './templateSourceResolver';
 
 const DB_NAME = 'pei_facile_templates_db';
 const DB_VERSION = 1;
@@ -92,18 +93,26 @@ export function createDefensiveBinaryCopy(input?: Uint8Array | ArrayBuffer | Arr
  */
 export async function saveCustomTemplate(
   record: PersistedTemplateRecord,
-  pdfBinary?: Uint8Array
+  pdfBinary?: Uint8Array,
+  originalBinary?: Uint8Array
 ): Promise<void> {
-  const binaryInput = pdfBinary || record.pdfBinary;
+  const binaryInput = pdfBinary || record.canonicalDocument || record.pdfBinary;
+  const originalInput = originalBinary || record.pdfBinary;
+
   let binaryToSave: Uint8Array | undefined;
+  let originalToSave: Uint8Array | undefined;
 
   if (binaryInput) {
     binaryToSave = createDefensiveBinaryCopy(binaryInput);
+  }
+  if (originalInput) {
+    originalToSave = createDefensiveBinaryCopy(originalInput);
   }
 
   const metadataOnly: PersistedTemplateRecord = {
     ...record,
     pdfBinary: undefined, // strip binary from metadata record
+    canonicalDocument: undefined,
     updatedAt: new Date().toISOString(),
   };
 
@@ -111,6 +120,22 @@ export async function saveCustomTemplate(
     memoryTemplateStore.set(record.templateId, metadataOnly);
     if (binaryToSave) {
       memoryBinaryStore.set(record.templateId, binaryToSave);
+      memoryBinaryStore.set(`${record.templateId}_normalized`, binaryToSave);
+      memoryBinaryStore.set(`normalized_${record.templateId}`, binaryToSave);
+      if (record.normalizedSha256) {
+        memoryBinaryStore.set(record.normalizedSha256, binaryToSave);
+        memoryBinaryStore.set(`hash_${record.normalizedSha256}`, binaryToSave);
+        memoryBinaryStore.set(`normalized_${record.normalizedSha256}`, binaryToSave);
+      }
+      memoryBinaryStore.set(`normalized_${record.sourceSha256}`, binaryToSave);
+    }
+    if (originalToSave) {
+      memoryBinaryStore.set(`${record.templateId}_original`, originalToSave);
+      memoryBinaryStore.set(`original_${record.templateId}`, originalToSave);
+      memoryBinaryStore.set(record.sourceSha256, originalToSave);
+      memoryBinaryStore.set(`hash_${record.sourceSha256}`, originalToSave);
+      memoryBinaryStore.set(`original_${record.sourceSha256}`, originalToSave);
+    } else if (binaryToSave && !record.normalizedSha256) {
       memoryBinaryStore.set(record.sourceSha256, binaryToSave);
       memoryBinaryStore.set(`hash_${record.sourceSha256}`, binaryToSave);
     }
@@ -127,6 +152,23 @@ export async function saveCustomTemplate(
 
     if (binaryToSave) {
       binaryStore.put(binaryToSave, record.templateId);
+      binaryStore.put(binaryToSave, `${record.templateId}_normalized`);
+      binaryStore.put(binaryToSave, `normalized_${record.templateId}`);
+      if (record.normalizedSha256) {
+        binaryStore.put(binaryToSave, record.normalizedSha256);
+        binaryStore.put(binaryToSave, `hash_${record.normalizedSha256}`);
+        binaryStore.put(binaryToSave, `normalized_${record.normalizedSha256}`);
+      }
+      binaryStore.put(binaryToSave, `normalized_${record.sourceSha256}`);
+    }
+
+    if (originalToSave) {
+      binaryStore.put(originalToSave, `${record.templateId}_original`);
+      binaryStore.put(originalToSave, `original_${record.templateId}`);
+      binaryStore.put(originalToSave, record.sourceSha256);
+      binaryStore.put(originalToSave, `hash_${record.sourceSha256}`);
+      binaryStore.put(originalToSave, `original_${record.sourceSha256}`);
+    } else if (binaryToSave && !record.normalizedSha256) {
       binaryStore.put(binaryToSave, record.sourceSha256);
       binaryStore.put(binaryToSave, `hash_${record.sourceSha256}`);
     }
@@ -204,6 +246,15 @@ export async function getCustomTemplate(
 }
 
 /**
+ * Loads a template metadata record without loading the underlying PDF binary.
+ */
+export async function getCustomTemplateMetadata(
+  templateId: string
+): Promise<PersistedTemplateRecord | null> {
+  return getCustomTemplate(templateId, false);
+}
+
+/**
  * Searches for an existing template strictly matching a specific SHA-256 hash.
  */
 export async function findTemplateBySha256(
@@ -240,17 +291,25 @@ export async function findTemplateBySha256(
  * Loads the raw PDF binary by templateId or SHA-256 hash.
  */
 export async function getTemplatePdfBinary(
-  identifier: string
+  identifier: string,
+  mode: 'normalized' | 'original' = 'normalized'
 ): Promise<Uint8Array | null> {
   if (!identifier) return null;
-  const cleanKey = identifier.startsWith('hash_') ? identifier.replace(/^hash_/, '') : identifier;
-  const hashKey = `hash_${cleanKey}`;
+  const cleanKey = identifier
+    .replace(/^hash_/, '')
+    .replace(/^normalized_/, '')
+    .replace(/^original_/, '')
+    .replace(/_normalized$/, '')
+    .replace(/_original$/, '');
+
+  const primaryKey = mode === 'original' ? `${cleanKey}_original` : cleanKey;
+  const secondaryKey = mode === 'original' ? `original_${cleanKey}` : `normalized_${cleanKey}`;
 
   if (!isIndexedDbAvailable()) {
     return (
+      memoryBinaryStore.get(primaryKey) ||
+      memoryBinaryStore.get(secondaryKey) ||
       memoryBinaryStore.get(cleanKey) ||
-      memoryBinaryStore.get(hashKey) ||
-      memoryBinaryStore.get(identifier) ||
       null
     );
   }
@@ -259,20 +318,32 @@ export async function getTemplatePdfBinary(
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_BINARIES, 'readonly');
     const store = tx.objectStore(STORE_BINARIES);
-    const req = store.get(cleanKey);
+    const req = store.get(primaryKey);
 
     req.onsuccess = () => {
       if (req.result) {
         db.close();
         return resolve(req.result as Uint8Array);
       }
-      // Check secondary hash key
-      const hashReq = store.get(hashKey);
-      hashReq.onsuccess = () => {
-        db.close();
-        resolve((hashReq.result as Uint8Array) || null);
+      // Check secondary key
+      const secReq = store.get(secondaryKey);
+      secReq.onsuccess = () => {
+        if (secReq.result) {
+          db.close();
+          return resolve(secReq.result as Uint8Array);
+        }
+        // Fallback to cleanKey
+        const fallbackReq = store.get(cleanKey);
+        fallbackReq.onsuccess = () => {
+          db.close();
+          resolve((fallbackReq.result as Uint8Array) || null);
+        };
+        fallbackReq.onerror = () => {
+          db.close();
+          resolve(null);
+        };
       };
-      hashReq.onerror = () => {
+      secReq.onerror = () => {
         db.close();
         resolve(null);
       };
@@ -381,4 +452,146 @@ export async function deleteCustomTemplate(
   } catch (err) {
     console.warn('deleteCustomTemplate error:', err);
   }
+}
+
+/**
+ * Recupera specificamente il binario del PDF elaborato (normalizzato A4 / rettificato).
+ * Verifica che il binario esista, sia valido e corrisponda a normalizedSha256.
+ * Se il binario elaborato manca, restituisce null: NON restituisce mai l'originale.
+ */
+export async function getNormalizedTemplatePdfBinary(
+  modelOrId: string | { templateId?: string; id?: string; normalizedPdfSha256?: string; normalizedSha256?: string; sourcePdfSha256?: string; sourceSha256?: string }
+): Promise<{ binary: Uint8Array; sha256: string; sizeBytes: number } | null> {
+  let templateId = '';
+  let expectedNormSha = '';
+  let expectedSrcSha = '';
+
+  if (typeof modelOrId === 'string') {
+    templateId = modelOrId;
+  } else if (modelOrId) {
+    templateId = modelOrId.templateId || modelOrId.id || '';
+    expectedNormSha = modelOrId.normalizedPdfSha256 || modelOrId.normalizedSha256 || '';
+    expectedSrcSha = modelOrId.sourcePdfSha256 || modelOrId.sourceSha256 || '';
+  }
+
+  // Se i metadati non sono completi, recupera il record persistito
+  if ((!expectedNormSha || !expectedSrcSha) && templateId) {
+    const meta = await getCustomTemplateMetadata(templateId);
+    if (meta) {
+      if (!expectedNormSha) expectedNormSha = meta.normalizedSha256 || '';
+      if (!expectedSrcSha) expectedSrcSha = meta.sourceSha256 || '';
+    }
+  }
+
+  const cleanId = templateId
+    .replace(/^hash_/, '')
+    .replace(/^normalized_/, '')
+    .replace(/^original_/, '')
+    .replace(/_normalized$/, '')
+    .replace(/_original$/, '');
+
+  const searchKeys = [
+    expectedNormSha,
+    expectedNormSha ? `normalized_${expectedNormSha}` : null,
+    expectedNormSha ? `hash_${expectedNormSha}` : null,
+    cleanId ? `${cleanId}_normalized` : null,
+    cleanId ? `normalized_${cleanId}` : null,
+    expectedSrcSha ? `normalized_${expectedSrcSha}` : null,
+    cleanId,
+  ].filter(Boolean) as string[];
+
+  for (const k of searchKeys) {
+    const bin = await getTemplatePdfBinary(k, 'normalized');
+    if (bin && bin.byteLength > 0 && isPdfBinary(bin)) {
+      const hash = await computeSha256(bin);
+      // Se è presente expectedNormSha, deve corrispondere rigorosamente
+      if (expectedNormSha && hash === expectedNormSha) {
+        return { binary: bin, sha256: hash, sizeBytes: bin.byteLength };
+      }
+      // Se non abbiamo expectedNormSha ma il file differisce dall'originale registrato
+      if (!expectedNormSha && expectedSrcSha && hash !== expectedSrcSha) {
+        return { binary: bin, sha256: hash, sizeBytes: bin.byteLength };
+      }
+      // Se chiave specifica normalized e non collide con l'originale
+      if (k.includes('normalized') && (!expectedSrcSha || hash !== expectedSrcSha)) {
+        return { binary: bin, sha256: hash, sizeBytes: bin.byteLength };
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Recupera specificamente il binario del PDF originale non modificato.
+ */
+export async function getOriginalTemplatePdfBinary(
+  modelOrId: string | { templateId?: string; id?: string; sourcePdfSha256?: string; sourceSha256?: string; normalizedPdfSha256?: string; normalizedSha256?: string }
+): Promise<{ binary: Uint8Array; sha256: string; sizeBytes: number } | null> {
+  let templateId = '';
+  let expectedSrcSha = '';
+
+  if (typeof modelOrId === 'string') {
+    templateId = modelOrId;
+  } else if (modelOrId) {
+    templateId = modelOrId.templateId || modelOrId.id || '';
+    expectedSrcSha = modelOrId.sourcePdfSha256 || modelOrId.sourceSha256 || '';
+  }
+
+  if (!expectedSrcSha && templateId) {
+    const meta = await getCustomTemplateMetadata(templateId);
+    if (meta) {
+      expectedSrcSha = meta.sourceSha256 || '';
+    }
+  }
+
+  const cleanId = templateId
+    .replace(/^hash_/, '')
+    .replace(/^normalized_/, '')
+    .replace(/^original_/, '')
+    .replace(/_normalized$/, '')
+    .replace(/_original$/, '');
+
+  const searchKeys = [
+    cleanId ? `${cleanId}_original` : null,
+    cleanId ? `original_${cleanId}` : null,
+    expectedSrcSha ? `original_${expectedSrcSha}` : null,
+    expectedSrcSha,
+    expectedSrcSha ? `hash_${expectedSrcSha}` : null,
+    cleanId,
+  ].filter(Boolean) as string[];
+
+  for (const k of searchKeys) {
+    const bin = await getTemplatePdfBinary(k, 'original');
+    if (bin && bin.byteLength > 0 && isPdfBinary(bin)) {
+      const hash = await computeSha256(bin);
+      if (expectedSrcSha && hash === expectedSrcSha) {
+        return { binary: bin, sha256: hash, sizeBytes: bin.byteLength };
+      }
+      if (!expectedSrcSha) {
+        return { binary: bin, sha256: hash, sizeBytes: bin.byteLength };
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Trigger per il download trasparente di un file nel browser.
+ */
+export function triggerBrowserFileDownload(
+  bytes: Uint8Array,
+  filename: string,
+  mimeType = 'application/pdf'
+): void {
+  const blob = new Blob([bytes], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

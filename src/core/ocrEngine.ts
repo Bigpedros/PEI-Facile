@@ -10,6 +10,7 @@ export interface AnalyzeImageOptions {
   rotationDegrees?: number;
   onProgress?: EngineProgress;
   maxDimension?: number;
+  disableUpscaling?: boolean;
 }
 
 /**
@@ -31,6 +32,7 @@ export async function analyzeDocumentImage(
   const variants = await createDocumentImageVariants(file, {
     rotationDegrees,
     maxDimension: options.maxDimension ?? 2400,
+    disableUpscaling: options.disableUpscaling,
   });
 
   if (variants.length === 0) throw new Error('Nessuna variante immagine generata');
@@ -96,6 +98,8 @@ export async function analyzeDocumentImage(
         snippet: rawText.slice(0, 180).replace(/\n+/g, ' '),
         durationMs: Math.round(performance.now() - variantStartedAt),
         words,
+        imageWidth: variant.width,
+        imageHeight: variant.height,
       });
     }
 
@@ -120,6 +124,8 @@ export async function analyzeDocumentImage(
       rawText: winner.rawText,
       words: winner.words,
       variants: candidates.map(({ words: _words, ...candidate }) => candidate),
+      imageWidth: winner.imageWidth,
+      imageHeight: winner.imageHeight,
       durationMs: Math.round(performance.now() - startedAt),
     };
   } finally {

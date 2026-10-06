@@ -337,6 +337,34 @@ export const CATEGORIZED_SEMANTIC_CATALOG: Record<
 };
 
 /**
+ * Map of legacy or alias semantic keys to their standardized canonical keys.
+ */
+export const LEGACY_SEMANTIC_KEY_ALIASES: Record<string, string> = {
+  schoolInstitution: 'school.institutionName',
+  'student.schoolName': 'school.institutionName',
+  studentName: 'student.fullName',
+  classSection: 'student.class',
+  compilationDate: 'pei.draftDate',
+  'document.compilationDate': 'pei.draftDate',
+  'diagnosticDocument.date': 'functionalProfile.date',
+  'medicalProfile.issueDate': 'functionalProfile.date',
+  familyContext: 'student.familyContext',
+  clinicalProfile: 'functionalProfile.icfCodes',
+  individualProject: 'functionalProfile.individualProject',
+  barriersFacilitators: 'environment.barriers',
+  supportHours: 'resources.supportHours',
+  finalReview: 'evaluation.finalNotes',
+};
+
+export function resolveCanonicalSemanticKey(key?: string | null): string | null {
+  if (!key) return null;
+  if (LEGACY_SEMANTIC_KEY_ALIASES[key]) {
+    return LEGACY_SEMANTIC_KEY_ALIASES[key];
+  }
+  return key;
+}
+
+/**
  * Quick lookup map for canonical entries by semanticKey.
  */
 const CATALOG_MAP = new Map<string, SemanticCatalogEntry>();
@@ -344,7 +372,8 @@ CANONICAL_SEMANTIC_CATALOG.forEach((item) => CATALOG_MAP.set(item.key, item));
 
 export function getSemanticCatalogEntry(key?: string | null): SemanticCatalogEntry | undefined {
   if (!key) return undefined;
-  return CATALOG_MAP.get(key);
+  const canonicalKey = resolveCanonicalSemanticKey(key) || key;
+  return CATALOG_MAP.get(canonicalKey);
 }
 
 /**
@@ -352,7 +381,8 @@ export function getSemanticCatalogEntry(key?: string | null): SemanticCatalogEnt
  */
 export function formatSemanticKeyLabel(key?: string | null): string {
   if (!key) return 'Nessuna associazione (Non assegnata)';
-  const entry = CATALOG_MAP.get(key);
+  const canonicalKey = resolveCanonicalSemanticKey(key) || key;
+  const entry = CATALOG_MAP.get(canonicalKey);
   if (entry) return `${entry.categoryLabel} > ${entry.label}`;
   if (key.startsWith('custom.')) {
     const parts = key.split('.');
@@ -479,7 +509,7 @@ export const SEMANTIC_PATTERNS: SemanticPattern[] = [
   },
   {
     semanticKey: 'student.class',
-    patterns: [/^classe\b/i, /anno\s+di\s+corso/i, /frequenta\s+la\s+classe/i],
+    patterns: [/^classe\b/i, /anno\s+di\s+corso/i, /frequenta\s+la\s+classe/i, /classe\s*\/\s*sezione/i, /sezione\s+e\s+plesso/i, /classe\s+.*plesso/i],
     canonicalLabel: 'Classe o anno di corso',
     fieldType: 'TEXT_SHORT',
     confidence: 0.88,
@@ -546,6 +576,10 @@ export const SEMANTIC_PATTERNS: SemanticPattern[] = [
       /redatto\s+in\s+data/i,
       /data\s+diagnosi/i,
       /diagnosi\s+funzionale\s+del/i,
+      /documento\s+diagnostico/i,
+      /data\s+rilascio/i,
+      /verbale\s+diagnostico/i,
+      /rilascio\s+documento/i,
     ],
     canonicalLabel: 'Data Profilo di Funzionamento',
     fieldType: 'DATE',
@@ -567,7 +601,7 @@ export const SEMANTIC_PATTERNS: SemanticPattern[] = [
   },
   {
     semanticKey: 'functionalProfile.medicalReportDate',
-    patterns: [/verbale\s+(?:di\s+)?accertamento/i, /collegio\s+medico\s+del/i, /data\s+verbale\s+104/i],
+    patterns: [/verbale\s+(?:di\s+)?accertamento/i, /verbale\s+.*accertamento/i, /collegio\s+medico\s+del/i, /data\s+verbale/i],
     canonicalLabel: 'Data Verbale di accertamento (L. 104)',
     fieldType: 'DATE',
     confidence: 0.86,

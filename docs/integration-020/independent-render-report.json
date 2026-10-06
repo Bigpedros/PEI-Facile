@@ -1,0 +1,430 @@
+{
+  "method": "1000 px width; aspect fit; dark source pixels <150; target <200; neighborhood 2 px. Measures raster preservation, not OCR/field accuracy.",
+  "cases": [
+    {
+      "case": "A1_baseline",
+      "pages": [
+        {
+          "page": 1,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 64726,
+          "missingFraction": 0.0009578840033371442,
+          "targetInkPixels": 87304
+        },
+        {
+          "page": 2,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 66240,
+          "missingFraction": 0.0,
+          "targetInkPixels": 92110
+        },
+        {
+          "page": 3,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 81237,
+          "missingFraction": 0.0,
+          "targetInkPixels": 104860
+        },
+        {
+          "page": 4,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 56134,
+          "missingFraction": 0.0,
+          "targetInkPixels": 73645
+        },
+        {
+          "page": 5,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 54736,
+          "missingFraction": 0.0,
+          "targetInkPixels": 74062
+        },
+        {
+          "page": 6,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 28575,
+          "missingFraction": 0.0,
+          "targetInkPixels": 40435
+        },
+        {
+          "page": 7,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 70602,
+          "missingFraction": 0.0,
+          "targetInkPixels": 101700
+        },
+        {
+          "page": 8,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 36983,
+          "missingFraction": 0.0,
+          "targetInkPixels": 55854
+        },
+        {
+          "page": 9,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 87657,
+          "missingFraction": 0.0,
+          "targetInkPixels": 115551
+        },
+        {
+          "page": 10,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 71176,
+          "missingFraction": 0.0,
+          "targetInkPixels": 106781
+        },
+        {
+          "page": 11,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 89446,
+          "missingFraction": 0.0,
+          "targetInkPixels": 122827
+        },
+        {
+          "page": 12,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 60800,
+          "missingFraction": 0.0,
+          "targetInkPixels": 88107
+        }
+      ],
+      "sourceHash": "affc8680aab976fd422f9f64ed6c1b0481ca51c3c332e00f92fbf44301cb468c",
+      "canonicalHash": "04f7205dae97f3e39ab57a81d633cb607ab66a0c4be42bc9851c221ec8cb049a",
+      "maxMissingFraction": 0.0009578840033371442
+    },
+    {
+      "case": "Roma_baseline",
+      "pages": [
+        {
+          "page": 1,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 89436,
+          "missingFraction": 0.0,
+          "targetInkPixels": 128608
+        },
+        {
+          "page": 2,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 116976,
+          "missingFraction": 0.0,
+          "targetInkPixels": 153470
+        },
+        {
+          "page": 3,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 103694,
+          "missingFraction": 0.0,
+          "targetInkPixels": 137365
+        },
+        {
+          "page": 4,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 57757,
+          "missingFraction": 0.0,
+          "targetInkPixels": 91719
+        },
+        {
+          "page": 5,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 68560,
+          "missingFraction": 0.0,
+          "targetInkPixels": 106639
+        },
+        {
+          "page": 6,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 14498,
+          "missingFraction": 0.0,
+          "targetInkPixels": 19883
+        },
+        {
+          "page": 7,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 104438,
+          "missingFraction": 0.0,
+          "targetInkPixels": 136573
+        },
+        {
+          "page": 8,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 55992,
+          "missingFraction": 0.0,
+          "targetInkPixels": 74126
+        },
+        {
+          "page": 9,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 106151,
+          "missingFraction": 0.0,
+          "targetInkPixels": 137715
+        },
+        {
+          "page": 10,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 95908,
+          "missingFraction": 0.0,
+          "targetInkPixels": 126370
+        },
+        {
+          "page": 11,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 101859,
+          "missingFraction": 0.0,
+          "targetInkPixels": 133895
+        },
+        {
+          "page": 12,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 95020,
+          "missingFraction": 0.0,
+          "targetInkPixels": 124461
+        }
+      ],
+      "sourceHash": "d35456652c65d388b2e1e1381407a2a0ab97c77351389a98451135ea37dea7e7",
+      "canonicalHash": "bfa11c5671b8365967cda8b3efa5b2be335c96ddba0c88fe6629b3f327166d8e",
+      "maxMissingFraction": 0.0
+    },
+    {
+      "case": "PDF_nativo_allegato",
+      "pages": [
+        {
+          "page": 1,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 67510,
+          "missingFraction": 0.0,
+          "targetInkPixels": 86095
+        },
+        {
+          "page": 2,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 75007,
+          "missingFraction": 0.0,
+          "targetInkPixels": 107514
+        },
+        {
+          "page": 3,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 89952,
+          "missingFraction": 0.0,
+          "targetInkPixels": 117774
+        },
+        {
+          "page": 4,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 55841,
+          "missingFraction": 0.0,
+          "targetInkPixels": 74988
+        },
+        {
+          "page": 5,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 56812,
+          "missingFraction": 0.0,
+          "targetInkPixels": 79200
+        },
+        {
+          "page": 6,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 33861,
+          "missingFraction": 0.0,
+          "targetInkPixels": 45954
+        },
+        {
+          "page": 7,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 3916,
+          "missingFraction": 0.0,
+          "targetInkPixels": 6548
+        },
+        {
+          "page": 8,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 67310,
+          "missingFraction": 0.0,
+          "targetInkPixels": 94705
+        },
+        {
+          "page": 9,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 34679,
+          "missingFraction": 0.0,
+          "targetInkPixels": 50661
+        },
+        {
+          "page": 10,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 73880,
+          "missingFraction": 0.0,
+          "targetInkPixels": 101633
+        },
+        {
+          "page": 11,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 57857,
+          "missingFraction": 0.0,
+          "targetInkPixels": 85057
+        },
+        {
+          "page": 12,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 77194,
+          "missingFraction": 0.0,
+          "targetInkPixels": 101486
+        },
+        {
+          "page": 13,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 63502,
+          "missingFraction": 0.0,
+          "targetInkPixels": 91850
+        }
+      ],
+      "sourceHash": "485e7b1c7bd4b42c9d2afdd91fbde7f8511276f4c1e2f8a90bcdf9c9656c90f3",
+      "canonicalHash": "bb049cbf07e12aca7e17cb50b26680bca3fb56641522d7467bc36ae852fd4fa7",
+      "maxMissingFraction": 0.0
+    },
+    {
+      "case": "PDF_compilato_allegato",
+      "pages": [
+        {
+          "page": 1,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 91020,
+          "missingFraction": 0.0,
+          "targetInkPixels": 129831
+        },
+        {
+          "page": 2,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 115562,
+          "missingFraction": 5.192018137450027e-05,
+          "targetInkPixels": 152837
+        },
+        {
+          "page": 3,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 139486,
+          "missingFraction": 0.0,
+          "targetInkPixels": 186302
+        },
+        {
+          "page": 4,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 122511,
+          "missingFraction": 0.0,
+          "targetInkPixels": 181889
+        },
+        {
+          "page": 5,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 104375,
+          "missingFraction": 0.0,
+          "targetInkPixels": 150826
+        },
+        {
+          "page": 6,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 17805,
+          "missingFraction": 0.0,
+          "targetInkPixels": 24798
+        },
+        {
+          "page": 7,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 101835,
+          "missingFraction": 0.0,
+          "targetInkPixels": 132280
+        },
+        {
+          "page": 8,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 63576,
+          "missingFraction": 0.0,
+          "targetInkPixels": 83726
+        },
+        {
+          "page": 9,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 102928,
+          "missingFraction": 0.0,
+          "targetInkPixels": 133740
+        },
+        {
+          "page": 10,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 92705,
+          "missingFraction": 0.0,
+          "targetInkPixels": 122785
+        },
+        {
+          "page": 11,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 100667,
+          "missingFraction": 0.0,
+          "targetInkPixels": 132392
+        },
+        {
+          "page": 12,
+          "widthPt": 595.2755737304688,
+          "heightPt": 841.8897705078125,
+          "sourceInkPixels": 98534,
+          "missingFraction": 0.0,
+          "targetInkPixels": 129769
+        }
+      ],
+      "sourceHash": "a9b27df1bcfea401f98966105a8ae16b1cc46f6d5b1bd1720eb507838635dc63",
+      "canonicalHash": "4c33f248a1bf09b4a41b61cbce3d725062553e206b81358f219a92535e8343c0",
+      "maxMissingFraction": 5.192018137450027e-05
+    }
+  ],
+  "totalPages": 49
+}

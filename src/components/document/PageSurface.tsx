@@ -26,6 +26,27 @@ interface PageSurfaceProps {
   className?: string;
 }
 
+const STRICT_1TO1_FIELD_ALIASES: Record<string, string> = {
+  'f-02-sintesi-assi': 'f-02-sintesi-profilo',
+  'f-02-sintesi-profilo': 'f-02-sintesi-assi',
+  'f-07-interventi': 'f-07-interventi-contesto',
+  'f-07-interventi-contesto': 'f-07-interventi',
+  'f-08-adattamenti-discipline': 'f-08-curricolare-obiettivi',
+  'f-08-curricolare-obiettivi': 'f-08-adattamenti-discipline',
+};
+
+function resolveFieldValue(values: Record<string, any>, fieldId: string): any {
+  if (values && values[fieldId] !== undefined && values[fieldId] !== null) {
+    return values[fieldId];
+  }
+  // Fallback esclusivamente per i 3 alias 1:1 accertati di medesimo tipo e significato
+  const alt = STRICT_1TO1_FIELD_ALIASES[fieldId];
+  if (alt && values && values[alt] !== undefined && values[alt] !== null) {
+    return values[alt];
+  }
+  return undefined;
+}
+
 export const PageSurface: React.FC<PageSurfaceProps> = ({
   pageNumber,
   pdfDoc,
@@ -44,9 +65,12 @@ export const PageSurface: React.FC<PageSurfaceProps> = ({
   const [renderStatus, setRenderStatus] = useState<'IDLE' | 'RENDERING' | 'SUCCESS' | 'ERROR'>('IDLE');
   const [renderError, setRenderError] = useState<string | null>(null);
 
+  // PDF points use 72/in; browser print pixels use 96/in.
+  const surfaceScale = mode === 'PRINT' ? 96 / 72 : zoomScale;
+
   // Exact target dimensions in viewport pixels
-  const viewportWidthPx = Math.round(widthPt * zoomScale);
-  const viewportHeightPx = Math.round(heightPt * zoomScale);
+  const viewportWidthPx = widthPt * surfaceScale;
+  const viewportHeightPx = heightPt * surfaceScale;
 
   useEffect(() => {
     let isCancelled = false;
@@ -61,7 +85,7 @@ export const PageSurface: React.FC<PageSurfaceProps> = ({
         const page = await pdfDoc.getPage(pageNumber);
         if (isCancelled) return;
 
-        const viewport = page.getViewport({ scale: zoomScale });
+        const viewport = page.getViewport({ scale: surfaceScale });
         const canvas = canvasRef.current;
         if (!canvas) return;
 
@@ -103,15 +127,17 @@ export const PageSurface: React.FC<PageSurfaceProps> = ({
         }
       }
     };
-  }, [pdfDoc, pageNumber, zoomScale]);
+  }, [pdfDoc, pageNumber, surfaceScale]);
 
   return (
     <div
       id={`document-page-${pageNumber}`}
+      data-render-status={renderStatus}
       className={`relative bg-white shadow-xl border border-stone-300 overflow-hidden mx-auto my-4 transition-transform select-none ${className}`}
       style={{
         width: `${viewportWidthPx}px`,
         height: `${viewportHeightPx}px`,
+        ...(mode === 'PRINT' ? {margin:0,border:0,boxShadow:'none'} : {}),
       }}
     >
       {/* ============================================================ */}
@@ -152,10 +178,10 @@ export const PageSurface: React.FC<PageSurfaceProps> = ({
           <FieldOverlay
             key={f.templateFieldId}
             field={f}
-            value={values[f.templateFieldId]}
+            value={resolveFieldValue(values, f.templateFieldId) ?? f.defaultValue}
             onChange={(val) => onFieldValueChange?.(f.templateFieldId, val)}
             mode={mode}
-            zoomScale={zoomScale}
+            zoomScale={surfaceScale}
             isActive={activeFieldId === f.templateFieldId}
             onFocus={() => onFieldFocus?.(f.templateFieldId)}
           />

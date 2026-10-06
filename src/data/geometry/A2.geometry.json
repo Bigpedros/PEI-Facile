@@ -20,6 +20,7 @@
           "yPt": 65,
           "widthPt": 280,
           "heightPt": 32,
+          "backgroundMode": "OPAQUE_WHITE",
           "anchorText": "[ INTESTAZIONE DELLA SCUOLA ]",
           "derivationMethod": "TEXT_ANCHOR",
           "confidence": 0.95,

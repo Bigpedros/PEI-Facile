@@ -30,6 +30,7 @@ import {
   resolveMinisterialOrder,
   MINISTERIAL_PEI_MODELS,
 } from '../data/peiModelRegistry';
+import { migrateCalibrationToA4Space } from '../data/geometry/geometryTransform';
 
 import A1Data from '../data/geometry/A1.geometry.json';
 import A2Data from '../data/geometry/A2.geometry.json';
@@ -82,6 +83,7 @@ export function mapComponentTypeToFieldType(compType?: string, heightPt = 20): T
     case 'CMP-03':
     case 'SINGLE_CHOICE':
     case 'radio':
+    case 'select':
       return 'SINGLE_CHOICE';
     case 'CMP-04':
     case 'MULTI_CHOICE':
@@ -133,6 +135,8 @@ export function buildMinisterialTemplateSchema(order: 'A1' | 'A2' | 'A3' | 'A4')
         required: masterMeta?.required ?? false,
         overflowPolicy: fieldType === 'TABLE' ? 'EXPANDABLE_OR_TABULAR' : 'RIGID',
         status: 'AUTO_VERIFIED',
+        confidence: f.confidence,
+        calibrationStatus: f.calibrationStatus,
         sourceEvidence: f.anchorText,
         sectionId: masterMeta?.sectionId,
       });
@@ -177,17 +181,13 @@ const CUSTOM_SCHEMAS_CACHE = new Map<string, TemplateSchema>();
  * For custom models, checks memory cache and IndexedDB.
  */
 export async function getTemplateSchema(templateId: string): Promise<TemplateSchema | null> {
-  if (MINISTERIAL_SCHEMAS[templateId]) {
-    return MINISTERIAL_SCHEMAS[templateId];
-  }
-
   if (CUSTOM_SCHEMAS_CACHE.has(templateId)) {
     return CUSTOM_SCHEMAS_CACHE.get(templateId)!;
   }
 
-  // Check localStorage schema registry as secondary fallback
+  // Check localStorage schema registry first so user calibrations are retrieved upon reopening
   try {
-    const raw = localStorage.getItem(`pei_template_schema_${templateId}`);
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(`pei_template_schema_${templateId}`) : null;
     if (raw) {
       const schema = JSON.parse(raw) as TemplateSchema;
       CUSTOM_SCHEMAS_CACHE.set(templateId, schema);
@@ -195,6 +195,10 @@ export async function getTemplateSchema(templateId: string): Promise<TemplateSch
     }
   } catch (err) {
     console.warn(`Could not read schema for ${templateId} from storage:`, err);
+  }
+
+  if (MINISTERIAL_SCHEMAS[templateId]) {
+    return MINISTERIAL_SCHEMAS[templateId];
   }
 
   return null;
@@ -221,6 +225,11 @@ export function createTemplateSchemaFromCandidates(
   sourceSha256: string,
   pages: PageGeometry[],
   candidates: Array<{
+    inputType?: 'checkbox' | 'select';
+    options?: string[];
+    defaultValue?: string | boolean;
+    originalValue?: string | boolean;
+    observedText?: string;
     fieldId: string;
     label?: string;
     semanticKey?: string | null;
@@ -283,6 +292,11 @@ export function createTemplateSchemaFromCandidates(
       overflowPolicy: policy,
       status: calibrationStatus === 'CALIBRATED' ? 'MANUAL_VERIFIED' : 'CANDIDATE',
       sourceEvidence: c.anchorText,
+      inputType: c.inputType,
+      options: c.options,
+      defaultValue: c.defaultValue,
+      originalValue: c.originalValue,
+      observedText: c.observedText,
     };
   });
 
@@ -304,6 +318,48 @@ export function createTemplateSchemaFromCandidates(
     geometryValidationStatus: calibrationStatus === 'CALIBRATED' ? 'PASS' : 'NOT_RUN',
     visualReviewStatus: 'REQUIRED',
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Migrates pre-normalized field geometries of a TemplateSchema into A4 space
+ * while preserving originalBounds and preventing double transformation.
+ */
+export function migrateSchemaFieldsToA4(
+  schema: TemplateSchema,
+  pageTransforms?: Record<number, { scaleX: number; scaleY: number; deltaX: number; deltaY: number; affineMatrix?: [number, number, number, number, number, number] }>
+): TemplateSchema {
+  if (!pageTransforms) return schema;
+
+  const migratedFields = schema.fields.map((f) => {
+    const transform = pageTransforms[f.pageNumber];
+    if (!transform) return f;
+
+    const dummyField = {
+      xPt: f.geometry.xPt,
+      yPt: f.geometry.yPt,
+      widthPt: f.geometry.widthPt,
+      heightPt: f.geometry.heightPt,
+      originalBounds: (f as any).originalBounds,
+    };
+
+    const migrated = migrateCalibrationToA4Space(dummyField, transform);
+    return {
+      ...f,
+      originalBounds: migrated.originalBounds,
+      geometry: {
+        xPt: migrated.xPt,
+        yPt: migrated.yPt,
+        widthPt: migrated.widthPt,
+        heightPt: migrated.heightPt,
+      },
+    };
+  });
+
+  return {
+    ...schema,
+    fields: migratedFields,
     updatedAt: new Date().toISOString(),
   };
 }

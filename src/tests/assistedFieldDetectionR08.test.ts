@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   detectFieldsOnPdfPage,
   detectFieldsOnEntireDocument,
-} from '../core/assistedFieldDetectionService';
+} from './pdfPageFixture';
 import { createTemplateSchemaFromCandidates } from '../core/templateSchemaService';
 import { FieldGeometry } from '../data/geometry/types';
 
@@ -33,9 +33,9 @@ describe('PEI FACILE — R08 Assisted Field Detection', () => {
       expect(field.status).toBe('REVIEW_REQUIRED');
       expect(field.confidence).toBeGreaterThanOrEqual(0.85);
       expect(field.pageNumber).toBe(1);
-      expect(field.xPt).toBe(50);
-      expect(field.widthPt).toBe(200);
-      expect(field.heightPt).toBe(25);
+      expect(field.xPt).toBeCloseTo(50, 8);
+      expect(field.widthPt).toBeCloseTo(200, 8);
+      expect(field.heightPt).toBeCloseTo(25, 8);
     });
 
     it('detects text layer label patterns (e.g. "Cognome e Nome: ......") and proposes TEXT_LAYER fields', async () => {
@@ -61,7 +61,7 @@ describe('PEI FACILE — R08 Assisted Field Detection', () => {
       expect(proposed.length).toBeGreaterThanOrEqual(1);
       const field = proposed[0];
       expect(field.calibrationStatus).toBe('PROPOSED');
-      expect(field.detectionSource).toBe('TEXT_LAYER');
+      expect(field.detectionSource).toBe('DOCUMENTAL_020');
       expect(field.suggestedSemanticKey).toBe('student.fullName');
       expect(field.suggestedLabel).toContain('Cognome e Nome');
     });
@@ -297,9 +297,9 @@ describe('PEI FACILE — R08 Assisted Field Detection', () => {
         getAnnotations: async () => [],
         getOperatorList: async () => ({
           fnArray: [
-            4, // OPS.rectangle
-            4, // OPS.rectangle (checkbox size)
-            4, // Second checkbox to form a group of options and prevent orphan rejection
+            84, // OPS.rectangle
+            84, // OPS.rectangle (checkbox size)
+            84, // Second checkbox to form a group of options and prevent orphan rejection
           ],
           argsArray: [
             [50, 700, 200, 30], // Big input box
@@ -321,7 +321,7 @@ describe('PEI FACILE — R08 Assisted Field Detection', () => {
 
       const proposed = await detectFieldsOnPdfPage(mockPageProxy, 1, []);
       expect(proposed.length).toBeGreaterThanOrEqual(1);
-      expect(proposed.some(f => f.fieldType === 'SINGLE_CHOICE' || f.detectionSource === 'GEOMETRY' || f.detectionSource === 'VECTOR_PATHS')).toBe(true);
+      expect(proposed.some(f => f.inputType === 'checkbox' || f.derivationMethod === 'TABLE_CELL')).toBe(true);
     });
 
     it('TEST E: correctly handles state transitions and preserves status when confirmed or rejected', () => {

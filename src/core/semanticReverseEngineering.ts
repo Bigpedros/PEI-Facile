@@ -8,6 +8,7 @@
 
 import type { TemplateSchema, TemplateSchemaField, TemplateFieldType } from './templateSchemaTypes';
 import type { PeiDocument } from '../types/pei';
+import { suggestSemanticKey, resolveCanonicalSemanticKey } from './semanticCatalog';
 
 export interface SemanticReverseEngineeringDiagnostics {
   baselinePresent: boolean;
@@ -27,29 +28,13 @@ export interface SemanticReverseEngineeringResult {
   diagnostics: SemanticReverseEngineeringDiagnostics;
 }
 
-const SEMANTIC_KEY_ALIASES: Record<string, string[]> = {
-  studentName: ['alunno', 'alunna', 'bambino', 'bambina', 'studente', 'nome', 'cognome', 'codice', 'identificativo'],
-  schoolInstitution: ['scuola', 'istituzione', 'istituto', 'plesso', 'sede', 'circolo'],
-  classSection: ['classe', 'sezione', 'gruppo'],
-  compilationDate: ['data', 'redazione', 'approvazione', 'data del glo', 'glo'],
-  familyContext: ['famiglia', 'genitori', 'contesto familiare', 'prospettiva'],
-  clinicalProfile: ['profilo di funzionamento', 'diagnosi', 'profilo', 'sintesi del profilo', 'icf'],
-  individualProject: ['progetto individuale', 'raccordo', 'art. 14', 'legge 328'],
-  observations: ['osservazioni', 'punti di forza', 'potenzialità'],
-  barriersFacilitators: ['barriere', 'facilitatori', 'contesto', 'fattori ambientali'],
-  supportHours: ['sostegno', 'ore sostegno', 'fabbisogno', 'richiesta ore'],
-  finalReview: ['relazione finale', 'verifica finale', 'esito globale'],
-};
-
 /**
  * Trova la migliore semanticKey per una determinata etichetta locale.
  */
 export function findBestSemanticKey(label: string): string | null {
-  const lower = label.toLowerCase();
-  for (const [key, aliases] of Object.entries(SEMANTIC_KEY_ALIASES)) {
-    if (aliases.some((alias) => lower.includes(alias))) {
-      return key;
-    }
+  const suggestion = suggestSemanticKey(label);
+  if (suggestion.semanticKey && suggestion.confidence >= 0.75) {
+    return resolveCanonicalSemanticKey(suggestion.semanticKey);
   }
   return null;
 }
@@ -107,22 +92,74 @@ export function reverseEngineerSchema(
 
   const calibratedFields: TemplateSchemaField[] = sourceModel.fields.map((field) => {
     const calibratedField = { ...field };
-    const localLabel = field.label;
+    const localLabel = field.label || '';
     const lowerLabel = localLabel.toLowerCase();
 
-    // Guard against invalid/noise/false positive candidates
+    // 0. REJECTED FIELDS PROTECTION: A rejected field must stay rejected and never reactivated automatically
+    const isRejected = field.calibrationStatus === 'REJECTED' || field.status === 'REJECTED';
+    if (isRejected) {
+      calibratedField.calibrationStatus = 'REJECTED';
+      calibratedField.status = 'REJECTED';
+      return calibratedField;
+    }
+
+    // Identify user-controlled fields (modified, confirmed, manually created, or from already approved/calibrated schema)
+    const isUserControlled =
+      sourceModel.calibrationStatus === 'CALIBRATED' ||
+      field.calibrationStatus === 'CONFIRMED' ||
+      field.calibrationStatus === 'MODIFIED' ||
+      field.detectionSource === 'MANUAL_ENTRY' ||
+      field.detectionSource === 'MANUAL_CREATED' ||
+      field.status === 'MANUAL_VERIFIED' ||
+      (field as any).derivationMethod === 'MANUAL_VERIFIED' ||
+      (field as any).isModifiedAfterProposal === true;
+
+    // 1. Semantic Mapping & Inference
+    let matchedKey = findBestSemanticKey(localLabel);
+    if (matchedKey && baseline) {
+      const baselineMatch = baseline.fields.find(
+        (bf) =>
+          bf.semanticKey &&
+          (bf.semanticKey === matchedKey ||
+            resolveCanonicalSemanticKey(bf.semanticKey) === resolveCanonicalSemanticKey(matchedKey))
+      );
+      if (baselineMatch && baselineMatch.semanticKey) {
+        matchedKey = baselineMatch.semanticKey;
+      }
+    }
+    if (matchedKey) {
+      diagnostics.semanticMappingsFound++;
+      // Suggestions are always recorded separately
+      calibratedField.suggestedSemanticKey = matchedKey;
+    }
+
+    if (isUserControlled) {
+      // PRESERVE MANUAL CHOICES: Do NOT overwrite user's semanticKey, backgroundMode, fieldType, geometry or status
+      calibratedField.semanticKey = field.semanticKey || null;
+      calibratedField.backgroundMode = field.backgroundMode || 'TRANSPARENT';
+      calibratedField.fieldType = field.fieldType || 'TEXT_SHORT';
+      calibratedField.calibrationStatus = field.calibrationStatus;
+      calibratedField.status = field.status;
+      // Confidence is preserved as-is: no arbitrary fallback, no automatic boost on user-confirmed fields
+      calibratedField.confidence = field.confidence;
+      diagnostics.localFieldsFound++;
+
+      // 4. SICUREZZA E PRIVACY: Nessuna PII (valore personale) deve MAI essere persistita nello schema
+      calibratedField.defaultValue = undefined;
+      calibratedField.placeholder = undefined;
+      return calibratedField;
+    }
+
+    // Guard against invalid/noise/false positive candidates for unreviewed fields
     if (!isLabelValid(localLabel)) {
       calibratedField.semanticKey = null;
       calibratedField.suggestedSemanticKey = undefined;
       return calibratedField;
     }
 
-    // 1. Semantic Mapping (Sinonimi e varianti con la Baseline Ministeriale)
-    const matchedKey = findBestSemanticKey(localLabel);
+    // For unreviewed automatic fields: assign semantic key if not already bound
     if (matchedKey) {
-      calibratedField.semanticKey = matchedKey;
-      calibratedField.suggestedSemanticKey = matchedKey;
-      diagnostics.semanticMappingsFound++;
+      calibratedField.semanticKey = field.semanticKey || matchedKey;
     } else {
       calibratedField.semanticKey = field.semanticKey || null;
       diagnostics.localFieldsFound++;
@@ -157,42 +194,54 @@ export function reverseEngineerSchema(
       }
     }
 
-    // 3. Inferenza Tipo Campo e Background Mode basati sull'evidenza
+    // 3. Inferenza Tipo Campo e Background Mode basati sull'evidenza per campi non revisionati
     if (hasEvidence && evidenceVal && evidenceVal.length > 0) {
       diagnostics.evidenceConfirmedFields++;
 
       // Inferenza Tipo
-      if (evidenceVal.length > 120) {
-        calibratedField.fieldType = 'TEXT_LONG';
-      } else if (/^\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4}$/.test(evidenceVal)) {
-        calibratedField.fieldType = 'DATE';
-      } else if (evidenceVal.toLowerCase() === 'x' || evidenceVal.toLowerCase() === 'si' || evidenceVal.toLowerCase() === 'no') {
-        calibratedField.fieldType = 'MULTI_CHOICE'; // checkbox/choice
-      } else {
-        calibratedField.fieldType = 'TEXT_SHORT';
+      if (!field.fieldType) {
+        if (evidenceVal.length > 120) {
+          calibratedField.fieldType = 'TEXT_LONG';
+        } else if (/^\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4}$/.test(evidenceVal)) {
+          calibratedField.fieldType = 'DATE';
+        } else if (evidenceVal.toLowerCase() === 'x' || evidenceVal.toLowerCase() === 'si' || evidenceVal.toLowerCase() === 'no') {
+          calibratedField.fieldType = 'MULTI_CHOICE'; // checkbox/choice
+        } else {
+          calibratedField.fieldType = 'TEXT_SHORT';
+        }
       }
 
       // Inferenza Background (OPAQUE_WHITE se sovrascrive un placeholder testuale, TRANSPARENT se linea o area vuota)
-      const hasTextPlaceholder = lowerLabel.includes('[') || lowerLabel.includes(']') || lowerLabel.includes('intestazione') || lowerLabel.includes('placeholder');
-      if (hasTextPlaceholder) {
-        calibratedField.backgroundMode = 'OPAQUE_WHITE';
-        diagnostics.backgroundOpaqueSuggested++;
-      } else {
-        calibratedField.backgroundMode = 'TRANSPARENT';
-        diagnostics.backgroundTransparentSuggested++;
+      if (!field.backgroundMode) {
+        const hasTextPlaceholder = lowerLabel.includes('[') || lowerLabel.includes(']') || lowerLabel.includes('intestazione') || lowerLabel.includes('placeholder');
+        if (hasTextPlaceholder) {
+          calibratedField.backgroundMode = 'OPAQUE_WHITE';
+          diagnostics.backgroundOpaqueSuggested++;
+        } else {
+          calibratedField.backgroundMode = 'TRANSPARENT';
+          diagnostics.backgroundTransparentSuggested++;
+        }
       }
 
-      calibratedField.confidence = Math.min(100, (calibratedField.confidence || 80) + 15);
+      // Confidence: ONLY boost if confidence was already present and finite! Do NOT invent initial confidence if missing!
+      if (calibratedField.confidence !== undefined && calibratedField.confidence !== null && Number.isFinite(calibratedField.confidence)) {
+        const curConf = calibratedField.confidence <= 1.0 ? calibratedField.confidence : calibratedField.confidence / 100;
+        calibratedField.confidence = Math.min(1.0, Math.round((curConf + 0.15) * 100) / 100);
+      } else {
+        calibratedField.confidence = undefined;
+      }
       calibratedField.status = 'AUTO_VERIFIED';
     } else {
       // Fallback deterministico basato su placeholders locali
-      const hasTextPlaceholder = lowerLabel.includes('[') || lowerLabel.includes(']') || lowerLabel.includes('intestazione') || lowerLabel.includes('placeholder');
-      if (hasTextPlaceholder) {
-        calibratedField.backgroundMode = 'OPAQUE_WHITE';
-        diagnostics.backgroundOpaqueSuggested++;
-      } else {
-        calibratedField.backgroundMode = 'TRANSPARENT';
-        diagnostics.backgroundTransparentSuggested++;
+      if (!field.backgroundMode) {
+        const hasTextPlaceholder = lowerLabel.includes('[') || lowerLabel.includes(']') || lowerLabel.includes('intestazione') || lowerLabel.includes('placeholder');
+        if (hasTextPlaceholder) {
+          calibratedField.backgroundMode = 'OPAQUE_WHITE';
+          diagnostics.backgroundOpaqueSuggested++;
+        } else {
+          calibratedField.backgroundMode = 'TRANSPARENT';
+          diagnostics.backgroundTransparentSuggested++;
+        }
       }
     }
 
@@ -206,7 +255,7 @@ export function reverseEngineerSchema(
   const calibratedSchema: TemplateSchema = {
     ...sourceModel,
     fields: calibratedFields,
-    calibrationStatus: 'CALIBRATED',
+    calibrationStatus: sourceModel.calibrationStatus || 'REVIEW_REQUIRED',
     updatedAt: new Date().toISOString(),
   };
 

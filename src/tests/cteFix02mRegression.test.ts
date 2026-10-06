@@ -16,7 +16,7 @@ describe('CTE-FIX-02M — Regression Test for Custom Model Selection & Resolutio
   });
 
   it('demonstrates that custom model with schoolOrder A1 is identified correctly and remains custom/institution', async () => {
-    const dummyBytes = new Uint8Array([1, 2, 3, 4]);
+    const dummyBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 1, 2, 3, 4]);
     const expectedSha = await computeSha256(dummyBytes);
 
     // 1. Setup Custom Model Definition (ID = model_custom_roma_test, schoolOrder = A1)

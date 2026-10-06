@@ -79,8 +79,32 @@ export interface ResolveTemplateSourceOptions {
   schoolOrder?: SchoolOrder;
   customModels?: PeiModelDefinition[];
   providedBinary?: Uint8Array | null;
+  providedSchema?: TemplateSchema;
+  providedBinarySha256?: string;
   skipHashCheck?: boolean;
   mockCorruptedHash?: boolean;
+}
+
+/**
+ * Checks if a byte array contains valid PDF binary magic bytes (%PDF-).
+ * Inspects up to the first 1024 bytes to tolerate leading BOM/whitespace.
+ */
+export function isPdfBinary(data?: Uint8Array | null): boolean {
+  if (!data || data.byteLength < 5) return false;
+  const maxInspect = Math.min(data.byteLength, 1024);
+  const slice = data.subarray(0, maxInspect);
+  for (let i = 0; i <= maxInspect - 5; i++) {
+    if (
+      slice[i] === 0x25 && // %
+      slice[i + 1] === 0x50 && // P
+      slice[i + 2] === 0x44 && // D
+      slice[i + 3] === 0x46 && // F
+      slice[i + 4] === 0x2d    // -
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -159,6 +183,17 @@ async function loadBuiltInAssetBytes(sourcePath: string): Promise<Uint8Array> {
 export async function resolveTemplateSource(
   options: ResolveTemplateSourceOptions
 ): Promise<ResolvedTemplateSource> {
+  if (options.providedSchema && options.providedBinary) {
+    const schema=options.providedSchema;
+    if (!isPdfBinary(options.providedBinary)) throw new TemplateSourceError('TEMPLATE_SOURCE_MISSING','Sfondo acquisito non PDF.');
+    const actual=await computeSha256(options.providedBinary);
+    if (!options.providedBinarySha256 || actual!==options.providedBinarySha256) throw new TemplateSourceError('TEMPLATE_INTEGRITY_MISMATCH','Sfondo acquisito e hash non corrispondono.');
+    const schoolOrder=options.schoolOrder||'A2';
+    const definition = options.modelDef || {id:schema.templateId,name:'Documento acquisito',schoolOrder,isMinisterial:false,format:'PDF',status:'attivo'} as PeiModelDefinition;
+    const geometry:ModelGeometry={schemaVersion:'1.0.0',modelId:schema.templateId,schoolOrder,modelName:definition.name,sourcePdf:schema.sourcePdfFileName,sourcePdfSha256:actual,totalPages:schema.totalPages,
+      pages:schema.pages.map(p=>({...p,fields:schema.fields.filter(f=>f.pageNumber===p.pageNumber).map(f=>({fieldId:f.templateFieldId,label:f.label,...f.geometry,pageNumber:p.pageNumber,anchorText:f.sourceEvidence||'',derivationMethod:'TEXT_ANCHOR',status:'REVIEW_REQUIRED',confidence:f.confidence}))}))};
+    return {sourceKind:'USER_IMPORTED',sourceBinary:options.providedBinary,sourceSha256:actual,schoolOrder,templateId:schema.templateId,templateSchema:schema,geometryMapping:geometry,modelDef:definition,calibrationStatus:schema.calibrationStatus,calibrationOrigin:'USER_REVIEW'};
+  }
   const {
     modelDef: inputModelDef,
     modelId: inputModelId,
@@ -178,15 +213,50 @@ export async function resolveTemplateSource(
     inputModelDef?.templateId;
 
   // 2. Resolve model definition from registry or customModels
-  const resolvedModelDef =
+  let resolvedModelDef =
     inputModelDef ||
     (candidateIdentifier ? findModelDefinition(candidateIdentifier, customModels) : null);
+
+  // If not found in memory, query IndexedDB directly for custom template records
+  if (!resolvedModelDef && candidateIdentifier && !candidateIdentifier.startsWith('MINISTERIAL_') && candidateIdentifier !== 'A1' && candidateIdentifier !== 'A2' && candidateIdentifier !== 'A3' && candidateIdentifier !== 'A4') {
+    try {
+      const { getCustomTemplate } = await import('./templateStorage');
+      const customRecord = await getCustomTemplate(candidateIdentifier, true);
+      if (customRecord) {
+        resolvedModelDef = {
+          id: customRecord.templateId,
+          name: customRecord.name,
+          schoolOrder: customRecord.schoolOrder as SchoolOrder,
+          originType: 'TERRITORIAL',
+          originName: 'Modello Personalizzato / Acquisito',
+          version: customRecord.schemaVersion || '1.0',
+          format: 'PDF',
+          status: 'attivo',
+          isDefault: false,
+          isMinisterial: false,
+          sourceKind: 'USER_IMPORTED',
+          sourceHash: customRecord.sourceSha256,
+          sourceSha256: customRecord.sourceSha256,
+          templateId: customRecord.templateId,
+          calibrationStatus: customRecord.calibrationStatus || 'CALIBRATED',
+        };
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }
 
   // Check if explicitly custom model definition exists
   const isExplicitCustom =
     resolvedModelDef?.sourceKind === 'USER_IMPORTED' ||
     resolvedModelDef?.isMinisterial === false ||
-    (resolvedModelDef !== null && resolvedModelDef !== undefined && resolvedModelDef.originType !== 'MINISTERIAL');
+    (resolvedModelDef !== null && resolvedModelDef !== undefined && resolvedModelDef.originType !== 'MINISTERIAL') ||
+    (candidateIdentifier !== undefined && candidateIdentifier !== null && (
+      candidateIdentifier.startsWith('tpl_') ||
+      candidateIdentifier.startsWith('custom_') ||
+      candidateIdentifier.startsWith('model_custom') ||
+      candidateIdentifier.startsWith('model_demo')
+    ));
 
   // Check if ministerial built-in:
   // Must NOT be explicit custom, AND must match ministerial model definition or explicit ministerial identifier
@@ -250,16 +320,16 @@ export async function resolveTemplateSource(
             visualReviewStatus: 'REQUIRED',
           };
 
-    // Retrieve PDF bytes directly from provided canonical binary or load bundled asset
+    // Retrieve PDF bytes directly from provided canonical binary if valid PDF or load bundled asset
     let bytes: Uint8Array;
     let effectiveSha: string = canonical.sourceSha256;
 
-    if (providedBinary && providedBinary.byteLength > 0) {
-      // CTE-FIX-01: Canonical document pass-through for acquired/normalized documents
+    if (providedBinary && providedBinary.byteLength > 0 && isPdfBinary(providedBinary)) {
+      // Canonical document pass-through for acquired/normalized PDF documents
       bytes = providedBinary;
       effectiveSha = await computeSha256(bytes);
     } else {
-      // Direct ministerial creation: load built-in asset and verify integrity
+      // Direct ministerial creation or DOCX acquisition: load built-in asset and verify integrity
       bytes = await loadBuiltInAssetBytes(canonical.sourcePath);
 
       if (!skipHashCheck) {
@@ -331,21 +401,62 @@ export async function resolveTemplateSource(
     );
   }
 
-  // Retrieve PDF bytes from IndexedDB or provided binary
+  // Retrieve PDF bytes from IndexedDB or provided binary if valid PDF
   let bytes: Uint8Array | null = null;
+  let isNonPdfProvided = false;
+
   if (providedBinary && providedBinary.byteLength > 0) {
-    bytes = providedBinary;
-  } else {
-    const hashToLookup = modelDef.sourceSha256 || modelDef.sourceHash;
-    if (hashToLookup) {
-      bytes = await getTemplatePdfBinary(hashToLookup);
+    if (isPdfBinary(providedBinary)) {
+      bytes = providedBinary;
+    } else {
+      isNonPdfProvided = true;
+    }
+  }
+
+  if (!bytes) {
+    const normalizedHash = modelDef.normalizedSha256;
+    const sourceHash = modelDef.sourceSha256 || modelDef.sourceHash;
+
+    let lookupKeys: string[];
+    if (normalizedHash) {
+      // Document is normalized: strictly look for normalized binary first, then fallback to model id keys
+      lookupKeys = [
+        normalizedHash,
+        `normalized_${normalizedHash}`,
+        `${modelDef.id}_normalized`,
+        sourceHash ? `normalized_${sourceHash}` : null,
+        modelDef.id,
+        sourceHash,
+        sourceHash ? `original_${sourceHash}` : null,
+        `${modelDef.id}_original`,
+      ].filter(Boolean) as string[];
+    } else {
+      // Document is NOT normalized (or normalization failed/unnormalized): strictly look for original binary keys
+      lookupKeys = [
+        sourceHash,
+        sourceHash ? `original_${sourceHash}` : null,
+        `${modelDef.id}_original`,
+        modelDef.id,
+      ].filter(Boolean) as string[];
+    }
+
+    for (const key of lookupKeys) {
+      const stored = await getTemplatePdfBinary(key);
+      if (stored && isPdfBinary(stored)) {
+        bytes = stored;
+        break;
+      }
     }
   }
 
   if (!bytes || bytes.byteLength === 0) {
     throw new TemplateSourceError(
       'TEMPLATE_SOURCE_MISSING',
-      `TEMPLATE SOURCE MISSING — Impossibile reperire il file PDF binario da IndexedDB per il modello "${modelDef.name}".`,
+      `TEMPLATE SOURCE MISSING — Impossibile reperire un file PDF valido per il modello personalizzato "${modelDef.name}".${
+        isNonPdfProvided
+          ? ' Il file sorgente fornito è in formato non-PDF (es. DOCX). Per la resa grafica visiva di un modello personalizzato è richiesto un file PDF o la relativa conversione.'
+          : ''
+      }`,
       {
         modelId: modelDef.id,
         sourceHash: modelDef.sourceSha256 || modelDef.sourceHash,
@@ -353,19 +464,22 @@ export async function resolveTemplateSource(
     );
   }
 
-  // Integrity check for custom model
-  const expectedHash = modelDef.sourceSha256 || modelDef.sourceHash;
-  if (!skipHashCheck && expectedHash) {
+  // Integrity check for custom model: verify against normalized or source hash
+  const expectedNormalized = modelDef.normalizedSha256;
+  const expectedSource = isNonPdfProvided ? null : (modelDef.sourceSha256 || modelDef.sourceHash);
+  if (!skipHashCheck && (expectedNormalized || expectedSource)) {
     const actualSha = mockCorruptedHash
       ? '0000000000000000000000000000000000000000000000000000000000000000'
       : await computeSha256(bytes);
 
-    if (actualSha !== expectedHash) {
+    const isValid = (expectedNormalized && actualSha === expectedNormalized) || (expectedSource && actualSha === expectedSource);
+    if (!isValid) {
       throw new TemplateSourceError(
         'TEMPLATE_INTEGRITY_MISMATCH',
-        `TEMPLATE INTEGRITY MISMATCH — L'hash SHA-256 del modello custom non corrisponde alla definizione registrata.\nAtteso:  ${expectedHash}\nRilevato: ${actualSha}`,
+        `TEMPLATE INTEGRITY MISMATCH — L'hash SHA-256 del modello custom non corrisponde né all'impronta normalizzata (${expectedNormalized || 'N/D'}) né a quella originale (${expectedSource || 'N/D'}). Rilevato: ${actualSha}`,
         {
-          expectedSha: expectedHash,
+          expectedNormalized,
+          expectedSource,
           actualSha,
           modelId: modelDef.id,
         }
@@ -375,13 +489,14 @@ export async function resolveTemplateSource(
 
   // Retrieve or build TemplateSchema
   const effectiveTplId = modelDef.templateId || modelDef.id;
-  const templateSchema = await getTemplateSchema(effectiveTplId);
+  let templateSchema = await getTemplateSchema(effectiveTplId);
   if (!templateSchema) {
-    throw new TemplateSourceError(
-      'TEMPLATE_SOURCE_MISSING',
-      `TEMPLATE SOURCE MISSING — Schema geometrico non trovato per il modello "${modelDef.name}".`
-    );
+    const order = modelDef.schoolOrder || 'A1';
+    templateSchema = MINISTERIAL_SCHEMAS[order] || buildMinisterialTemplateSchema(order);
   }
+
+  const sourceHash = modelDef.sourceSha256 || modelDef.sourceHash || '';
+  const normalizedHash = modelDef.normalizedSha256;
 
   const geometryMapping: ModelGeometry = {
     schemaVersion: '1.0.0',
@@ -389,7 +504,8 @@ export async function resolveTemplateSource(
     schoolOrder: modelDef.schoolOrder,
     modelName: modelDef.name,
     sourcePdf: templateSchema.sourcePdfFileName || `${modelDef.id}.pdf`,
-    sourcePdfSha256: expectedHash || '',
+    sourcePdfSha256: sourceHash,
+    normalizedPdfSha256: normalizedHash,
     totalPages: templateSchema.totalPages,
     pages: templateSchema.pages.map((p) => ({
       pageNumber: p.pageNumber,
@@ -416,7 +532,7 @@ export async function resolveTemplateSource(
   return {
     sourceKind: 'USER_IMPORTED',
     sourceBinary: bytes,
-    sourceSha256: expectedHash || '',
+    sourceSha256: normalizedHash || sourceHash || '',
     schoolOrder: modelDef.schoolOrder,
     templateId: effectiveTplId,
     templateSchema,

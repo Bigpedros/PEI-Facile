@@ -230,6 +230,16 @@ export function resolveMinisterialOrder(idOrAlias?: string | null): SchoolOrder 
   const trimmed = idOrAlias.trim();
   const upper = trimmed.toUpperCase();
 
+  // Custom model IDs must never be resolved as ministerial orders
+  if (
+    trimmed.startsWith('tpl_') ||
+    trimmed.startsWith('custom_') ||
+    trimmed.startsWith('model_custom') ||
+    trimmed.startsWith('model_demo')
+  ) {
+    return null;
+  }
+
   for (const [order, info] of Object.entries(MINISTERIAL_CANONICAL_MAP)) {
     if (order === upper) return order as SchoolOrder;
     if (info.modelId === trimmed || info.modelId.toUpperCase() === upper) return order as SchoolOrder;

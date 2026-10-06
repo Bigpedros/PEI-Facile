@@ -390,6 +390,17 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             >
               Anteprima di Stampa
             </button>
+            {hasOpenDocument && onOpenCalibration && (
+              <button
+                type="button"
+                onClick={onOpenCalibration}
+                className="px-2.5 py-1 rounded text-xs font-bold text-amber-800 dark:text-amber-300 hover:bg-amber-900/10 border border-amber-800/20 inline-flex items-center gap-1 cursor-pointer transition-all"
+                title="Apri il calibratore geometrico per posizionamento campi e sfondo opaco/trasparente"
+              >
+                <Compass className="w-3.5 h-3.5 text-amber-600" />
+                <span>Calibratore</span>
+              </button>
+            )}
           </div>
 
           {/* Selettore Modello Globale: A1 - A4, Modello Custom se attivo, Altro modello… */}

@@ -1,0 +1,86 @@
+{
+  "started": "2026-10-04T22:04:38.171Z",
+  "checks": [
+    "App React avviata",
+    "PDF A1: tutte le 12 pagine, testo nativo conservato, OCR delle immagini ove presenti, coordinate e proposte",
+    "PDF misto sintetico: conservazione testo nativo e lettura valore raster",
+    "IndexedDB: salvataggio, reload, riapertura schema e binari originali/normalizzati con hash corrispondenti",
+    "Download: stessi byte del documento salvato",
+    "AcroForm reale: valore esistente preservato",
+    "Revisione/correzione proprietà, protezione campo MODIFIED, compilazione in PageSurface ed esportazione PDF browser",
+    "Documento acquisito: schema proprio, ripristino JSON, DocumentSurface e rifiuto hash discordante",
+    "Roma scansito: acquisizione reale di tutte le 12 pagine, raster e OCR",
+    "PEI completo Roma: salvataggio IndexedDB dei PDF, metadata localStorage compatto, reload e ripristino valori/schema/hash",
+    "App reale: Apri PEI Esistente ricarica il documento Roma salvato e la sua superficie"
+  ],
+  "errors": [],
+  "native": {
+    "pages": 12,
+    "source": [
+      "ocr",
+      "ocr",
+      "ocr",
+      "ocr",
+      "ocr",
+      "ocr",
+      "ocr",
+      "ocr",
+      "ocr",
+      "ocr",
+      "ocr",
+      "ocr"
+    ],
+    "textChars": 23477,
+    "candidates": 71,
+    "bytes": 2067216,
+    "nativeTokensEveryPage": true,
+    "boundsValid": true
+  },
+  "roma": {
+    "pages": 12,
+    "source": [
+      "ocr",
+      "ocr",
+      "ocr",
+      "ocr",
+      "ocr",
+      "ocr",
+      "ocr",
+      "ocr",
+      "ocr",
+      "ocr",
+      "ocr",
+      "ocr"
+    ],
+    "chars": [
+      2164,
+      2484,
+      1931,
+      1354,
+      1377,
+      440,
+      2054,
+      1266,
+      2663,
+      2227,
+      2870,
+      2075
+    ],
+    "hash": "bfa11c5671b8365967cda8b3efa5b2be335c96ddba0c88fe6629b3f327166d8e",
+    "fields": [
+      23,
+      8,
+      23,
+      13,
+      8,
+      1,
+      0,
+      7,
+      4,
+      4,
+      2,
+      2
+    ]
+  },
+  "finished": "2026-10-04T22:06:33.524Z"
+}

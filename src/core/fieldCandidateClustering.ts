@@ -94,6 +94,27 @@ export function isValidLabel(label: string): boolean {
   if (noise.includes(lower)) {
     return false;
   }
+
+  // 4. Static form titles and header text (belong to official PDF background layout, not fillable fields)
+  const staticFormHeaders = [
+    "scuola dell'infanzia",
+    'scuola dell infanzia',
+    'scuola primaria',
+    'scuola secondaria di i grado',
+    'scuola secondaria di ii grado',
+    'allegato a1',
+    'allegato a2',
+    'allegato a3',
+    'allegato a4',
+    "ministero dell'istruzione",
+    "ministero dell'istruzione e del merito",
+    'piano educativo individualizzato',
+    'linee guida',
+  ];
+  if (staticFormHeaders.some((hdr) => lower.includes(hdr))) {
+    return false;
+  }
+
   if (lower === 'data') {
     // Structural prompt "Data:" or capitalized "Data" is valid; lowercase "data" in sentence is noise
     if (!clean.endsWith(':') && clean === 'data') {
@@ -880,9 +901,15 @@ export function clusterAndRefineCandidates(
         (it) => box.y - (it.yTop + it.h) >= 0 && box.y - (it.yTop + it.h) < 20 && Math.abs(it.x - box.x) < 80
       );
 
-      const hasLabelNear = (rightLabel && isValidLabel(rightLabel.str)) ||
-                           (leftLabel && isValidLabel(leftLabel.str)) ||
-                           (aboveLabel && isValidLabel(aboveLabel.str));
+      const rawChoiceLabel = (rightLabel && isValidLabel(rightLabel.str))
+        ? rightLabel.str.trim()
+        : (leftLabel && isValidLabel(leftLabel.str))
+        ? leftLabel.str.trim()
+        : (aboveLabel && isValidLabel(aboveLabel.str))
+        ? aboveLabel.str.trim()
+        : '';
+
+      const hasLabelNear = rawChoiceLabel.length > 0;
 
       const hasGroupCheckbox = rawRects.some(
         (other) => other !== box &&
@@ -890,18 +917,14 @@ export function clusterAndRefineCandidates(
         (Math.abs(other.y - box.y) < 16 || Math.abs(other.x - box.x) < 100)
       );
 
-      // Orphan checkbox check: must have near label or group checkbox context
-      if (!hasLabelNear && !hasGroupCheckbox) {
+      // Structural discrimination: Checkbox MUST have a valid associated textual label (not an isolated stamp/drawing)
+      if (!hasLabelNear || !rawChoiceLabel || !isValidLabel(rawChoiceLabel)) {
         filteredLowConfidenceCount++;
         discardedReasons.LOW_CONFIDENCE++;
         continue;
       }
 
-      const rawChoiceLabel = rightLabel ? rightLabel.str.trim() :
-                             leftLabel ? leftLabel.str.trim() :
-                             aboveLabel ? aboveLabel.str.trim() : '';
-
-      const choiceLabel = rawChoiceLabel || 'Opzione';
+      const choiceLabel = rawChoiceLabel;
       const assocMethod: LabelAssociationMethod = rightLabel || leftLabel ? 'LEFT_NEIGHBOR' : aboveLabel ? 'TOP_HEADER' : 'UNASSOCIATED';
 
       candidatePool.push({

@@ -778,3 +778,83 @@ export function calculateGeometryFitScore(
   };
 }
 
+/**
+ * Migrates manual field calibration coordinates created on pre-normalized original documents
+ * into the A4 canonical page space, preserving distinct originalBounds and transforming all 4 vertices.
+ */
+export function migrateCalibrationToA4Space<T extends { xPt: number; yPt: number; widthPt: number; heightPt: number; originalBounds?: any; isManuallyAdjusted?: boolean }>(
+  field: T,
+  transform: {
+    scaleX: number;
+    scaleY: number;
+    deltaX: number;
+    deltaY: number;
+    affineMatrix?: [number, number, number, number, number, number];
+  }
+): T {
+  // If the user has already manually adjusted this field in A4 space, preserve their manual edits
+  if (field.isManuallyAdjusted && field.originalBounds) {
+    return { ...field };
+  }
+
+  // Always read from originalBounds to prevent double transformation
+  const originalBounds = field.originalBounds || {
+    xPt: field.xPt,
+    yPt: field.yPt,
+    widthPt: field.widthPt,
+    heightPt: field.heightPt,
+  };
+
+  const x0 = originalBounds.xPt;
+  const y0 = originalBounds.yPt;
+  const w0 = originalBounds.widthPt;
+  const h0 = originalBounds.heightPt;
+
+  if (transform.affineMatrix && transform.affineMatrix.length === 6) {
+    const [a, b, c, d, e, f] = transform.affineMatrix;
+
+    const corners = [
+      { x: x0, y: y0 },
+      { x: x0 + w0, y: y0 },
+      { x: x0 + w0, y: y0 + h0 },
+      { x: x0, y: y0 + h0 },
+    ];
+
+    const transformedCorners = corners.map((pt) => ({
+      x: a * pt.x + c * pt.y + e,
+      y: b * pt.x + d * pt.y + f,
+    }));
+
+    const xMins = transformedCorners.map((pt) => pt.x);
+    const yMins = transformedCorners.map((pt) => pt.y);
+
+    const xMin = Math.min(...xMins);
+    const xMax = Math.max(...xMins);
+    const yMin = Math.min(...yMins);
+    const yMax = Math.max(...yMins);
+
+    return {
+      ...field,
+      originalBounds,
+      xPt: Math.round(xMin * 100) / 100,
+      yPt: Math.round(yMin * 100) / 100,
+      widthPt: Math.round((xMax - xMin) * 100) / 100,
+      heightPt: Math.round((yMax - yMin) * 100) / 100,
+    };
+  }
+
+  const xA4 = Math.round((x0 * transform.scaleX + transform.deltaX) * 100) / 100;
+  const yA4 = Math.round((y0 * transform.scaleY + transform.deltaY) * 100) / 100;
+  const wA4 = Math.round((w0 * transform.scaleX) * 100) / 100;
+  const hA4 = Math.round((h0 * transform.scaleY) * 100) / 100;
+
+  return {
+    ...field,
+    originalBounds,
+    xPt: xA4,
+    yPt: yA4,
+    widthPt: wA4,
+    heightPt: hA4,
+  };
+}
+

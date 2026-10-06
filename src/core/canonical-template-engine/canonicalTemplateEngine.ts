@@ -141,7 +141,7 @@ export class CanonicalTemplateEngine {
     const t0 = performance.now();
     let analysis: DocumentAnalysis;
     try {
-      analysis = await this.analyzer.analyze(pdfBuffer);
+      analysis = await this.analyzer.analyze(new Uint8Array(pdfBuffer).slice().buffer);
     } catch (err: unknown) {
       // In case of unreadable / malformed buffer
       const errMsg = err instanceof Error ? err.message : String(err);

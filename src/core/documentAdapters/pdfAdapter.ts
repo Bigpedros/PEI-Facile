@@ -1,3 +1,4 @@
+import '../pdfWorker';
 /**
  * @license
  * PEI FACILE — PDF Document Format Adapter
@@ -19,12 +20,7 @@ import {
 import { analyzeDocumentImage } from '../ocrEngine';
 
 // Ensure PDF.js worker is properly configured
-if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.min.mjs',
-    import.meta.url
-  ).toString();
-}
+
 
 export class PdfFormatAdapter implements DocumentFormatAdapter {
   format = 'PDF' as const;
@@ -58,8 +54,9 @@ export class PdfFormatAdapter implements DocumentFormatAdapter {
     }
 
     const normalizedData = await normalizeInputData(rawInput);
+    const pdfDataCopy = new Uint8Array(normalizedData).slice();
     const loadingTask = pdfjsLib.getDocument({
-      data: normalizedData,
+      data: pdfDataCopy,
       useSystemFonts: true,
       isEvalSupported: false,
     });
@@ -118,8 +115,13 @@ export class PdfFormatAdapter implements DocumentFormatAdapter {
           pageConfidence = res.confidence;
         } else {
           // Convert canvas to File and run OCR with progress forwarding
-          const dataUrl = canvas.toDataURL ? canvas.toDataURL('image/png') : '';
-          const arr = dataUrl.split(',');
+          let dataUrl = '';
+          try {
+            dataUrl = canvas && typeof canvas.toDataURL === 'function' ? canvas.toDataURL('image/png') : '';
+          } catch {
+            dataUrl = '';
+          }
+          const arr = (dataUrl || '').split(',');
           const bstr = atob(arr[1] || '');
           let n = bstr.length;
           const u8arr = new Uint8Array(n);
@@ -128,26 +130,32 @@ export class PdfFormatAdapter implements DocumentFormatAdapter {
           }
           const imageFile = new File([u8arr], `page-${pageNum}.png`, { type: 'image/png' });
 
-          const ocrRes = await analyzeDocumentImage(imageFile, {
-            onProgress: (stage, subP) => {
-              if (onProgress) {
-                const calculatedPercent =
-                  pageBasePercent + Math.round((subP / 100) * (pageEndPercent - pageBasePercent));
-                onProgress({
-                  currentPage: pageNum,
-                  totalPages,
-                  percentage: Math.min(calculatedPercent, pageEndPercent),
-                  stage: 'OCR',
-                  stageLabel: 'OCR',
-                  detail: `Pagina ${pageNum} di ${totalPages} — ${stage} (${subP}%)`,
-                  subProgress: subP,
-                });
-              }
-            },
-          });
+          try {
+            const ocrRes = await analyzeDocumentImage(imageFile, {
+              onProgress: (stage, subP) => {
+                if (onProgress) {
+                  const calculatedPercent =
+                    pageBasePercent + Math.round((subP / 100) * (pageEndPercent - pageBasePercent));
+                  onProgress({
+                    currentPage: pageNum,
+                    totalPages,
+                    percentage: Math.min(calculatedPercent, pageEndPercent),
+                    stage: 'OCR',
+                    stageLabel: 'OCR',
+                    detail: `Pagina ${pageNum} di ${totalPages} — ${stage} (${subP}%)`,
+                    subProgress: subP,
+                  });
+                }
+              },
+            });
 
-          finalText = ocrRes.rawText;
-          pageConfidence = ocrRes.confidence;
+            finalText = ocrRes.rawText;
+            pageConfidence = ocrRes.confidence;
+          } catch (ocrErr) {
+            console.warn('[PdfFormatAdapter] OCR execution fallback:', ocrErr);
+            finalText = nativeText || '';
+            pageConfidence = 60;
+          }
         }
       } else {
         // MIXED_UNRESOLVED: Preserve native text

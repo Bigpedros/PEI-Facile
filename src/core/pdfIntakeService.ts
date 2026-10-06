@@ -1,3 +1,4 @@
+import './pdfWorker';
 /**
  * @license
  * PEI FACILE — PDF Intake Service (Blocco 1 R1)
@@ -15,12 +16,7 @@ import {
 } from './pdfIntakeTypes';
 
 // Configurazione standard del worker di PDF.js per ambienti browser e bundler
-if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.min.mjs',
-    import.meta.url
-  ).toString();
-}
+
 
 export const DEFAULT_INTAKE_OPTIONS: Required<Omit<PdfIntakeOptions, 'customOcrRunner'>> = {
   renderScale: 2.0, // Base PDF.js 72 pt -> 2.0x corrisponde a ~144 DPI (ottimale per bilanciamento RAM/accuratezza OCR)
@@ -29,17 +25,20 @@ export const DEFAULT_INTAKE_OPTIONS: Required<Omit<PdfIntakeOptions, 'customOcrR
 /**
  * Normalizza il buffer di input in Uint8Array.
  */
-export function normalizeInputData(input: ArrayBuffer | Uint8Array | Blob | File): Promise<Uint8Array> {
-  if (input instanceof Uint8Array || ArrayBuffer.isView(input)) {
+export function normalizeInputData(input: ArrayBuffer | Uint8Array | Blob | File | any): Promise<Uint8Array> {
+  if (!input) {
+    return Promise.reject(new Error('Input non valido o nullo.'));
+  }
+  if (ArrayBuffer.isView(input) || (typeof input === 'object' && typeof input.byteOffset === 'number' && input.buffer)) {
     return Promise.resolve(new Uint8Array(input.buffer, input.byteOffset, input.byteLength));
   }
-  if (input instanceof ArrayBuffer || (input && typeof (input as any).byteLength === 'number' && !(input as any).buffer)) {
-    return Promise.resolve(new Uint8Array(input as ArrayBuffer));
+  if (input instanceof ArrayBuffer || (typeof input === 'object' && typeof input.byteLength === 'number' && typeof input.slice === 'function')) {
+    return Promise.resolve(new Uint8Array(input));
   }
-  if (typeof Blob !== 'undefined' && (input instanceof Blob || typeof (input as any)?.arrayBuffer === 'function')) {
-    return (input as Blob).arrayBuffer().then(ab => new Uint8Array(ab));
+  if (typeof input.arrayBuffer === 'function') {
+    return Promise.resolve(input.arrayBuffer()).then((ab: ArrayBuffer) => new Uint8Array(ab));
   }
-  throw new Error('Formato dati non supportato. Atteso Uint8Array, ArrayBuffer o Blob/File.');
+  return Promise.reject(new Error('Formato dati non supportato. Atteso Uint8Array, ArrayBuffer o Blob/File.'));
 }
 
 /**
@@ -147,56 +146,25 @@ export async function renderPdfPageToCanvas(
   const width = Math.floor(viewport.width) || 800;
   const height = Math.floor(viewport.height) || 1100;
 
-  if (typeof document !== 'undefined' && document.createElement) {
-    const canvas = document.createElement('canvas');
+  let canvas: HTMLCanvasElement;
+  if (typeof window === 'undefined' && typeof process !== 'undefined' && process.versions?.node) {
+    const pkg = '@napi-rs/canvas';
+    const native = await import(/* @vite-ignore */ pkg);
+    for (const name of ['DOMMatrix', 'ImageData', 'Path2D']) {
+      if (!(globalThis as any)[name]) (globalThis as any)[name] = native[name];
+    }
+    canvas = native.createCanvas(width, height) as unknown as HTMLCanvasElement;
+  } else if (typeof document !== 'undefined') {
+    canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
-    const context = canvas.getContext('2d');
-    if (context) {
-      const renderContext = {
-        canvasContext: context as unknown as CanvasRenderingContext2D,
-        viewport,
-      };
-      await page.render(renderContext).promise;
-      return canvas;
-    }
+  } else {
+    throw new Error('Rendering PDF richiede un canvas reale. Nessun fallback bianco consentito.');
   }
-
-  // Supporto fallback per ambienti Node / Headless
-  const mockContext = {
-    drawImage: () => {},
-    putImageData: () => {},
-    getImageData: (sx: number, sy: number, sw: number, sh: number) => {
-      const data = new Uint8ClampedArray(sw * sh * 4);
-      data.fill(255);
-      return { data, width: sw, height: sh, colorSpace: 'srgb' } as ImageData;
-    },
-    fillRect: () => {},
-    clearRect: () => {},
-  };
-
-  const canvasObj = {
-    width,
-    height,
-    getContext: (type: string) => (type === '2d' ? mockContext : null),
-  } as unknown as HTMLCanvasElement;
-
-  try {
-    const renderContext = {
-      canvasContext: mockContext as unknown as CanvasRenderingContext2D,
-      viewport,
-    };
-    if (page.render) {
-      const renderTask = page.render(renderContext);
-      if (renderTask && renderTask.promise) {
-        await renderTask.promise;
-      }
-    }
-  } catch {
-    // Non-blocking in headless testing
-  }
-
-  return canvasObj;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Contesto canvas PDF non disponibile.');
+  await page.render({ canvasContext: context, viewport }).promise;
+  return canvas;
 }
 
 /**
@@ -216,6 +184,7 @@ export async function processPdfDocument(
     data: normalizedData,
     useSystemFonts: true,
     isEvalSupported: false,
+    disableWorker: true,
   });
 
   const pdfDoc = await loadingTask.promise;

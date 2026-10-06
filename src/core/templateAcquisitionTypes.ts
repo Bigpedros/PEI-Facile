@@ -26,6 +26,11 @@ export interface UnresolvedRegion {
 }
 
 export interface CandidateFieldGeometry extends FieldGeometry {
+  inputType?: 'checkbox' | 'select';
+  options?: string[];
+  defaultValue?: string | boolean;
+  originalValue?: string | boolean;
+  observedText?: string;
   evidence?: string;
   suggestedSectionId?: string;
   fieldType?: any;
@@ -35,10 +40,28 @@ export interface CandidateFieldGeometry extends FieldGeometry {
   required?: boolean;
 }
 
+import type { PageCoordinateTransform, AcquisitionProgress } from '../types/documentAcquisitionTypes';
+import type { RectificationMetrics } from './geometry/geometricRectificationEngine';
+
+export class AcquisitionAbortedError extends Error {
+  constructor(message = 'Acquisizione annullata dall’utente.') {
+    super(message);
+    this.name = 'AcquisitionAbortedError';
+  }
+}
+
+export interface AcquireTemplateOptions {
+  forceReanalysis?: boolean;
+  onProgress?: (progress: AcquisitionProgress) => void;
+  signal?: AbortSignal;
+}
+
 export interface TemplateAcquisitionResult {
   templateId: string;
   sourceFileName: string;
   sourceSha256: string;
+  normalizedSha256?: string;
+  normalizationSucceeded?: boolean;
   fileSizeBytes: number;
   pageCount: number;
   pages: PageGeometry[];
@@ -49,6 +72,15 @@ export interface TemplateAcquisitionResult {
   isMinisterialFastPath: boolean;
   warnings: string[];
   docxNotice?: 'DOCX CANONICALIZATION: NOT IMPLEMENTED';
+  canonicalDocument?: Uint8Array;
+  coordinateTransform?: PageCoordinateTransform & { pageTransforms?: PageCoordinateTransform[] };
+  engineUsed?: string;
+  globalSkewDegrees?: number;
+  perspectiveApplied?: boolean;
+  dewarpingMapApplied?: boolean;
+  localCurvatureMaxDeviationPx?: number;
+  normalizationReport?: any;
+  pageMetrics?: RectificationMetrics[];
 }
 
 export interface PersistedTemplateRecord {
@@ -57,6 +89,8 @@ export interface PersistedTemplateRecord {
   schoolOrder: string;
   sourceFileName: string;
   sourceSha256: string;
+  normalizedSha256?: string;
+  normalizationSucceeded?: boolean;
   fileSizeBytes: number;
   pageCount: number;
   schemaVersion: string;
@@ -65,4 +99,13 @@ export interface PersistedTemplateRecord {
   calibrationStatus: TemplateCalibrationStatus | 'DRAFT' | 'READY';
   pages: PageGeometry[];
   pdfBinary?: Uint8Array;
+  canonicalDocument?: Uint8Array;
+  coordinateTransform?: PageCoordinateTransform & { pageTransforms?: PageCoordinateTransform[] };
+  engineUsed?: string;
+  globalSkewDegrees?: number;
+  perspectiveApplied?: boolean;
+  dewarpingMapApplied?: boolean;
+  localCurvatureMaxDeviationPx?: number;
+  normalizationReport?: any;
+  pageMetrics?: RectificationMetrics[];
 }

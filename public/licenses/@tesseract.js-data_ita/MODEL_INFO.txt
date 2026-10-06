@@ -1,0 +1,1 @@
+Modello ita da @tesseract.js-data/ita 1.0.0, variante 4.0.0_best_int. Licenza dichiarata dal pacchetto: Apache-2.0. Fonte: https://github.com/tesseract-ocr/tessdata_best

@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { detectFieldsOnPdfPage, getFieldProvenance } from '../core/assistedFieldDetectionService';
+import { detectFieldsOnPdfPage, getFieldProvenance } from './pdfPageFixture';
 import type { FieldGeometry, PageGeometry } from '../data/geometry/types';
 
 describe('CTE-FIX-02Z — Authoritative State & Render Source Convergence Suite', () => {

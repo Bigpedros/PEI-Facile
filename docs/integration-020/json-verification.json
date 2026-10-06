@@ -1,0 +1,197 @@
+[
+  {
+    "file": "ALLEGATO A1_PEI_INFANZIA[617] 2.ocr.json",
+    "pages": [
+      {
+        "page": 1,
+        "source": "pdf",
+        "previousCandidates": 15,
+        "recomputedCandidates": 10,
+        "textCharacters": 1529
+      },
+      {
+        "page": 2,
+        "source": "pdf",
+        "previousCandidates": 24,
+        "recomputedCandidates": 16,
+        "textCharacters": 1791
+      },
+      {
+        "page": 3,
+        "source": "pdf",
+        "previousCandidates": 6,
+        "recomputedCandidates": 2,
+        "textCharacters": 2306
+      },
+      {
+        "page": 4,
+        "source": "pdf",
+        "previousCandidates": 3,
+        "recomputedCandidates": 0,
+        "textCharacters": 1429
+      },
+      {
+        "page": 5,
+        "source": "pdf",
+        "previousCandidates": 8,
+        "recomputedCandidates": 4,
+        "textCharacters": 1279
+      },
+      {
+        "page": 6,
+        "source": "pdf",
+        "previousCandidates": 8,
+        "recomputedCandidates": 4,
+        "textCharacters": 722
+      },
+      {
+        "page": 7,
+        "source": "pdf",
+        "previousCandidates": 2,
+        "recomputedCandidates": 0,
+        "textCharacters": 96
+      },
+      {
+        "page": 8,
+        "source": "pdf",
+        "previousCandidates": 52,
+        "recomputedCandidates": 5,
+        "textCharacters": 2111
+      },
+      {
+        "page": 9,
+        "source": "pdf",
+        "previousCandidates": 7,
+        "recomputedCandidates": 2,
+        "textCharacters": 1151
+      },
+      {
+        "page": 10,
+        "source": "pdf",
+        "previousCandidates": 5,
+        "recomputedCandidates": 0,
+        "textCharacters": 2035
+      },
+      {
+        "page": 11,
+        "source": "pdf",
+        "previousCandidates": 15,
+        "recomputedCandidates": 6,
+        "textCharacters": 2159
+      },
+      {
+        "page": 12,
+        "source": "pdf",
+        "previousCandidates": 7,
+        "recomputedCandidates": 5,
+        "textCharacters": 2225
+      },
+      {
+        "page": 13,
+        "source": "pdf",
+        "previousCandidates": 19,
+        "recomputedCandidates": 9,
+        "textCharacters": 2252
+      }
+    ],
+    "oldCount": 171,
+    "newCount": 63,
+    "nonemptyValues": 20,
+    "adapterPreserved": 171,
+    "expectedPreserved": 171
+  },
+  {
+    "file": "ALLEGATO_A1_PEI_INFANZIA[2387] NUOVO PEI DI R.M.T 2.ocr.json",
+    "pages": [
+      {
+        "page": 1,
+        "source": "ocr",
+        "previousCandidates": 68,
+        "recomputedCandidates": 16,
+        "textCharacters": 1749
+      },
+      {
+        "page": 2,
+        "source": "ocr",
+        "previousCandidates": 107,
+        "recomputedCandidates": 13,
+        "textCharacters": 2384
+      },
+      {
+        "page": 3,
+        "source": "ocr",
+        "previousCandidates": 93,
+        "recomputedCandidates": 12,
+        "textCharacters": 3131
+      },
+      {
+        "page": 4,
+        "source": "ocr",
+        "previousCandidates": 116,
+        "recomputedCandidates": 7,
+        "textCharacters": 3518
+      },
+      {
+        "page": 5,
+        "source": "ocr",
+        "previousCandidates": 92,
+        "recomputedCandidates": 10,
+        "textCharacters": 2382
+      },
+      {
+        "page": 6,
+        "source": "ocr",
+        "previousCandidates": 17,
+        "recomputedCandidates": 1,
+        "textCharacters": 453
+      },
+      {
+        "page": 7,
+        "source": "ocr",
+        "previousCandidates": 77,
+        "recomputedCandidates": 4,
+        "textCharacters": 2062
+      },
+      {
+        "page": 8,
+        "source": "ocr",
+        "previousCandidates": 92,
+        "recomputedCandidates": 9,
+        "textCharacters": 1538
+      },
+      {
+        "page": 9,
+        "source": "ocr",
+        "previousCandidates": 60,
+        "recomputedCandidates": 5,
+        "textCharacters": 2159
+      },
+      {
+        "page": 10,
+        "source": "ocr",
+        "previousCandidates": 70,
+        "recomputedCandidates": 8,
+        "textCharacters": 2090
+      },
+      {
+        "page": 11,
+        "source": "ocr",
+        "previousCandidates": 76,
+        "recomputedCandidates": 2,
+        "textCharacters": 2717
+      },
+      {
+        "page": 12,
+        "source": "ocr",
+        "previousCandidates": 55,
+        "recomputedCandidates": 11,
+        "textCharacters": 2224
+      }
+    ],
+    "oldCount": 923,
+    "newCount": 98,
+    "nonemptyValues": 61,
+    "adapterPreserved": 923,
+    "expectedPreserved": 923
+  }
+]

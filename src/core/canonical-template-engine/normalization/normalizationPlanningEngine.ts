@@ -302,10 +302,18 @@ export class NormalizationPlanningEngine {
       });
     }
 
-    // 5. SCALE
-    const scaleX = Math.round((targetWidth / currentWidth) * 1000) / 1000;
-    const scaleY = Math.round((targetHeight / currentHeight) * 1000) / 1000;
+    // 5. SCALE (Uniform aspect-fit to preserve exact content aspect ratio)
+    const scaleXFit = targetWidth / currentWidth;
+    const scaleYFit = targetHeight / currentHeight;
+    const uniformScale = Math.min(scaleXFit, scaleYFit);
+    const scaleX = Math.round(uniformScale * 10000) / 10000;
+    const scaleY = Math.round(uniformScale * 10000) / 10000;
     const scaling = { scaleX, scaleY };
+
+    const scaledW = currentWidth * uniformScale;
+    const scaledH = currentHeight * uniformScale;
+    const autoMarginX = Math.round(((targetWidth - scaledW) / 2) * 100) / 100;
+    const autoMarginY = Math.round(((targetHeight - scaledH) / 2) * 100) / 100;
 
     if (
       Math.abs(scaleX - 1.0) >=
@@ -316,9 +324,9 @@ export class NormalizationPlanningEngine {
       operations.push({
         step: stepNumber++,
         type: 'scale',
-        name: 'Adattamento Dimensionale Scala Canonica (Scale)',
-        description: `Scalatura teorica a formato canonico (sx: ${scaleX.toFixed(3)}, sy: ${scaleY.toFixed(3)}).`,
-        parameters: { scaleX, scaleY, targetWidth, targetHeight },
+        name: 'Adattamento Dimensionale Uniforme Proporzionale (Scale)',
+        description: `Scalatura uniforme ad adattamento proporzionale (scale: ${scaleX.toFixed(4)}, margini auto: dx=${autoMarginX}pt, dy=${autoMarginY}pt).`,
+        parameters: { scaleX, scaleY, targetWidth, targetHeight, autoMarginX, autoMarginY },
         expectedImpact: {
           targetMetric: 'pageSize',
           before: `${currentWidth}x${currentHeight}`,

@@ -77,12 +77,41 @@ export const MASTER_SECTIONS: PeiSectionDefinition[] = [
       {
         id: 'f-01-studente',
         code: 'SEC-01-F02',
-        label: 'Codice identificativo alunno/a (pseudonimizzato)',
+        label: 'Alunno/a (BAMBINO/A - Nome e Cognome)',
+        componentType: 'CMP-01',
+        required: false,
+        placeholder: 'Es. Mario Rossi',
+        helpText: 'Nome e cognome dell’alunno/a come da anagrafica scolastica.',
+        maxLength: 60,
+        pageNumber: 1,
+      },
+      {
+        id: 'f-01-codice-sostitutivo',
+        code: 'SEC-01-F02B',
+        label: 'Codice sostitutivo personale',
         componentType: 'CMP-01',
         required: true,
         placeholder: 'Es. ALU-2026-X09',
         helpText: 'Utilizzare esclusivamente codici o pseudonimi a tutela della privacy.',
         maxLength: 40,
+        pageNumber: 1,
+      },
+      {
+        id: 'f-01-sezione',
+        code: 'SEC-01-F03A',
+        label: 'Sezione',
+        componentType: 'CMP-01',
+        placeholder: 'Es. Sezione D',
+        maxLength: 20,
+        pageNumber: 1,
+      },
+      {
+        id: 'f-01-plesso',
+        code: 'SEC-01-F03B',
+        label: 'Plesso o sede',
+        componentType: 'CMP-01',
+        placeholder: 'Es. Scuola dell’Infanzia Collodi',
+        maxLength: 80,
         pageNumber: 1,
       },
       {
@@ -592,7 +621,8 @@ export function createEmptyPeiDocument(
   studentCode?: string,
   schoolName?: string,
   classOrSection?: string,
-  modelDef?: PeiModelDefinition | null
+  modelDef?: PeiModelDefinition | null,
+  studentName?: string
 ): PeiDocument {
   const meta = SCHOOL_ORDERS_METADATA[model];
   const finalStudentCode = studentCode || `ALU-${model}-2026-F`;
@@ -607,6 +637,7 @@ export function createEmptyPeiDocument(
     schoolOrder: model,
     schoolYear: '2026/2027',
     studentCode: finalStudentCode,
+    studentName: studentName || undefined,
     schoolName: finalSchoolName,
     classOrSection: finalClassOrSection,
     creationDate: '2026-09-16',
@@ -628,13 +659,17 @@ export function createEmptyPeiDocument(
       : undefined,
     values: {
       'f-01-scuola': finalSchoolName,
-      'f-01-studente': finalStudentCode,
+      // Distinguish student name from replacement code:
+      // Do NOT put replacement code (ALU-...) on BAMBINO/A row
+      'f-01-studente': studentName || '',
+      'f-01-codice-sostitutivo': finalStudentCode,
       'f-01-classe': finalClassOrSection,
       'f-01-data-redazione': '16/09/2026',
     },
     fieldStatuses: {
       'f-01-scuola': 'compilato',
-      'f-01-studente': 'compilato',
+      'f-01-studente': studentName ? 'compilato' : 'vuoto',
+      'f-01-codice-sostitutivo': 'compilato',
       'f-01-classe': 'compilato',
       'f-01-data-redazione': 'compilato',
     },

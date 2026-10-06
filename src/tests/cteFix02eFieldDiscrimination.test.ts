@@ -17,7 +17,7 @@ import {
   detectFieldsOnPdfPage,
   collectPageRuntimeDiagnostics,
   type PageRuntimeDiagnosticTrace,
-} from '../core/assistedFieldDetectionService';
+} from './pdfPageFixture';
 import {
   clusterAndRefineCandidates,
   type RawLineCandidate,

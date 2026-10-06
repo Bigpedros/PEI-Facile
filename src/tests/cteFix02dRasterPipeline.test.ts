@@ -16,7 +16,7 @@ import {
   detectVisualLinesFromCanvas,
   collectPageRuntimeDiagnostics,
   type PageRuntimeDiagnosticTrace,
-} from '../core/assistedFieldDetectionService';
+} from './pdfPageFixture';
 
 /**
  * Creates a mock canvas with a programmable 2D pixel buffer.
@@ -300,7 +300,8 @@ describe('CTE-FIX-02D — Real Raster Pipeline Restoration Suite', () => {
     const proposed = trace.finalProposedFields[0];
     expect(proposed).toBeDefined();
     expect(proposed.fieldId).toBeTruthy();
-    expect(proposed.confidence).toBeGreaterThan(0.7);
+    expect(proposed.confidence).toBe(0.7);
+    expect(proposed.semanticKey).toBeNull();
   });
 
   // TEST F: Diagnostica: i conteggi runtime rappresentano fedelmente i dati prodotti
@@ -329,7 +330,7 @@ describe('CTE-FIX-02D — Real Raster Pipeline Restoration Suite', () => {
     expect(trace.rasterVisualLines.length).toBeGreaterThanOrEqual(1);
     expect(trace.rasterBoxes.length).toBeGreaterThanOrEqual(1);
     expect(trace.rawCandidates.length).toBeGreaterThanOrEqual(1);
-    expect(trace.pipelineTrace.steps.some((s) => s.step === 'detectVisualLinesFromCanvas')).toBe(true);
+    expect(trace.pipelineTrace.steps.some((s) => s.step === 'detectRegions')).toBe(true);
     expect(trace.pipelineTrace.steps.some((s) => s.step === 'ocrExtraction')).toBe(true);
   });
 });

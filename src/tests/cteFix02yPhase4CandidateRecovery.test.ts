@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { detectFieldsOnPdfPage } from '../core/assistedFieldDetectionService';
+import { detectFieldsOnPdfPage } from './pdfPageFixture';
 
 describe('CTE-FIX-02Y — Phase 4 Candidate Creation Recovery Suite', () => {
 

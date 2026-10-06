@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { ThemeType, SchoolOrder, AppSettings, PeiModelDefinition } from '../../types/pei';
+import type { ThemeType, SchoolOrder, AppSettings, PeiModelDefinition, PeiDocument } from '../../types/pei';
 import {
   X,
   Palette,
@@ -46,6 +46,9 @@ interface SettingsModalProps {
   customModels: PeiModelDefinition[];
   onAddCustomModel: (model: PeiModelDefinition) => void;
   onUpdateModelStatus: (id: string, status: 'attivo' | 'archiviato') => void;
+  onUpdateModelName?: (id: string, newName: string) => void;
+  onDeleteModel?: (id: string) => void;
+  savedDocument?: PeiDocument | null;
   showToast: (msg: string) => void;
   onOpenCalibration?: (model: PeiModelDefinition) => void;
   initialView?: SettingsView;
@@ -182,6 +185,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   customModels,
   onAddCustomModel,
   onUpdateModelStatus,
+  onUpdateModelName,
+  onDeleteModel,
+  savedDocument,
   showToast,
   onOpenCalibration,
   initialView = 'home',
@@ -728,61 +734,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </button>
 
                 <span className="text-[11px] px-2.5 py-0.5 rounded-md font-semibold bg-[var(--badge-bg)] text-[var(--text-secondary)] border border-[var(--border)]">
-                  {allModels.length} Modelli nel Catalogo
+                  Gestione Modelli PEI
                 </span>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-bold text-[var(--text-title)] flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-amber-800 dark:text-[var(--accent-paglierino)]" />
-                  <span>Catalogo Modelli PEI e Modello Predefinito</span>
-                </h3>
-                <p className="text-xs text-[var(--text-secondary)] mt-1">
-                  Seleziona il modello predefinito per la creazione dei nuovi PEI e gestisci i modelli territoriali, di istituto o importati.
-                </p>
-              </div>
-
-              {/* Selettore Modello Predefinito */}
-              <div className="p-4 bg-[var(--card-sub-bg)] rounded-xl border border-[var(--border)] space-y-2.5">
-                <label className="font-bold text-[var(--text-title)] block text-xs">
-                  Modello PEI predefinito per nuovi documenti
-                </label>
-                <select
-                  value={form.defaultModelId || ''}
-                  onChange={(e) => handleSelectDefaultModel(e.target.value)}
-                  className="w-full p-2.5 border border-[var(--border)] rounded-lg bg-[var(--input-bg)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-amber-800 font-bold text-xs"
-                >
-                  <option value="">— Nessun modello predefinito (richiedi selezione) —</option>
-                  <optgroup label="Modelli Ministeriali Ufficiali (D.I. 182/2020 e D.I. 153/2023)">
-                    {ministerialModels.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.schoolOrder} — {m.name} ({getModelOriginDisplayLabel(m)})
-                      </option>
-                    ))}
-                  </optgroup>
-                  {otherModels.length > 0 && (
-                    <optgroup label="Altri Modelli Disponibili (Territoriali / Istituto / Utente)">
-                      {otherModels.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.schoolOrder} — {m.name} ({getModelOriginDisplayLabel(m)})
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
-                <div className="flex items-center justify-between text-[11px] text-[var(--text-secondary)] font-medium pt-1">
-                  <span>
-                    {currentResolvedDefault ? (
-                      <>
-                        Attivo per default:{' '}
-                        <strong className="text-[var(--text)]">{currentResolvedDefault.name}</strong> ({currentResolvedDefault.schoolOrder})
-                      </>
-                    ) : (
-                      <span className="italic text-[var(--text-secondary)]">Nessun modello predefinito (selezione al bisogno)</span>
-                    )}
-                  </span>
-                  <span className="italic">Non altera retroattivamente i PEI già compilati</span>
-                </div>
               </div>
 
               {/* Gestore Modelli Personalizzati (Territoriali / Istituto) */}
@@ -791,7 +744,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   customModels={customModels}
                   onAddCustomModel={onAddCustomModel}
                   onUpdateModelStatus={onUpdateModelStatus}
+                  onUpdateModelName={onUpdateModelName}
+                  onDeleteModel={onDeleteModel}
+                  savedDocument={savedDocument}
                   onSetDefaultModel={handleSelectDefaultModel}
+                  onRemoveDefaultModel={() => handleSelectDefaultModel('')}
                   defaultModelId={form.defaultModelId}
                   showToast={showToast}
                   onOpenCalibration={(model) => {
@@ -1072,20 +1029,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* FOOTER MODALE */}
-        <div className="bg-[var(--chrome-bg)] px-4 py-3 border-t border-[var(--border)] flex items-center justify-between shrink-0">
-          <div>
-            {currentView !== 'home' && (
-              <button
-                type="button"
-                onClick={() => setCurrentView('home')}
-                className="px-3.5 py-1.5 bg-[var(--badge-bg)] hover:bg-[var(--hover-bg)] text-[var(--text)] rounded-lg border border-[var(--border)] font-semibold cursor-pointer transition-colors text-xs flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-amber-800"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Torna alle Impostazioni</span>
-              </button>
-            )}
-          </div>
-
+        <div className="bg-[var(--chrome-bg)] px-4 py-3 border-t border-[var(--border)] flex items-center justify-end shrink-0">
           <div className="flex items-center gap-2">
             <button
               type="button"

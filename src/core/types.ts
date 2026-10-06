@@ -21,6 +21,8 @@ export interface OcrVariantResult {
   rawText: string;
   snippet: string;
   durationMs: number;
+  imageWidth?: number;
+  imageHeight?: number;
 }
 
 export interface GenericOcrResult {
@@ -37,6 +39,8 @@ export interface GenericOcrResult {
   rawText: string;
   words: OcrWord[];
   variants: OcrVariantResult[];
+  imageWidth?: number;
+  imageHeight?: number;
   durationMs: number;
 }
 

@@ -16,6 +16,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { createCanvas } from '@napi-rs/canvas';
+const imageBytes=()=>{const c=createCanvas(595,842);const x=c.getContext('2d');x.fillStyle='white';x.fillRect(0,0,595,842);return c.toBuffer('image/png');};
 import { detectDocumentFormat } from '../core/documentAdapters/baseAdapter';
 import { processDocumentAcquisition } from '../core/documentAcquisitionService';
 import {
@@ -65,8 +67,8 @@ describe('PEI FACILE — ACQUISIZIONE PEI (DOCUMENT ACQUISITION R01)', () => {
   // Test C: Sequenza Multi-Immagine
   describe('Test C: Sequenza Multi-Immagine', () => {
     it('deve trattare un array di immagini come pagine sequenziali 1, 2, 3', async () => {
-      const file1 = new File(['img1'], 'pag1.jpg', { type: 'image/jpeg' });
-      const file2 = new File(['img2'], 'pag2.jpg', { type: 'image/jpeg' });
+      const file1 = new File([imageBytes()], 'pag1.jpg', { type: 'image/jpeg' });
+      const file2 = new File([imageBytes()], 'pag2.jpg', { type: 'image/jpeg' });
 
       const mockOcrRunner = async (canvas: HTMLCanvasElement) => ({
         text: 'Testo estratto da pagina immagine',
@@ -88,7 +90,7 @@ describe('PEI FACILE — ACQUISIZIONE PEI (DOCUMENT ACQUISITION R01)', () => {
   describe('Test D: Avanzamento e Fasi Reali', () => {
     it('deve emettere aggiornamenti di progresso con percentuali e stadi realistici', async () => {
       const progressUpdates: AcquisitionProgress[] = [];
-      const file1 = new File(['img1'], 'pag1.png', { type: 'image/png' });
+      const file1 = new File([imageBytes()], 'pag1.png', { type: 'image/png' });
 
       const mockOcrRunner = async () => ({
         text: 'Istituzione scolastica: I.C. Roma Nord\nCodice alunno: ALU-TEST-123',

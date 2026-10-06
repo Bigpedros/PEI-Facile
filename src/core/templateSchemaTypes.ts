@@ -82,13 +82,17 @@ export interface TemplateSchemaField {
   sectionId?: string; // Associated PEI section when applicable
   options?: string[]; // Allowed options for SINGLE_CHOICE / MULTI_CHOICE
   placeholder?: string;
+  inputType?: 'checkbox' | 'select';
   defaultValue?: any;
+  originalValue?: string | boolean;
+  observedText?: string;
 }
 
 export interface TemplateSchema {
   schemaId: string;
   templateId: string;
   sourceSha256: string;
+  normalizedSha256?: string;
   sourcePdfFileName: string;
   version: string;
   schoolOrder?: SchoolOrder;

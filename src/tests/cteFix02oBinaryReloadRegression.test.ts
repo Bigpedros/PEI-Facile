@@ -17,7 +17,7 @@ describe('CTE-FIX-02O — Binary Reload & Custom Identity Preservation Suite', (
   });
 
   it('TEST: simulates full reload pipeline, restores Uint8Array, and resolves template source successfully', async () => {
-    const originalBytes = new Uint8Array([12, 34, 56, 78, 90]);
+    const originalBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 12, 34, 56, 78, 90]);
     const expectedSha = await computeSha256(originalBytes);
 
     // 1. Setup Custom Model Definition (ID = model_custom_roma_reload_test)

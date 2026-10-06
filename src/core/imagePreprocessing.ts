@@ -6,6 +6,7 @@ export interface ProcessDocumentOptions {
   enhanceContrast?: boolean;
   sharpen?: boolean;
   variant?: DocumentVariantName;
+  disableUpscaling?: boolean;
 }
 
 export interface DocumentImageVariant {
@@ -13,6 +14,8 @@ export interface DocumentImageVariant {
   dataUrl: string;
   label: string;
   description: string;
+  width: number;
+  height: number;
 }
 
 export interface ProcessDocumentResult {
@@ -92,6 +95,7 @@ export const processDocumentImage = async (
     enhanceContrast = true,
     sharpen = false,
     variant = 'gentle_contrast',
+    disableUpscaling = false,
   } = options;
 
   let originalDataUrl: string;
@@ -168,7 +172,7 @@ export const processDocumentImage = async (
       targetHeight = maxDimension;
       targetWidth = Math.round((origWidth * maxDimension) / origHeight);
     }
-  } else if (origWidth < 1000 && origHeight < 1400 && origWidth > 0 && origHeight > 0) {
+  } else if (!disableUpscaling && origWidth < 1000 && origHeight < 1400 && origWidth > 0 && origHeight > 0) {
     // Upscaling moderato per scontrini a bassa risoluzione
     const scale = Math.min(1.75, maxDimension / Math.max(origWidth, origHeight));
     targetWidth = Math.round(origWidth * scale);
@@ -376,6 +380,8 @@ export const createDocumentImageVariants = async (
       dataUrl: origResult.processedDataUrl,
       label: 'Originale (Senza filtri)',
       description: 'Immagine intatta con orientamento e risoluzione ottimali',
+      width: origResult.width,
+      height: origResult.height,
     });
   } catch (err) {
     console.warn('[createDocumentImageVariants] Errore variante originale:', err);
@@ -394,6 +400,8 @@ export const createDocumentImageVariants = async (
       dataUrl: gentleResult.processedDataUrl,
       label: 'Contrasto Dolce',
       description: 'Miglioramento dinamica e conservazione matrice di punti termica',
+      width: gentleResult.width,
+      height: gentleResult.height,
     });
   } catch (err) {
     console.warn('[createDocumentImageVariants] Errore variante gentle_contrast:', err);
@@ -412,6 +420,8 @@ export const createDocumentImageVariants = async (
       dataUrl: sharpResult.processedDataUrl,
       label: 'Nitidezza Calibrata',
       description: 'Filtro di contrasto e sharpening conservativo',
+      width: sharpResult.width,
+      height: sharpResult.height,
     });
   } catch (err) {
     console.warn('[createDocumentImageVariants] Errore variante sharpened_light:', err);
@@ -425,6 +435,8 @@ export const createDocumentImageVariants = async (
       dataUrl: fallbackUrl,
       label: 'Originale (Fallback)',
       description: 'Sorgente originale',
+      width: 800,
+      height: 1200,
     });
   }
 

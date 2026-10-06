@@ -24,6 +24,7 @@ import type {
   FieldBackgroundMode,
 } from '../../../data/geometry/types';
 import type { RawLineCandidate, RawRectCandidate, RawTextItem } from '../../fieldCandidateClustering';
+import { isValidLabel } from '../../fieldCandidateClustering';
 import { generateFieldId, suggestSemanticKey } from '../../semanticCatalog';
 import { isExplicitPrompt } from '../../../data/geometry/geometryTransform';
 
@@ -63,6 +64,8 @@ export interface GeometricRegion {
   rawLines?: RawLineCandidate[];
   rawRect?: RawRectCandidate;
   containsText?: RawTextItem[];
+  sourceTextItem?: RawTextItem;
+  labelPrefix?: string;
 }
 
 export interface UnresolvedPotentialLabel {
@@ -303,24 +306,84 @@ export function extractGeometricRegions(input: {
   for (const item of pageTextItems) {
     const str = item.str;
     if (/[_]{3,}|[\.]{4,}/.test(str)) {
-      const match = str.match(/([_]{3,}|[\.]{4,})/);
-      if (match && match.index !== undefined) {
+      const regex = /([_]{3,}|[\.]{4,})/g;
+      let match: RegExpExecArray | null;
+      let lastMatchEnd = 0;
+      while ((match = regex.exec(str)) !== null) {
+        const matchIndex = match.index;
+        const matchLen = match[0].length;
+        const rawPrefix = str.slice(lastMatchEnd, matchIndex).trim();
+        const cleanPrefix = rawPrefix.replace(/[:_\-—]+$/, '').trim();
+        lastMatchEnd = matchIndex + matchLen;
+
         const charWidth = item.w / Math.max(1, str.length);
-        const underlineStartPt = item.x + match.index * charWidth;
-        const underlineEndPt = item.x + item.w;
+        let underlineStartPt = Math.round((item.x + matchIndex * charWidth) * 10) / 10;
+        let underlineEndPt = Math.round((item.x + (matchIndex + matchLen) * charWidth) * 10) / 10;
+        if (matchIndex + matchLen >= str.length - 1) {
+          underlineEndPt = Math.round((item.x + item.w) * 10) / 10;
+        }
+
+        // Check if there is an observable matching horizontal line on the canvas that aligns with this text item
+        const matchingLine = rawLines.find(
+          (l) =>
+            !l.isVertical &&
+            Math.abs(l.y - (item.yTop + item.h)) <= 8 &&
+            l.x2 >= underlineStartPt - 10 &&
+            l.x1 <= underlineEndPt + 10 &&
+            l.x2 - l.x1 >= 25
+        );
+        if (matchingLine) {
+          underlineStartPt = Math.round(Math.max(underlineStartPt, matchingLine.x1) * 10) / 10;
+          underlineEndPt = Math.round(Math.min(item.x + item.w, matchingLine.x2) * 10) / 10;
+        }
 
         regions.push({
           id: `geom_txt_line_${pageNumber}_${Math.round(underlineStartPt)}_${Math.round(item.yTop)}`,
           pageNumber,
           sourceBBox: {
             left: underlineStartPt,
-            top: item.yTop - 2,
+            top: Math.round((item.yTop - 1) * 10) / 10,
             right: underlineEndPt,
-            bottom: item.yTop + item.h + 6,
+            bottom: Math.round((item.yTop + Math.max(item.h, 16) + 3) * 10) / 10,
           },
           geometryType: 'UNDERLINE',
           geometryConfidence: 0.90,
           physicalEvidence: 'TEXT_PRINTED_UNDERSCORES_OR_DOTS',
+          sourceTextItem: item,
+          labelPrefix: cleanPrefix.length >= 2 ? cleanPrefix : undefined,
+        });
+      }
+    }
+  }
+
+  // 4. Process Text-Based Checkbox Symbols from text layer (e.g. "[ ]", "( )", "□", "○", "■", "●")
+  for (const item of pageTextItems) {
+    const trimmed = item.str.trim();
+    // Strictly empty brackets "[ ]", "( )", or Unicode checkbox glyphs
+    const isChoiceSymbol = /^\[\s*\]$|^\(\s*\)$|^[□○■●]$/.test(trimmed);
+    if (isChoiceSymbol) {
+      // Check if already captured by rawRects
+      const alreadyCaptured = regions.some(
+        (r) =>
+          r.geometryType === 'CHECKBOX' &&
+          Math.abs(r.sourceBBox.left - item.x) < 8 &&
+          Math.abs(r.sourceBBox.top - item.yTop) < 8
+      );
+      if (!alreadyCaptured) {
+        const boxSize = Math.max(12, Math.round(Math.max(item.w, item.h, 12) * 10) / 10);
+        regions.push({
+          id: `geom_txt_chk_${pageNumber}_${Math.round(item.x)}_${Math.round(item.yTop)}`,
+          pageNumber,
+          sourceBBox: {
+            left: Math.round(item.x * 10) / 10,
+            top: Math.round(item.yTop * 10) / 10,
+            right: Math.round((item.x + boxSize) * 10) / 10,
+            bottom: Math.round((item.yTop + boxSize) * 10) / 10,
+          },
+          geometryType: 'CHECKBOX',
+          geometryConfidence: 0.92,
+          physicalEvidence: 'TEXT_PRINTED_CHECKBOX_SYMBOL',
+          sourceTextItem: item,
         });
       }
     }
@@ -375,16 +438,35 @@ export function classifyRegionWithHeuristics(
     const boxW = sourceBBox.right - sourceBBox.left;
     const boxH = sourceBBox.bottom - sourceBBox.top;
 
-    // Find nearby label (right, left, or above)
-    const rightLabel = pageText.find(
-      (it) => Math.abs(it.yTop - boxY) < 12 && it.x > boxX + boxW && it.x - (boxX + boxW) < 80
-    );
-    const leftLabel = pageText.find(
-      (it) => Math.abs(it.yTop - boxY) < 12 && it.x + it.w < boxX && boxX - (it.x + it.w) < 80
-    );
-    const aboveLabel = pageText.find(
-      (it) => boxY - (it.yTop + it.h) >= 0 && boxY - (it.yTop + it.h) < 20 && Math.abs(it.x - boxX) < 80
-    );
+    // Aspect ratio check: checkboxes must be square (0.75 <= w/h <= 1.35)
+    const aspectRatio = boxW / Math.max(1, boxH);
+    if (aspectRatio < 0.75 || aspectRatio > 1.35) {
+      return {
+        region,
+        classification: 'STRUCTURAL_ONLY',
+        labelAssociationMethod: 'UNASSOCIATED',
+        labelConfidence: 0,
+        heuristicConfidence: 0.90,
+        fieldGeometry: null,
+      };
+    }
+
+    const isChoiceSymbol = (s: string) => /^\[\s*\]$|^\(\s*\)$|^\[[xX]\]$|^[□☐○■●]$/.test(s.trim());
+
+    // Find nearby label (right, left, or above) ordered by spatial proximity
+    const candidateRightLabels = pageText
+      .filter((it) => Math.abs(it.yTop - boxY) < 14 && it.x >= boxX + boxW - 5 && it.x - boxX < 100 && !isChoiceSymbol(it.str))
+      .sort((a, b) => a.x - b.x);
+    const candidateLeftLabels = pageText
+      .filter((it) => Math.abs(it.yTop - boxY) < 14 && it.x + it.w <= boxX + 5 && boxX - (it.x + it.w) < 80 && !isChoiceSymbol(it.str))
+      .sort((a, b) => (boxX - (b.x + b.w)) - (boxX - (a.x + a.w)));
+    const candidateAboveLabels = pageText
+      .filter((it) => boxY - (it.yTop + it.h) >= 0 && boxY - (it.yTop + it.h) < 20 && Math.abs(it.x - boxX) < 80)
+      .sort((a, b) => (boxY - (b.yTop + b.h)) - (boxY - (a.yTop + a.h)));
+
+    const rightLabel = candidateRightLabels.find((it) => isValidLabel(it.str));
+    const leftLabel = candidateLeftLabels.find((it) => isValidLabel(it.str));
+    const aboveLabel = candidateAboveLabels.find((it) => isValidLabel(it.str));
 
     const rawChoiceLabel = rightLabel
       ? rightLabel.str.trim()
@@ -394,7 +476,20 @@ export function classifyRegionWithHeuristics(
       ? aboveLabel.str.trim()
       : '';
 
-    const choiceLabel = rawChoiceLabel || 'Opzione';
+    // Structural discrimination: An isolated small box without any associated valid label text
+    // on a page with text is a non-fillable graphic mark, stamp stroke, or structural separator.
+    if ((!rawChoiceLabel || !isValidLabel(rawChoiceLabel)) && pageText.length > 0) {
+      return {
+        region,
+        classification: 'NON_FILLABLE_GRAPHIC',
+        labelAssociationMethod: 'UNASSOCIATED',
+        labelConfidence: 0,
+        heuristicConfidence: 0.90,
+        fieldGeometry: null,
+      };
+    }
+
+    const choiceLabel = rawChoiceLabel || 'Scelta';
     const assocMethod: LabelAssociationMethod = rightLabel
       ? 'RIGHT_NEIGHBOR'
       : leftLabel
@@ -403,15 +498,52 @@ export function classifyRegionWithHeuristics(
       ? 'TOP_HEADER'
       : 'UNASSOCIATED';
 
-    const labelConfidence = rawChoiceLabel ? 0.90 : 0.50;
+    // Check if there are other checkboxes on this same horizontal row
+    const rowCheckboxes = pageText.filter(
+      (it) => Math.abs(it.yTop - boxY) < 14 && isChoiceSymbol(it.str)
+    );
+    const rowMinChoiceX = rowCheckboxes.length > 0
+      ? Math.min(...rowCheckboxes.map((c) => c.x))
+      : boxX;
+
+    // Check if there is a preceding section / group prompt on the same row to the left of the entire choice group
+    const sameRowPrecedingPrompt = pageText
+      .filter(
+        (it) =>
+          Math.abs(it.yTop - boxY) < 14 &&
+          it.x + it.w <= rowMinChoiceX + 4 &&
+          isValidLabel(it.str) &&
+          !isChoiceSymbol(it.str)
+      )
+      .sort((a, b) => (b.x + b.w) - (a.x + a.w))[0];
+
+    let fullLabel = choiceLabel.startsWith('Opzione') ? choiceLabel : `Scelta: ${choiceLabel}`;
+    if (sameRowPrecedingPrompt) {
+      let cleanPrompt = sameRowPrecedingPrompt.str.replace(/\b([A-Z])\s+([A-Z]{2,})\b/g, '$1$2').trim();
+      cleanPrompt = cleanPrompt.replace(/[:\-_—]+$/, '').trim();
+      if (cleanPrompt.length >= 3 && !choiceLabel.toLowerCase().includes(cleanPrompt.toLowerCase())) {
+        fullLabel = `${cleanPrompt}: ${choiceLabel}`;
+      }
+    }
+
+    const labelConfidence = 0.90;
     const heuristicConfidence = 0.92;
+
+    let suggestedKey: string | null = null;
+    if (fullLabel.toLowerCase().includes('progetto individuale')) {
+      if (choiceLabel.toLowerCase().includes('redatto')) {
+        suggestedKey = 'individualProject.drafted';
+      } else if (choiceLabel.toLowerCase().includes('redigere')) {
+        suggestedKey = 'individualProject.toDraft';
+      }
+    }
 
     const fieldGeometry: FieldGeometry = {
       fieldId: generateFieldId(),
-      label: choiceLabel.startsWith('Opzione') ? choiceLabel : `Scelta: ${choiceLabel}`,
-      semanticKey: null,
-      suggestedSemanticKey: null,
-      suggestedLabel: choiceLabel,
+      label: fullLabel,
+      semanticKey: suggestedKey,
+      suggestedSemanticKey: suggestedKey,
+      suggestedLabel: fullLabel,
       fieldType: 'SINGLE_CHOICE',
       backgroundMode: 'TRANSPARENT',
       calibrationStatus: 'PROPOSED',
@@ -420,7 +552,7 @@ export function classifyRegionWithHeuristics(
       yPt: boxY,
       widthPt: boxW,
       heightPt: boxH,
-      anchorText: choiceLabel,
+      anchorText: fullLabel,
       derivationMethod: 'CHECKBOX_BOX',
       detectionSource: 'GEOMETRY',
       confidence: 0.90,
@@ -497,7 +629,7 @@ export function classifyRegionWithHeuristics(
           anchorText: fullText,
           derivationMethod: 'TABLE_CELL',
           geometrySource: 'PARTIAL_CELL',
-          detectionSource: 'COMBINED',
+          detectionSource: 'GEOMETRY',
           confidence: 0.92,
           status: 'REVIEW_REQUIRED',
           geometricConfidence,
@@ -606,7 +738,7 @@ export function classifyRegionWithHeuristics(
       anchorText: associatedLabel || 'Cella vuota',
       derivationMethod: 'TABLE_CELL',
       geometrySource: 'EMPTY_CELL',
-      detectionSource: associatedLabel ? 'COMBINED' : 'GEOMETRY',
+      detectionSource: 'GEOMETRY',
       confidence: heuristicConfidence,
       status: 'REVIEW_REQUIRED',
       geometricConfidence,
@@ -633,59 +765,100 @@ export function classifyRegionWithHeuristics(
 
   // 5. UNDERLINE
   if (geometryType === 'UNDERLINE') {
+    const isTextPrinted = region.physicalEvidence === 'TEXT_PRINTED_UNDERSCORES_OR_DOTS';
     const line = region.rawLines ? region.rawLines[0] : null;
     const lineX1 = sourceBBox.left;
     const lineY = sourceBBox.top + 2;
     const lineX2 = sourceBBox.right;
     const lineLen = lineX2 - lineX1;
 
-    // Find nearby prompt to the left or above
-    const promptLeft = pageText.find(
-      (it) =>
-        isExplicitPrompt(it.str) &&
-        (Math.abs(it.yTop - lineY) < 25 || Math.abs(it.yTop + it.h - lineY) < 25) &&
-        it.x <= lineX1 + 12 &&
-        it.x + it.w <= lineX2 + 10
-    );
-
-    const promptAbove = pageText.find(
-      (it) =>
-        isExplicitPrompt(it.str) &&
-        lineY - (it.yTop + it.h) >= 0 &&
-        lineY - (it.yTop + it.h) < 24 &&
-        Math.abs(it.x - lineX1) < 50
-    );
-
-    const prompt = promptLeft || promptAbove;
-
-    if (!prompt) {
-      // Unlabelled isolated underline -> STRUCTURAL_ONLY
-      return {
-        region,
-        classification: 'STRUCTURAL_ONLY',
-        labelAssociationMethod: 'UNASSOCIATED',
-        labelConfidence: 0,
-        heuristicConfidence: 0.85,
-        fieldGeometry: null,
-      };
-    }
-
-    const cleanLabel = prompt.str.replace(/:$/, '').trim();
-    const suggestion = suggestSemanticKey(cleanLabel);
-    const isDate = /data|nato\s+il|lì/i.test(cleanLabel);
+    let cleanLabel = '';
+    let assocMethod: LabelAssociationMethod = 'UNASSOCIATED';
+    let anchorText = '';
 
     let fieldX = Math.round(lineX1 * 10) / 10;
     let fieldW = Math.round(lineLen * 10) / 10;
-    let fieldY = Math.max(0, Math.round((lineY - 18) * 10) / 10);
+    let fieldY = 0;
+    let fieldH = 20;
 
-    if (promptLeft) {
-      fieldX = Math.max(lineX1, Math.round((promptLeft.x + promptLeft.w + 4) * 10) / 10);
-      fieldW = Math.max(30, Math.round((lineX2 - fieldX) * 10) / 10);
-    } else if (promptAbove) {
-      fieldY = Math.max(0, Math.max(Math.round((lineY - 18) * 10) / 10, Math.round((promptAbove.yTop + promptAbove.h + 2) * 10) / 10));
+    if (isTextPrinted && region.labelPrefix && region.labelPrefix.trim().length >= 2) {
+      // 1. Label and underscores belong to the same text item (e.g. "Anno Scolastico __________", "BAMBINO/A ____________________________")
+      cleanLabel = region.labelPrefix.trim();
+      assocMethod = 'LEFT_NEIGHBOR';
+      anchorText = region.sourceTextItem?.str || cleanLabel;
+      // In text items with printed underscores, sourceBBox.left is the start of the underscores,
+      // and sourceBBox.right is the end of the underscores.
+      fieldX = Math.round(lineX1 * 10) / 10;
+      fieldW = Math.max(30, Math.round(lineLen * 10) / 10);
+      // Coordinate Y is baseline-aligned with the text line itself (NOT offset by -18 pt!)
+      fieldY = Math.max(0, Math.round(sourceBBox.top * 10) / 10);
+      fieldH = Math.max(18, Math.round((sourceBBox.bottom - sourceBBox.top) * 10) / 10);
+    } else {
+      // 2. Separate text prompt or physical underline line: search for nearby prompt
+      // Search for closest prompt immediately to the left on the same line band
+      const leftPrompts = pageText
+        .filter(
+          (it) =>
+            isExplicitPrompt(it.str) &&
+            Math.abs(it.yTop - lineY) < 18 &&
+            it.x + it.w <= lineX1 + 10 &&
+            lineX1 - (it.x + it.w) < 140
+        )
+        .sort((a, b) => (lineX1 - (a.x + a.w)) - (lineX1 - (b.x + b.w)));
+      const promptLeft = leftPrompts.length > 0 ? leftPrompts[0] : undefined;
+
+      const abovePrompts = pageText
+        .filter(
+          (it) =>
+            isExplicitPrompt(it.str) &&
+            lineY - (it.yTop + it.h) >= 0 &&
+            lineY - (it.yTop + it.h) < 24 &&
+            Math.abs(it.x - lineX1) < 60
+        )
+        .sort((a, b) => (lineY - (a.yTop + a.h)) - (lineY - (b.yTop + b.h)));
+      const promptAbove = abovePrompts.length > 0 ? abovePrompts[0] : undefined;
+
+      const prompt = promptLeft || promptAbove;
+
+      if (!prompt) {
+        // Unlabelled isolated underline -> STRUCTURAL_ONLY
+        return {
+          region,
+          classification: 'STRUCTURAL_ONLY',
+          labelAssociationMethod: 'UNASSOCIATED',
+          labelConfidence: 0,
+          heuristicConfidence: 0.85,
+          fieldGeometry: null,
+        };
+      }
+
+      cleanLabel = prompt.str.replace(/:$/, '').trim();
+      assocMethod = promptLeft ? 'LEFT_NEIGHBOR' : 'TOP_HEADER';
+      anchorText = prompt.str;
+
+      if (isTextPrinted) {
+        fieldX = Math.round(lineX1 * 10) / 10;
+        fieldW = Math.max(30, Math.round(lineLen * 10) / 10);
+        fieldY = Math.max(0, Math.round(sourceBBox.top * 10) / 10);
+        fieldH = Math.max(18, Math.round((sourceBBox.bottom - sourceBBox.top) * 10) / 10);
+      } else {
+        // PHYSICAL_UNDERLINE_LINE: drawn line sits at lineY. Input area sits ON TOP of the line.
+        fieldY = Math.max(0, Math.round((lineY - 18) * 10) / 10);
+        fieldH = 20;
+        if (promptLeft) {
+          fieldX = Math.max(lineX1, Math.round((promptLeft.x + promptLeft.w + 4) * 10) / 10);
+          fieldW = Math.max(30, Math.round((lineX2 - fieldX) * 10) / 10);
+        } else if (promptAbove) {
+          fieldY = Math.max(0, Math.max(Math.round((lineY - 18) * 10) / 10, Math.round((promptAbove.yTop + promptAbove.h + 2) * 10) / 10));
+          fieldX = Math.round(lineX1 * 10) / 10;
+          fieldW = Math.round(lineLen * 10) / 10;
+        }
+      }
     }
 
-    const assocMethod: LabelAssociationMethod = promptLeft ? 'LEFT_NEIGHBOR' : 'TOP_HEADER';
+    const suggestion = suggestSemanticKey(cleanLabel);
+    const isDate = /data|nato\s+il|lì/i.test(cleanLabel);
+
     const heuristicConfidence = 0.90;
     const labelConfidence = 0.88;
 
@@ -702,11 +875,11 @@ export function classifyRegionWithHeuristics(
       xPt: fieldX,
       yPt: fieldY,
       widthPt: fieldW,
-      heightPt: 20,
-      anchorText: prompt.str,
+      heightPt: fieldH,
+      anchorText,
       derivationMethod: 'VECTOR_LINE',
       geometrySource: 'UNDERLINE',
-      detectionSource: region.physicalEvidence === 'TEXT_PRINTED_UNDERSCORES_OR_DOTS' ? 'TEXT_LAYER' : 'COMBINED',
+      detectionSource: isTextPrinted ? 'TEXT_LAYER' : 'COMBINED',
       confidence: 0.90,
       status: 'REVIEW_REQUIRED',
       geometricConfidence,

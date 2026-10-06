@@ -1,3 +1,4 @@
+import '../../core/pdfWorker';
 /**
  * @license
  * PEI FACILE — Production Document Surface (Phase 1C-R1)
@@ -55,12 +56,14 @@ export interface DocumentSurfaceProps {
   className?: string;
 }
 
+const EMPTY_CUSTOM_MODELS: PeiModelDefinition[] = [];
+
 export const DocumentSurface: React.FC<DocumentSurfaceProps> = ({
   document,
   templateId: propTemplateId,
   modelDef,
   schoolOrder,
-  customModels = [],
+  customModels = EMPTY_CUSTOM_MODELS,
   sourcePdfUrl,
   sourcePdfBinary: propBinary,
   geometryMapping,
@@ -105,7 +108,12 @@ export const DocumentSurface: React.FC<DocumentSurfaceProps> = ({
         effectiveModelDef.originType === 'MINISTERIAL'
       );
     }
-    if (effectiveTemplateId && effectiveTemplateId.startsWith('model_')) {
+    if (
+      effectiveTemplateId &&
+      (effectiveTemplateId.startsWith('model_') ||
+       effectiveTemplateId.startsWith('tpl_') ||
+       effectiveTemplateId.startsWith('custom_'))
+    ) {
       return false;
     }
     const order = resolveMinisterialOrder(effectiveTemplateId);
@@ -149,7 +157,9 @@ export const DocumentSurface: React.FC<DocumentSurfaceProps> = ({
           templateId: propTemplateId || document.templateId,
           schoolOrder: document.schoolOrder || schoolOrder,
           customModels,
-          providedBinary: propBinary || document.sourcePdfBinary || document.canonicalDocument,
+          providedSchema: document.acquiredSchema,
+          providedBinarySha256: document.acquiredBinarySha256,
+          providedBinary: propBinary || document.canonicalDocument || document.sourcePdfBinary || document.canonicalDocument,
         });
 
         if (isCancelled) return;
@@ -160,17 +170,12 @@ export const DocumentSurface: React.FC<DocumentSurfaceProps> = ({
 
         // Initialize PDF.js
         const pdfjs = await import('pdfjs-dist');
-        if (typeof window !== 'undefined' && !pdfjs.GlobalWorkerOptions.workerSrc) {
-          pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-            'pdfjs-dist/build/pdf.worker.min.mjs',
-            import.meta.url
-          ).toString();
-        }
+        
 
         const pdfJsBytes = new Uint8Array(source.sourceBinary).slice();
         const loadingTask = pdfjs.getDocument({
           data: pdfJsBytes,
-          standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/standard_fonts/',
+          standardFontDataUrl: import.meta.env.BASE_URL + 'vendor/standard_fonts/',
         });
 
         currentTask = loadingTask;
@@ -213,6 +218,8 @@ export const DocumentSurface: React.FC<DocumentSurfaceProps> = ({
     document.templateId,
     document.sourcePdfBinary,
     document.canonicalDocument,
+    document.acquiredSchema,
+    document.acquiredBinarySha256,
     effectiveTemplateId,
     geometryMapping,
     effectiveModelDef,

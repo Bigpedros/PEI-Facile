@@ -1,3 +1,4 @@
+import { runDocumental, canonicalRasterPdf, pageTransform } from './documental/bridge';
 /**
  * @license
  * PEI FACILE — Document Acquisition Service (DOCUMENT ACQUISITION R01)
@@ -10,9 +11,6 @@ import type {
   ExtractedRawPage,
 } from '../types/documentAcquisitionTypes';
 import { detectDocumentFormat } from './documentAdapters/baseAdapter';
-import { PdfFormatAdapter } from './documentAdapters/pdfAdapter';
-import { ImageFormatAdapter } from './documentAdapters/imageAdapter';
-import { TiffFormatAdapter } from './documentAdapters/tiffAdapter';
 import { DocxFormatAdapter } from './documentAdapters/docxAdapter';
 import {
   classifyDocumentModel,
@@ -23,10 +21,10 @@ import { PdfDocumentAnalyzer } from './canonical-template-engine/analyzer/pdfDoc
 import { CanonicalTemplateMatcher } from './canonical-template-engine/matcher/canonicalTemplateMatcher';
 import { MATCH_THRESHOLDS } from './canonical-template-engine/matcher/thresholds';
 import { getTemplatePdfBinary } from './templateStorage';
+import { CteDecision, type NormalizationReport } from './canonical-template-engine/types';
 
-const pdfAdapter = new PdfFormatAdapter();
-const imageAdapter = new ImageFormatAdapter();
-const tiffAdapter = new TiffFormatAdapter();
+import { computeSha256 } from './templateAcquisitionService';
+
 const docxAdapter = new DocxFormatAdapter();
 
 export async function processDocumentAcquisition(
@@ -45,14 +43,19 @@ export async function processDocumentAcquisition(
   const detectedFormat = detectDocumentFormat(effectiveFileName, mimeType);
 
   let rawBytes: Uint8Array | undefined;
-  const isUint8Array = input instanceof Uint8Array || (input && (input as any).constructor && (input as any).constructor.name === 'Uint8Array');
-  if (mainFile instanceof File || input instanceof ArrayBuffer || isUint8Array || ArrayBuffer.isView(input)) {
+  const rawInput = Array.isArray(input) ? input[0] : input;
+  if (rawInput) {
     try {
-      const tempBytes = await normalizeInputData(mainFile || (input as any));
-      rawBytes = new Uint8Array(tempBytes);
+      const tempBytes = await normalizeInputData(rawInput);
+      rawBytes = new Uint8Array(tempBytes.buffer, tempBytes.byteOffset, tempBytes.byteLength);
     } catch (e) {
-      console.log('[DEBUG CTE] normalizeInputData error:', e);
+      console.warn('[DocumentAcquisition] rawBytes extraction error:', e);
     }
+  }
+
+  let sourceSha256: string | undefined;
+  if (rawBytes && rawBytes.byteLength > 0) {
+    sourceSha256 = await computeSha256(rawBytes);
   }
 
   // Gestione esplicita e veritiera di DOC legacy
@@ -71,15 +74,15 @@ export async function processDocumentAcquisition(
   // Selezione adapter
   let rawPages: ExtractedRawPage[] = [];
 
-  if (detectedFormat === 'PDF') {
-    rawPages = await pdfAdapter.extractPages(input, effectiveFileName, options);
-  } else if (detectedFormat === 'IMAGE_JPEG' || detectedFormat === 'IMAGE_PNG') {
-    rawPages = await imageAdapter.extractPages(input, effectiveFileName, options);
-  } else if (detectedFormat === 'IMAGE_TIFF') {
-    rawPages = await tiffAdapter.extractPages(input, effectiveFileName, options);
-  } else if (detectedFormat === 'DOCX') {
-    rawPages = await docxAdapter.extractPages(input, effectiveFileName, options);
-  }
+  // DOCX retains its established adapter; all raster/PDF formats use the unified core.
+  const documentalResult = detectedFormat === 'DOCX' ? undefined : await runDocumental(input, effectiveFileName, options);
+  if (documentalResult) {
+    rawPages = documentalResult.pages.map(p => ({pageNumber:p.pageNumber,text:p.text,
+      pageType:p.warnings.some(w=>w.startsWith('Pagina mista')) ? 'MIXED' : p.source === 'pdf' ? 'TEXT_NATIVE' : 'IMAGE_ONLY',
+      confidence:p.source === 'ocr' && p.tokens.length ? p.tokens.reduce((sum,t)=>sum+(t.confidence??0),0)/p.tokens.length : undefined,
+      warnings:p.warnings}));
+    warnings.push(...documentalResult.pages.flatMap(p=>p.warnings.map(w=>`Pagina ${p.pageNumber}: ${w}`)));
+  } else rawPages = await docxAdapter.extractPages(input, effectiveFileName, options);
 
   if (rawPages.length === 0) {
     throw new Error('Nessun contenuto o pagina estraibile dal documento fornito.');
@@ -159,10 +162,51 @@ export async function processDocumentAcquisition(
   const evidenceList = extractSemanticFieldEvidences(rawPages, effectiveSchoolOrder);
 
   // Estrazione metadata di base per inizializzazione pulita
-  const studentEv = evidenceList.find((e) => e.fieldId === 'f-01-studente');
+  const studentNameEv = evidenceList.find((e) => e.fieldId === 'f-01-studente');
+  const studentCodeEv = evidenceList.find((e) => e.fieldId === 'f-01-codice-sostitutivo');
   const schoolEv = evidenceList.find((e) => e.fieldId === 'f-01-scuola');
   const classEv = evidenceList.find((e) => e.fieldId === 'f-01-classe');
+  const sezioneEv = evidenceList.find((e) => e.fieldId === 'f-01-sezione');
+  const plessoEv = evidenceList.find((e) => e.fieldId === 'f-01-plesso');
   const dateEv = evidenceList.find((e) => e.fieldId === 'f-01-data-redazione');
+
+  // Distingui identificativo interno del documento, nome dell’alunno e codice sostitutivo personale.
+  // Non usare il valore sostitutivo come nome estratto.
+  const rawStudentCode = studentCodeEv?.extractedValue;
+  const isStudentNameActuallyCode = studentNameEv?.extractedValue && /^ALU-[A-Z0-9_-]+$/i.test(studentNameEv.extractedValue);
+  const studentName = studentNameEv && !isStudentNameActuallyCode ? studentNameEv.extractedValue : undefined;
+  const studentCode = rawStudentCode || (isStudentNameActuallyCode ? studentNameEv!.extractedValue : undefined);
+
+  // Sezione e Plesso distinti
+  const sectionVal = sezioneEv?.extractedValue;
+  const plessoVal = plessoEv?.extractedValue;
+  let finalClassOrSection = classEv ? classEv.extractedValue : undefined;
+  if (!finalClassOrSection && (sectionVal || plessoVal)) {
+    if (sectionVal && plessoVal) {
+      finalClassOrSection = `Sez. ${sectionVal} - ${plessoVal}`;
+    } else {
+      finalClassOrSection = sectionVal ? `Sez. ${sectionVal}` : plessoVal;
+    }
+  }
+
+  // 3. Normalizzazione del modello in formato pagina A4 con Rettifica Geometrica OpenCV
+  let canonicalBytes: Uint8Array | undefined = rawBytes;
+  let normalizationReport: NormalizationReport | undefined;
+  let coordinateTransform: DocumentAcquisitionResult['coordinateTransform'];
+  let normalizationSucceeded = false;
+  let normalizedSha256: string | undefined;
+  let pageMetricsList: any[] | undefined;
+
+  if (documentalResult) {
+    canonicalBytes = await canonicalRasterPdf(documentalResult);
+    normalizedSha256 = await computeSha256(canonicalBytes);
+    normalizationSucceeded = true; // A4 aspect-fit only, not a geometric rectification claim.
+    const pageTransforms = documentalResult.pages.map(pageTransform);
+    coordinateTransform = {...pageTransforms[0],pageTransforms};
+    normalizationReport = {engineUsed:'DOCUMENTAL_020',operation:'A4_ASPECT_FIT',
+      coordinateSpace:'FINAL_RASTER_PX_TO_TOP_LEFT_PDF_PT',sourceCoordinateUnit:'px',
+      geometricVerification:'NOT_RUN',perspectiveApplied:false,dewarpingApplied:false} as any;
+  }
 
   const processingTimeMs = Date.now() - startTime;
 
@@ -178,6 +222,7 @@ export async function processDocumentAcquisition(
   }
 
   return {
+    documentalResult,
     fileName: effectiveFileName,
     detectedFormat,
     totalPages: rawPages.length,
@@ -185,13 +230,27 @@ export async function processDocumentAcquisition(
     rawPages,
     fullText,
     evidenceList,
-    studentCode: studentEv ? studentEv.extractedValue : undefined,
+    studentCode,
+    studentName,
+    section: sectionVal,
+    site: plessoVal,
     schoolName: schoolEv ? schoolEv.extractedValue : undefined,
-    classOrSection: classEv ? classEv.extractedValue : undefined,
+    classOrSection: finalClassOrSection,
     compilationDate: dateEv ? dateEv.extractedValue : undefined,
     sourceBinary: rawBytes,
-    canonicalDocument: rawBytes,
+    canonicalDocument: canonicalBytes || rawBytes,
+    sourceSha256,
+    normalizedSha256,
+    normalizationSucceeded,
+    normalizationReport,
+    coordinateTransform,
     processingTimeMs,
+    engineUsed: (normalizationReport as any)?.engineUsed,
+    globalSkewDegrees: (normalizationReport as any)?.globalSkewDegrees,
+    perspectiveApplied: (normalizationReport as any)?.perspectiveApplied,
+    dewarpingMapApplied: (normalizationReport as any)?.dewarpingMapApplied,
+    localCurvatureMaxDeviationPx: (normalizationReport as any)?.localCurvatureMaxDeviationPx,
+    pageMetrics: pageMetricsList,
     warnings,
     logs,
   };

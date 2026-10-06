@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { collectPageRuntimeDiagnostics, type PageRuntimeDiagnosticTrace } from '../core/assistedFieldDetectionService';
+import { collectPageRuntimeDiagnostics, type PageRuntimeDiagnosticTrace } from './pdfPageFixture';
 
 describe('CTE-FIX-02C — Page Runtime Diagnostic Trace Suite', () => {
   it('generates complete and structured runtime diagnostics from a mock PDF page proxy', async () => {

@@ -1,3 +1,5 @@
+> Consegna consolidata 5 ottobre 2026: istruzioni correnti in `docs/integration-020/INSTALLAZIONE.md` e `PROMPT_GEMINI.txt`. Il manifest corrente è `INTEGRATION-020-MANIFEST.json`; i checksum storici non descrivono questa root aggiornata.
+
 # PEI FACILE - MINISTERIAL CORPUS R01
 
 Pacchetto di sorgenti ministeriali e asset runtime per PEI FACILE.

@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { detectFieldsOnPdfPage } from '../core/assistedFieldDetectionService';
+import { detectFieldsOnPdfPage } from './pdfPageFixture';
 import { clusterAndRefineCandidates } from '../core/fieldCandidateClustering';
 
 interface TextItemInput {

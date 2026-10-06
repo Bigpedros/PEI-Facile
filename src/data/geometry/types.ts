@@ -15,7 +15,9 @@ export type GeometryDerivationMethod =
   | 'CHECKBOX_BOX'
   | 'VECTOR_BOX'
   | 'VECTOR_LINE'
-  | 'MANUAL_VERIFIED';
+  | 'MANUAL_VERIFIED'
+  | 'MANUAL'
+  | 'USER_CREATED';
 
 export type LabelAssociationMethod =
   | 'LEFT_NEIGHBOR'
@@ -50,6 +52,11 @@ export type FieldDetectionSource =
   | 'COMBINED';
 
 export interface FieldGeometry {
+  inputType?: 'checkbox' | 'select';
+  options?: string[];
+  defaultValue?: string | boolean;
+  originalValue?: string | boolean;
+  observedText?: string;
   fieldId: string;
   label?: string;
   semanticKey?: string | null;
@@ -87,7 +94,7 @@ export interface FieldGeometry {
   };
   derivationMethod: GeometryDerivationMethod;
   /** Score from 0.00 to 1.00 */
-  confidence: number;
+  confidence?: number;
   status: FieldGeometryStatus;
   /** Explanation if unmapped or requiring review */
   reason?: string;
@@ -118,8 +125,10 @@ export interface ModelGeometry {
   modelName: string;
   sourcePdf: string;
   sourcePdfSha256: string;
+  normalizedPdfSha256?: string;
   totalPages: number;
   pages: PageGeometry[];
+  calibrationStatus?: string;
 }
 
 export interface ViewportCoordinate {

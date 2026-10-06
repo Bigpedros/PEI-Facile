@@ -1,3 +1,4 @@
+import { pageCandidates } from './documental/bridge';
 /**
  * @license
  * PEI FACILE — Dynamic Template Acquisition Engine (Phase 1B R01)
@@ -7,14 +8,17 @@
 
 import * as pdfjsLib from 'pdfjs-dist';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-import type {
+import {
   TemplateAcquisitionResult,
   CandidateFieldGeometry,
   UnresolvedRegion,
   TemplateAcquisitionStatus,
+  AcquireTemplateOptions,
+  AcquisitionAbortedError,
 } from './templateAcquisitionTypes';
 import type { PageGeometry, ModelGeometry } from '../data/geometry/types';
 import { normalizeInputData } from './pdfIntakeService';
+import { processDocumentAcquisition } from './documentAcquisitionService';
 import { DocxFormatAdapter } from './documentAdapters/docxAdapter';
 
 import A1Data from '../data/geometry/A1.geometry.json';
@@ -62,9 +66,17 @@ export async function computeSha256(data: Uint8Array): Promise<string> {
 export async function acquirePdfTemplate(
   input: ArrayBuffer | Uint8Array | Blob | File,
   fileName = 'template.pdf',
-  forceReanalysis = false
+  optionsInput: boolean | AcquireTemplateOptions = false
 ): Promise<TemplateAcquisitionResult> {
+  const options: AcquireTemplateOptions =
+    typeof optionsInput === 'boolean' ? { forceReanalysis: optionsInput } : optionsInput || {};
+  const { forceReanalysis = false, onProgress, signal } = options;
+
   const warnings: string[] = [];
+
+  if (signal?.aborted) {
+    throw new AcquisitionAbortedError();
+  }
 
   // 1. Check for unsupported DOC legacy input
   if (fileName.toLowerCase().endsWith('.doc') && !fileName.toLowerCase().endsWith('.docx')) {
@@ -91,93 +103,26 @@ export async function acquirePdfTemplate(
   const fileSizeBytes = rawBytes.byteLength;
   const sourceSha256 = await computeSha256(rawBytes);
 
-  // 3. Genuine DOCX Template Intake
+  if (signal?.aborted) {
+    throw new AcquisitionAbortedError();
+  }
+
+  // 3. Genuine DOCX Template Intake (Structural & Font Symbol Limitation Notice)
   if (fileName.toLowerCase().endsWith('.docx')) {
-    const docxAdapter = new DocxFormatAdapter();
-    const rawPages = await docxAdapter.extractPages(rawBytes, fileName);
-
-    const pdfDoc = await PDFDocument.create();
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-    const pageGeometries: PageGeometry[] = [];
-    const candidates: CandidateFieldGeometry[] = [];
-
-    for (const rPage of rawPages) {
-      const page = pdfDoc.addPage([595.32, 841.92]);
-      const pNum = rPage.pageNumber;
-
-      page.drawText(`Modello: ${fileName} — Sezione/Pagina ${pNum}`, {
-        x: 50,
-        y: 800,
-        size: 11,
-        font: fontBold,
-        color: rgb(0.2, 0.2, 0.2),
-      });
-
-      const lines = rPage.text.split('\n').map((l) => l.trim()).filter(Boolean);
-      let currentY = 760;
-
-      for (const line of lines) {
-        if (currentY < 60) break;
-        const cleanLine = line.length > 90 ? line.substring(0, 87) + '...' : line;
-        page.drawText(cleanLine, {
-          x: 50,
-          y: currentY,
-          size: 10,
-          font,
-          color: rgb(0.1, 0.1, 0.1),
-        });
-
-        // Look for form prompts
-        const matchPrompt = line.match(/^([^:_\.]{2,40})[:_\.]\s*(.*)$/);
-        if (matchPrompt) {
-          const label = matchPrompt[1].trim();
-          const cand: CandidateFieldGeometry = {
-            fieldId: `docx_p${pNum}_f${candidates.length + 1}`,
-            label,
-            pageNumber: pNum,
-            xPt: 200,
-            yPt: 841.92 - currentY - 5,
-            widthPt: 340,
-            heightPt: 22,
-            anchorText: label,
-            derivationMethod: 'TEXT_ANCHOR',
-            confidence: 0.90,
-            status: 'MAPPED',
-            calibrationStatus: 'PROPOSED',
-            fieldType: /data|nato\s+il/i.test(label) ? 'date' : 'text',
-          };
-          candidates.push(cand);
-        }
-
-        currentY -= 20;
-      }
-
-      pageGeometries.push({
-        pageNumber: pNum,
-        widthPt: 595.32,
-        heightPt: 841.92,
-        fields: candidates.filter((c) => c.pageNumber === pNum),
-      });
-    }
-
-    const templateId = `tpl_docx_${sourceSha256.slice(0, 12)}`;
-
     return {
-      templateId,
+      templateId: `tpl_docx_${sourceSha256.slice(0, 12)}`,
       sourceFileName: fileName,
       sourceSha256,
       fileSizeBytes,
-      pageCount: pageGeometries.length,
-      pages: pageGeometries,
-      geometryCandidates: candidates,
+      pageCount: 0,
+      pages: [],
+      geometryCandidates: [],
       unmappedRegions: [],
-      confidence: 0.90,
-      status: 'READY',
+      confidence: 0,
+      status: 'FAILED',
       isMinisterialFastPath: false,
       warnings: [
-        'Modello DOCX acquisito con successo e convertito in rappresentazione canonica A4. Layout preservato per sezioni e testo.',
+        'I file Word (.docx) non possono preservare tabelle, bordi, celle e formati complessi tramite conversione testuale automatica (rilevati caratteri simbolici font non codificabili in WinAnsi come 0xf020 e limitazione strutturale di tabelle/impaginazione). Si prega di esportare il documento in formato PDF da Microsoft Word o LibreOffice ed effettuare l’acquisizione del file PDF. Nessun record degradato è stato salvato nel catalogo.',
       ],
     };
   }
@@ -198,6 +143,16 @@ export async function acquirePdfTemplate(
       });
     });
 
+    if (onProgress) {
+      onProgress({
+        currentPage: baseline.totalPages,
+        totalPages: baseline.totalPages,
+        percentage: 100,
+        stage: 'REVIEW_READY',
+        stageLabel: `Modello ministeriale ${fastPath.modelId} riconosciuto istantaneamente`,
+      });
+    }
+
     return {
       templateId: `ministerial_${fastPath.modelId.toLowerCase()}`,
       sourceFileName: fileName,
@@ -214,222 +169,33 @@ export async function acquirePdfTemplate(
     };
   }
 
-  // 4. Unknown or custom PDF — Real PDF.js inspection
-  const loadingTask = pdfjsLib.getDocument({
-    data: rawBytes,
-    useSystemFonts: true,
-    isEvalSupported: false,
+  // 4. Unknown or custom PDF — Real CTE A4 Normalization & PDF.js inspection
+  const normAcquisitionResult = await processDocumentAcquisition(rawBytes, fileName, {
+    onProgress,
+    signal,
   });
 
-  const pdfDoc = await loadingTask.promise;
-  const pageCount = pdfDoc.numPages;
-
-  if (pageCount <= 0) {
-    return {
-      templateId: `tpl_${Date.now()}`,
-      sourceFileName: fileName,
-      sourceSha256,
-      fileSizeBytes,
-      pageCount: 0,
-      pages: [],
-      geometryCandidates: [],
-      unmappedRegions: [],
-      confidence: 0,
-      status: 'FAILED',
-      isMinisterialFastPath: false,
-      warnings: ['Il documento PDF non contiene pagine valide.'],
-    };
+  if (signal?.aborted) {
+    throw new AcquisitionAbortedError();
   }
 
-  // 5. Inspect AcroForm at document level
-  let documentAcroFields: Record<string, any> | null = null;
-  try {
-    if (typeof (pdfDoc as any).getFieldObjects === 'function') {
-      documentAcroFields = await (pdfDoc as any).getFieldObjects();
-    }
-  } catch (err) {
-    warnings.push('Impossibile estrarre oggetti AcroForm globali.');
-  }
+  const canonicalBytes = normAcquisitionResult.canonicalDocument
+    ? new Uint8Array(normAcquisitionResult.canonicalDocument)
+    : rawBytes;
+  const coordinateTransform = normAcquisitionResult.coordinateTransform;
 
-  const pagesGeometry: PageGeometry[] = [];
-  const candidateFields: CandidateFieldGeometry[] = [];
-  const unmappedRegions: UnresolvedRegion[] = [];
-
-  for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
-    const page = await pdfDoc.getPage(pageNum);
-    const vp = page.getViewport({ scale: 1.0 });
-    const pageWidthPt = vp.width;
-    const pageHeightPt = vp.height;
-
-    const pageFields: CandidateFieldGeometry[] = [];
-
-    // Stage 1 & 2: Check Page Annotations (AcroForm widgets & form fields)
-    try {
-      const annotations = await page.getAnnotations();
-      if (Array.isArray(annotations) && annotations.length > 0) {
-        for (const ann of annotations) {
-          if (ann.subtype === 'Widget' || ann.fieldType) {
-            // Rect is [x1, y1, x2, y2] in PDF bottom-left points
-            const rect = ann.rect;
-            if (Array.isArray(rect) && rect.length === 4) {
-              const xPt = Math.round(rect[0] * 100) / 100;
-              const yBottom = rect[1];
-              const widthPt = Math.round((rect[2] - rect[0]) * 100) / 100;
-              const heightPt = Math.round((rect[3] - rect[1]) * 100) / 100;
-              const yPt = Math.round((pageHeightPt - yBottom - heightPt) * 100) / 100;
-
-              if (widthPt > 5 && heightPt > 5) {
-                const fieldName = ann.fieldName || ann.name || `field_acro_p${pageNum}_${pageFields.length + 1}`;
-                const cand: CandidateFieldGeometry = {
-                  fieldId: `f-${pageNum}-${fieldName.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}`,
-                  label: ann.alternativeText || ann.fieldName || 'Campo Modulo AcroForm',
-                  pageNumber: pageNum,
-                  xPt,
-                  yPt,
-                  widthPt,
-                  heightPt,
-                  anchorText: ann.fieldName || 'AcroForm Field',
-                  derivationMethod: 'ACROFORM',
-                  confidence: 0.98,
-                  status: 'MAPPED',
-                  evidence: `AcroForm Widget (${ann.fieldType || 'text'}) rilevato in pagina ${pageNum}`,
-                  rawAcroFieldName: ann.fieldName,
-                  rawAcroFieldType: ann.fieldType,
-                  fieldType: ann.fieldType === 'Btn' ? 'checkbox' : 'text',
-                };
-                pageFields.push(cand);
-              }
-            }
-          }
-        }
-      }
-    } catch {
-      // Annotations extraction non-fatal
-    }
-
-    // Stage 3, 4, 5, 6: Text Layer Analysis (Lines, Tables, Anchors, Unresolved regions)
-    const textContent = await page.getTextContent();
-    const items = textContent.items.filter((it: any) => it.str && it.str.trim().length > 0) as any[];
-
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      const str: string = item.str;
-      const x = item.transform ? item.transform[4] : 0;
-      const yBottom = item.transform ? item.transform[5] : 0;
-      const w = item.width || 0;
-      const h = item.height || 10;
-      const yTop = pageHeightPt - yBottom;
-
-      // Check Ambiguous / Unresolved fill indicators (e.g. lonely question marks, brackets without clear bounds, questions)
-      const isAmbiguous = /\[\s*\]|\(\s*\)|\?{1,}|ambigu/i.test(str);
-      if (isAmbiguous) {
-        unmappedRegions.push({
-          pageNumber: pageNum,
-          xPt: Math.round(x),
-          yPt: Math.round(yTop - 10),
-          widthPt: Math.max(80, Math.round(w)),
-          heightPt: 20,
-          evidence: `Pattern ambiguo rilevato: "${str}"`,
-          reason: 'Ambiguita geometrica: delimitatori non deterministici senza etichetta univoca.',
-          confidence: 0.45,
-        });
-        continue;
-      }
-
-      // Check Stage 3: Vector Boundary / Fill lines (e.g. `_____` or `.....`)
-      const isUnderline = /_{3,}/.test(str) || /\.{4,}/.test(str);
-      if (isUnderline) {
-        // Find preceding label if any
-        const prevItem = i > 0 ? items[i - 1] : null;
-        const anchorLabel = prevItem && Math.abs(pageHeightPt - prevItem.transform[5] - yTop) < 15
-          ? prevItem.str.trim()
-          : 'Riga di compilazione';
-
-        const cand: CandidateFieldGeometry = {
-          fieldId: `f-${pageNum}-line-${pageFields.length + 1}`,
-          label: anchorLabel,
-          pageNumber: pageNum,
-          xPt: Math.round(x),
-          yPt: Math.round(yTop - 14),
-          widthPt: Math.max(120, Math.round(w)),
-          heightPt: 20,
-          anchorText: str.slice(0, 30),
-          derivationMethod: 'VECTOR_BOUNDARY',
-          confidence: 0.85,
-          status: 'MAPPED',
-          evidence: `Sequenza di sottolineatura continua "${str.slice(0, 10)}..." su p.${pageNum}`,
-          fieldType: 'text',
-        };
-        pageFields.push(cand);
-        continue;
-      }
-
-      // Check Stage 5: Form field text anchors ending with `:`
-      if (str.endsWith(':') && str.length > 2 && str.length < 50) {
-        const xField = Math.min(pageWidthPt - 150, Math.round(x + w + 10));
-        const widthField = Math.max(120, Math.round(pageWidthPt - xField - 40));
-
-        const cand: CandidateFieldGeometry = {
-          fieldId: `f-${pageNum}-anchor-${pageFields.length + 1}`,
-          label: str.replace(/:$/, '').trim(),
-          pageNumber: pageNum,
-          xPt: xField,
-          yPt: Math.round(yTop - 12),
-          widthPt: widthField,
-          heightPt: 20,
-          anchorText: str,
-          derivationMethod: 'TEXT_ANCHOR',
-          confidence: 0.80,
-          status: 'MAPPED',
-          evidence: `Etichetta form con terminatore due punti "${str}"`,
-          fieldType: 'text',
-        };
-        pageFields.push(cand);
-        continue;
-      }
-    }
-
-    // Register page geometry
-    pagesGeometry.push({
-      pageNumber: pageNum,
-      widthPt: pageWidthPt,
-      heightPt: pageHeightPt,
-      fields: pageFields,
-    });
-
-    candidateFields.push(...pageFields);
-  }
-
-  // Calculate overall acquisition confidence and determine template status
-  let overallConfidence = 0.5;
-  if (candidateFields.length > 0) {
-    const sumConf = candidateFields.reduce((acc, f) => acc + f.confidence, 0);
-    overallConfidence = Math.round((sumConf / candidateFields.length) * 100) / 100;
-  }
-
-  let status: TemplateAcquisitionStatus = 'READY';
-  if (unmappedRegions.length > 0 || candidateFields.length === 0 || overallConfidence < 0.8) {
-    status = 'REVIEW_REQUIRED';
-    if (unmappedRegions.length > 0) {
-      warnings.push(`Rilevate ${unmappedRegions.length} regioni ambigue richiedenti revisione umana.`);
-    }
-    if (candidateFields.length === 0) {
-      warnings.push('Nessun campo compilabile automatico rilevato con certezza: calibrazione manuale necessaria.');
-    }
-  }
-
+  const document = normAcquisitionResult.documentalResult;
+  if (!document) throw new Error('Risultato documentale non disponibile.');
+  const pages = document.pages.map(p => ({pageNumber:p.pageNumber,widthPt:210/25.4*72,
+    heightPt:297/25.4*72,fields:pageCandidates(p)}));
+  const geometryCandidates = pages.flatMap(p=>p.fields);
   return {
-    templateId: `tpl_custom_${sourceSha256.slice(0, 12)}`,
-    sourceFileName: fileName,
-    sourceSha256,
-    fileSizeBytes,
-    pageCount,
-    pages: pagesGeometry,
-    geometryCandidates: candidateFields,
-    unmappedRegions,
-    confidence: overallConfidence,
-    status,
-    isMinisterialFastPath: false,
-    warnings,
+    templateId:`tpl_custom_${sourceSha256.slice(0,12)}`,sourceFileName:fileName,sourceSha256,
+    normalizedSha256:normAcquisitionResult.normalizedSha256,normalizationSucceeded:true,
+    fileSizeBytes,pageCount:pages.length,pages,geometryCandidates,unmappedRegions:[],
+    confidence:geometryCandidates.length ? geometryCandidates.reduce((a,f)=>a+(f.confidence??0),0)/geometryCandidates.length : 0,
+    status:'REVIEW_REQUIRED',isMinisterialFastPath:false,
+    warnings:normAcquisitionResult.warnings,canonicalDocument:canonicalBytes,coordinateTransform,
+    engineUsed:'DOCUMENTAL_020',normalizationReport:normAcquisitionResult.normalizationReport,
   };
 }

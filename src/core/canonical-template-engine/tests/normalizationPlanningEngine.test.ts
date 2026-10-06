@@ -280,8 +280,9 @@ describe('Canonical Template Engine (CTE) - Release R05 Normalization Planning E
     expect(plan.requiresNormalization).toBe(true);
 
     const pagePlan = plan.pagePlans[0];
-    expect(pagePlan.scaling.scaleX).toBeCloseTo(A4_WIDTH_PT / 500, 2);
-    expect(pagePlan.scaling.scaleY).toBeCloseTo(A4_HEIGHT_PT / 700, 2);
+    const expectedScale = Math.min(A4_WIDTH_PT / 500, A4_HEIGHT_PT / 700);
+    expect(pagePlan.scaling.scaleX).toBeCloseTo(expectedScale, 2);
+    expect(pagePlan.scaling.scaleY).toBeCloseTo(expectedScale, 2);
 
     const scaleOp = pagePlan.operationSequence.find(o => o.type === 'scale');
     expect(scaleOp).toBeDefined();

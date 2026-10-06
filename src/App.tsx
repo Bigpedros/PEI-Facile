@@ -1,3 +1,4 @@
+import {savePeiDocument,loadSavedPeiDocument,deleteSavedPeiDocument} from './core/documentPersistence';
 /**
  * @license
  * PEI FACILE — Applicazione Integrata
@@ -33,6 +34,7 @@ import { AcquisitionModal, AcquisitionSuccessPayload } from './components/modals
 import { SettingsModal } from './components/modals/SettingsModal';
 import { HelpModal } from './components/modals/HelpModal';
 import { ShareModal } from './components/modals/ShareModal';
+import { deleteCustomTemplate } from './core/templateStorage';
 import { TemplateCalibrationWorkspace } from './components/calibration/TemplateCalibrationWorkspace';
 import { GeometryCalibrationTool } from './dev/GeometryCalibrationTool';
 import {
@@ -84,6 +86,7 @@ export const restorePeiDocumentBinaries = (doc: any): any => {
       restored.sourcePdfBinary = restoredBinary;
     }
   }
+  if (restored.originalSourceBinary) restored.originalSourceBinary=restoreUint8Array(restored.originalSourceBinary);
   if (restored.canonicalDocument) {
     const restoredBinary = restoreUint8Array(restored.canonicalDocument);
     if (restoredBinary) {
@@ -151,6 +154,101 @@ export default function App() {
     ];
   });
 
+  // Sincronizza modelli personalizzati salvati in IndexedDB garantendo identità unica e stato autentico
+  useEffect(() => {
+    async function syncCustomModelsFromStorage() {
+      try {
+        const { listAllCustomTemplates } = await import('./core/templateStorage');
+        const list = await listAllCustomTemplates();
+        if (list && list.length > 0) {
+          setCustomModels((prev) => {
+            // Mappa unificata per chiave canonica templateId / id
+            const modelMap = new Map<string, PeiModelDefinition>();
+
+            // 1. Popola con i modelli già in memoria (rimappa id = templateId se presente)
+            for (const m of prev) {
+              const canonicalKey = m.templateId || m.id;
+              modelMap.set(canonicalKey, {
+                ...m,
+                id: canonicalKey,
+                templateId: canonicalKey,
+              });
+            }
+
+            // 2. Riconcilia con i record di IndexedDB (fonte autorevole per calibrationStatus e metadati)
+            for (const rec of list) {
+              const canonicalKey = rec.templateId;
+              const existing = modelMap.get(canonicalKey);
+
+              if (existing) {
+                // Aggiorna e preserva i campi autentici senza duplicare la voce
+                modelMap.set(canonicalKey, {
+                  ...existing,
+                  name: rec.name || existing.name,
+                  schoolOrder: (rec.schoolOrder || existing.schoolOrder) as SchoolOrder,
+                  sourceSha256: rec.sourceSha256 || existing.sourceSha256,
+                  sourceHash: rec.sourceSha256 || existing.sourceHash,
+                  normalizedSha256: rec.normalizedSha256 !== undefined ? rec.normalizedSha256 : existing.normalizedSha256,
+                  sourcePdfSha256: rec.sourceSha256 || existing.sourcePdfSha256,
+                  normalizedPdfSha256: rec.normalizedSha256 !== undefined ? rec.normalizedSha256 : existing.normalizedPdfSha256,
+                  normalizationSucceeded: rec.normalizationSucceeded !== undefined ? rec.normalizationSucceeded : existing.normalizationSucceeded,
+                  calibrationStatus: rec.calibrationStatus || existing.calibrationStatus || 'REVIEW_REQUIRED',
+                  engineUsed: rec.engineUsed || existing.engineUsed,
+                  globalSkewDegrees: rec.globalSkewDegrees !== undefined ? rec.globalSkewDegrees : existing.globalSkewDegrees,
+                  perspectiveApplied: rec.perspectiveApplied !== undefined ? rec.perspectiveApplied : existing.perspectiveApplied,
+                  dewarpingMapApplied: rec.dewarpingMapApplied !== undefined ? rec.dewarpingMapApplied : existing.dewarpingMapApplied,
+                  localCurvatureMaxDeviationPx: rec.localCurvatureMaxDeviationPx !== undefined ? rec.localCurvatureMaxDeviationPx : existing.localCurvatureMaxDeviationPx,
+                  normalizationReport: rec.normalizationReport || existing.normalizationReport,
+                  pageMetrics: rec.pageMetrics || rec.normalizationReport?.rectificationMetrics || existing.pageMetrics,
+                });
+              } else {
+                modelMap.set(canonicalKey, {
+                  id: rec.templateId,
+                  name: rec.name,
+                  schoolOrder: rec.schoolOrder as SchoolOrder,
+                  originType: 'TERRITORIAL',
+                  originName: 'Modello Personalizzato / Acquisito',
+                  version: rec.schemaVersion || '1.0',
+                  format: 'PDF',
+                  status: 'attivo',
+                  isDefault: false,
+                  isMinisterial: false,
+                  sourceKind: 'USER_IMPORTED',
+                  sourceHash: rec.sourceSha256,
+                  sourceSha256: rec.sourceSha256,
+                  normalizedSha256: rec.normalizedSha256,
+                  sourcePdfSha256: rec.sourceSha256,
+                  normalizedPdfSha256: rec.normalizedSha256,
+                  normalizationSucceeded: rec.normalizationSucceeded,
+                  templateId: rec.templateId,
+                  calibrationStatus: rec.calibrationStatus || 'REVIEW_REQUIRED',
+                  engineUsed: rec.engineUsed,
+                  globalSkewDegrees: rec.globalSkewDegrees,
+                  perspectiveApplied: rec.perspectiveApplied,
+                  dewarpingMapApplied: rec.dewarpingMapApplied,
+                  localCurvatureMaxDeviationPx: rec.localCurvatureMaxDeviationPx,
+                  normalizationReport: rec.normalizationReport,
+                  pageMetrics: rec.pageMetrics || rec.normalizationReport?.rectificationMetrics || rec.normalizationReport?.pageMetrics,
+                });
+              }
+            }
+
+            const unifiedList = Array.from(modelMap.values());
+            try {
+              localStorage.setItem('pei_facile_custom_models_v1', JSON.stringify(unifiedList));
+            } catch {
+              // ignore
+            }
+            return unifiedList;
+          });
+        }
+      } catch (err) {
+        console.warn('Could not sync custom models from IndexedDB on app init:', err);
+      }
+    }
+    syncCustomModelsFromStorage();
+  }, []);
+
   const handleAddCustomModel = (model: PeiModelDefinition) => {
     setCustomModels((prev) => {
       const updated = [model, ...prev];
@@ -176,6 +274,61 @@ export default function App() {
     showToast(`Stato del modello aggiornato a: ${status}`);
   };
 
+  const handleUpdateModelName = (id: string, newName: string) => {
+    setCustomModels((prev) => {
+      const updated = prev.map((m) => (m.id === id ? { ...m, name: newName } : m));
+      try {
+        localStorage.setItem('pei_facile_custom_models_v1', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+    showToast('Modello rinominato con successo.');
+  };
+
+  const handleDeleteCustomModel = async (id: string) => {
+    const targetModel = customModels.find((m) => m.id === id);
+    if (!targetModel) return;
+
+    const isUsedBySavedDoc =
+      savedDocument &&
+      (savedDocument.modelId === id || savedDocument.customModelId === id);
+
+    if (isUsedBySavedDoc) {
+      showToast('Impossibile eliminare: il modello è attualmente utilizzato dal PEI salvato.');
+      return;
+    }
+
+    try {
+      const otherModelsUsingSameBinary = customModels.filter(
+        (m) => m.id !== id && (m.sourcePdfSha256 === targetModel.sourcePdfSha256 || m.templateId === targetModel.templateId)
+      );
+      const keepBinary = otherModelsUsingSameBinary.length > 0;
+
+      await deleteCustomTemplate(targetModel.id, keepBinary ? undefined : targetModel.sourcePdfSha256);
+
+      const updated = customModels.filter((m) => m.id !== id);
+      setCustomModels(updated);
+      try {
+        localStorage.setItem('pei_facile_custom_models_v1', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+
+      if (settings.defaultModelId === id) {
+        const newSettings = { ...settings, defaultModelId: `MINISTERIAL_${targetModel.schoolOrder}` };
+        setSettings(newSettings);
+        localStorage.setItem('pei_facile_settings', JSON.stringify(newSettings));
+      }
+
+      showToast(`Modello "${targetModel.name}" eliminato con successo.`);
+    } catch (err) {
+      console.error('Failed to delete custom model:', err);
+      showToast('Errore durante l’eliminazione del modello.');
+    }
+  };
+
   // 2. Stato di Navigazione
   const [currentScreen, setCurrentScreen] = useState<ScreenId>('SCR-001');
 
@@ -195,7 +348,8 @@ export default function App() {
     return createEmptyPeiDocument(settings.defaultSchoolOrder || 'A2', '', settings.schoolName, settings.building);
   });
   const [hasOpenDocument, setHasOpenDocument] = useState<boolean>(() => {
-    return !!localStorage.getItem('pei_facile_saved_doc');
+    const raw=localStorage.getItem('pei_facile_saved_doc');
+    try{return !!raw && JSON.parse(raw).binaryStorage!=='indexeddb-020';}catch{return false;}
   });
 
   const [savedDocument, setSavedDocument] = useState<PeiDocument | null>(() => {
@@ -206,6 +360,14 @@ export default function App() {
       return null;
     }
   });
+
+  useEffect(()=>{
+    const raw=localStorage.getItem('pei_facile_saved_doc');
+    try{if(!raw||JSON.parse(raw).binaryStorage!=='indexeddb-020')return;}catch{return;}
+    let active=true;
+    loadSavedPeiDocument().then(doc=>{if(active&&doc){setDocument(doc);setSavedDocument(doc);setHasOpenDocument(true);}}).catch(()=>showToast('Impossibile recuperare il documento salvato.'));
+    return ()=>{active=false;};
+  },[]);
 
   // Model Selection Gate: stato deterministico modello attivo/selezionato
   const [selectedModelId, setSelectedModelId] = useState<string | null>(() => {
@@ -230,9 +392,9 @@ export default function App() {
     return null;
   });
 
-  const handleDeleteSavedDocument = () => {
+  const handleDeleteSavedDocument = async () => {
     try {
-      localStorage.removeItem('pei_facile_saved_doc');
+      await deleteSavedPeiDocument();
     } catch {
       // ignore
     }
@@ -360,21 +522,42 @@ export default function App() {
         value !== '' &&
         (!Array.isArray(value) || value.length > 0);
 
+      const nextValues: Record<string, any> = {
+        ...prev.values,
+        [fieldId]: value,
+      };
+
+      // Rigoroso allineamento sincronizzato esclusivamente per alias 1:1 accertati
+      // Previene il riaffiorare di valori obsoleti se un campo viene modificato o cancellato
+      const STRICT_ALIASES: Record<string, string> = {
+        'f-02-sintesi-assi': 'f-02-sintesi-profilo',
+        'f-02-sintesi-profilo': 'f-02-sintesi-assi',
+        'f-07-interventi': 'f-07-interventi-contesto',
+        'f-07-interventi-contesto': 'f-07-interventi',
+        'f-08-adattamenti-discipline': 'f-08-curricolare-obiettivi',
+        'f-08-curricolare-obiettivi': 'f-08-adattamenti-discipline',
+      };
+
+      const mirrorKey = STRICT_ALIASES[fieldId];
+      if (mirrorKey && mirrorKey in nextValues) {
+        if (value === undefined || value === null || value === '') {
+          delete nextValues[mirrorKey];
+        } else {
+          nextValues[mirrorKey] = value;
+        }
+      }
+
       const updated = {
         ...prev,
         updatedAt: new Date().toISOString(),
-        values: {
-          ...prev.values,
-          [fieldId]: value,
-        },
+        values: nextValues,
         fieldStatuses: {
           ...prev.fieldStatuses,
           [fieldId]: isFilled ? 'compilato' : 'vuoto',
         },
       };
       try {
-        localStorage.setItem('pei_facile_saved_doc', JSON.stringify(updated));
-        setSavedDocument(updated);
+        void savePeiDocument(updated).then(()=>setSavedDocument(updated)).catch(()=>showToast('Salvataggio automatico non riuscito.'));
       } catch {
         // ignore
       }
@@ -412,7 +595,7 @@ export default function App() {
     setSavedDocument(newDoc);
     setSelectedModelId(newDoc.modelId || `MINISTERIAL_${order}`);
     try {
-      localStorage.setItem('pei_facile_saved_doc', JSON.stringify(newDoc));
+      void savePeiDocument(newDoc).catch(()=>showToast('Salvataggio del PEI non riuscito.'));
     } catch {
       // ignore
     }
@@ -423,11 +606,11 @@ export default function App() {
   };
 
   // Apertura PEI Esistente / Salvato
-  const handleOpenSavedPei = () => {
+  const handleOpenSavedPei = async () => {
     try {
-      const s = localStorage.getItem('pei_facile_saved_doc');
-      if (s) {
-        const doc = restorePeiDocumentBinaries(JSON.parse(s));
+      const saved = await loadSavedPeiDocument();
+      if (saved) {
+        const doc = restorePeiDocumentBinaries(saved);
         setDocument(doc);
         setHasOpenDocument(true);
         setSavedDocument(doc);
@@ -445,9 +628,9 @@ export default function App() {
   };
 
   // Salvataggio manuale
-  const handleSaveDocument = () => {
+  const handleSaveDocument = async () => {
     try {
-      localStorage.setItem('pei_facile_saved_doc', JSON.stringify(document));
+      await savePeiDocument(document);
       setSavedDocument(document);
       showToast('PEI salvato con successo nella memoria locale.');
     } catch {
@@ -474,12 +657,18 @@ export default function App() {
       payload.studentCode,
       payload.schoolName,
       payload.classOrSection,
-      targetModelDef
+      targetModelDef,
+      payload.studentName
     );
 
     if (payload.schoolYear) {
       newDoc.schoolYear = payload.schoolYear;
     }
+
+    newDoc.originalSourceBinary = payload.sourcePdfBinary;
+    newDoc.originalSourceSha256 = payload.originalSourceSha256;
+    newDoc.acquiredSchema = payload.acquiredSchema;
+    newDoc.acquiredBinarySha256 = payload.acquiredBinarySha256;
 
     // CTE-FIX-01: Pass-through of canonical/acquired document binary
     if (payload.canonicalDocument || payload.sourcePdfBinary) {
@@ -487,10 +676,38 @@ export default function App() {
       newDoc.sourcePdfBinary = payload.canonicalDocument || payload.sourcePdfBinary;
     }
 
-    // Popola esclusivamente con i valori estratti e approvati nella coda di revisione
+    // Popola con i valori estratti e approvati nella coda di revisione
+    const resolvedValues: Record<string, string> = { ...payload.extractedValues };
+
+    // Distingui identificativo interno, nome alunno e codice sostitutivo personale
+    if (payload.studentCode) {
+      resolvedValues['f-01-codice-sostitutivo'] = payload.studentCode;
+    }
+    if (payload.studentName) {
+      resolvedValues['f-01-studente'] = payload.studentName;
+    } else if (resolvedValues['f-01-studente'] && /^ALU-[A-Z0-9_-]+$/i.test(resolvedValues['f-01-studente'])) {
+      // Non usare il valore sostitutivo come nome estratto sulla riga BAMBINO/A
+      delete resolvedValues['f-01-studente'];
+    }
+
+    // Sincronizzazione esclusivamente per alias 1:1 accertati di identico tipo, significato e cardinalità
+    const STRICT_ALIAS_PAIRS: [string, string][] = [
+      ['f-02-sintesi-assi', 'f-02-sintesi-profilo'],
+      ['f-07-interventi', 'f-07-interventi-contesto'],
+      ['f-08-adattamenti-discipline', 'f-08-curricolare-obiettivi'],
+    ];
+
+    STRICT_ALIAS_PAIRS.forEach(([canon, alias]) => {
+      if (resolvedValues[alias] && !resolvedValues[canon]) {
+        resolvedValues[canon] = resolvedValues[alias];
+      } else if (resolvedValues[canon] && !resolvedValues[alias]) {
+        resolvedValues[alias] = resolvedValues[canon];
+      }
+    });
+
     newDoc.values = {
       ...newDoc.values,
-      ...payload.extractedValues,
+      ...resolvedValues,
     };
     if (payload.compilationDate) {
       newDoc.lastModifiedDate = payload.compilationDate;
@@ -498,7 +715,7 @@ export default function App() {
     }
 
     // Segna i campi approvati come compilati
-    Object.keys(payload.extractedValues).forEach((fId) => {
+    Object.keys(resolvedValues).forEach((fId) => {
       newDoc.fieldStatuses[fId] = 'compilato';
     });
 
@@ -508,7 +725,7 @@ export default function App() {
     setSelectedModelId(newDoc.modelId || `MINISTERIAL_${payload.schoolOrder}`);
 
     try {
-      localStorage.setItem('pei_facile_saved_doc', JSON.stringify(newDoc));
+      void savePeiDocument(newDoc).catch(()=>showToast('Salvataggio del PEI non riuscito.'));
     } catch {
       // ignore
     }
@@ -673,6 +890,9 @@ export default function App() {
         customModels={customModels}
         onAddCustomModel={handleAddCustomModel}
         onUpdateModelStatus={handleUpdateModelStatus}
+        onUpdateModelName={handleUpdateModelName}
+        onDeleteModel={handleDeleteCustomModel}
+        savedDocument={savedDocument}
         showToast={showToast}
         onOpenCalibration={handleOpenCalibration}
       />

@@ -10,11 +10,19 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "assets": "node scripts/prepare-documental-assets.mjs",
+    "test:integration": "vitest run src/core/documental/integration.test.ts src/core/templateSchema.test.ts src/core/templateCalibration.test.ts",
+    "test:browser:integration": "node scripts/verify-integration-020.mjs",
+    "test:json:integration": "node scripts/verify-json-020.mjs",
+    "test:browser:real": "node scripts/verify-real-pdfs.mjs",
+    "test:persistence": "node scripts/verify-persistence-compatibility.mjs",
+    "test:renderer": "node scripts/verify-node-render.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
     "@tailwindcss/vite": "^4.1.14",
+    "@techstark/opencv-js": "^5.0.0-release.1",
     "@vitejs/plugin-react": "^5.0.4",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
@@ -30,6 +38,8 @@
     "vite": "^6.2.3"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "0.1.100",
+    "@playwright/test": "^1.56.1",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
     "@types/utif": "^3.0.6",

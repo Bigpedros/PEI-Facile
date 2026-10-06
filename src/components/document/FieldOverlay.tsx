@@ -39,12 +39,15 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
     zoomScale
   );
 
-  const displayValue = value !== undefined && value !== null ? String(value) : '';
+  const displayValue = field.inputType === 'checkbox' ? (value === true ? '☑' : '☐') : value !== undefined && value !== null ? String(value) : '';
   const isFilled = displayValue.trim().length > 0;
 
   // Compute responsive font size based on height and zoom
   const baseFontSizePt = field.fieldType === 'TEXT_LONG' ? 10 : Math.min(11, Math.max(8, field.geometry.heightPt * 0.55));
   const currentFontSizePx = Math.max(9, Math.round(baseFontSizePt * zoomScale));
+
+  // An unchanged observed value is already present in the source raster.
+  if (mode !== 'EDIT' && field.originalValue !== undefined && String(value ?? '') === String(field.originalValue)) return null;
 
   // In PRINT mode: strictly print typography, no L3 borders, no background
   if (mode === 'PRINT') {
@@ -113,7 +116,13 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
       onClick={onFocus}
     >
       {/* L2: Interactive Input Field */}
-      {field.fieldType === 'TEXT_LONG' ? (
+      {field.inputType === 'checkbox' ? (
+        <input id={`input-${field.templateFieldId}`} aria-label={field.label} type="checkbox" checked={value===true} onChange={e=>onChange?.(e.target.checked)} onFocus={onFocus} className="w-full h-full"/>
+      ) : field.inputType === 'select' ? (
+        <select id={`input-${field.templateFieldId}`} aria-label={field.label} value={value??''} onChange={e=>onChange?.(e.target.value)} onFocus={onFocus} className="w-full h-full bg-transparent">
+          <option value=""></option>{field.options?.map(option=><option key={option} value={option}>{option}</option>)}
+        </select>
+      ) : field.fieldType === 'TEXT_LONG' ? (
         <textarea
           id={`input-${field.templateFieldId}`}
           value={displayValue}

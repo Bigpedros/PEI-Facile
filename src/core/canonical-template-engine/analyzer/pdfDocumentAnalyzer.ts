@@ -1,3 +1,4 @@
+import '../../pdfWorker';
 import * as pdfjsLib from 'pdfjs-dist';
 import {
   countRasterImagesInPage,
@@ -24,12 +25,7 @@ import { GeometricAnalysisEngine } from '../geometry/geometricAnalysisEngine';
 import { NormalizationPlanningEngine } from '../normalization/normalizationPlanningEngine';
 
 // Ensure PDF.js worker is properly configured
-if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.min.mjs',
-    import.meta.url
-  ).toString();
-}
+
 
 /**
  * Standard PDF.js vector drawing operators.
@@ -240,12 +236,13 @@ export class PdfDocumentAnalyzer {
     }
 
     try {
-      const safeBuffer = pdf.slice(0);
-      const normalizedData = await normalizeInputData(safeBuffer);
+      const clonedBytes = new Uint8Array(pdf).slice();
+      const normalizedData = await normalizeInputData(clonedBytes.buffer);
       const rawBaseFonts = extractBaseFontsFromBuffer(normalizedData);
 
+      const pdfDataCopy = new Uint8Array(normalizedData).slice();
       const loadingTask = pdfjsLib.getDocument({
-        data: normalizedData,
+        data: pdfDataCopy,
         useSystemFonts: true,
         isEvalSupported: false,
       });

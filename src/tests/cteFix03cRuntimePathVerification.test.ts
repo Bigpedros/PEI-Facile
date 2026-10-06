@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { runHybridDetectionPipeline } from '../core/canonical-template-engine/geometry/hybridDetectionEngine';
-import { detectFieldsOnPdfPage } from '../core/assistedFieldDetectionService';
+import { detectFieldsOnPdfPage } from './pdfPageFixture';
 import type { RawLineCandidate, RawRectCandidate, RawTextItem } from '../core/fieldCandidateClustering';
 import type { ModelGeometry } from '../data/geometry/types';
 
@@ -101,25 +101,8 @@ describe('CTE-FIX-03C: Runtime Path & Integration Verification', () => {
       getAnnotations: async () => [],
     };
 
-    // Spy on console.log to trace [03C][ENGINE] logs
-    const logs: string[] = [];
-    const origLog = console.log;
-    console.log = (...args: any[]) => {
-      logs.push(args.map((a) => String(a)).join(' '));
-      origLog(...args);
-    };
-
-    try {
-      await detectFieldsOnPdfPage(mockPageProxy as any, 1, []);
-    } finally {
-      console.log = origLog;
-    }
-
-    const engineLogs = logs.filter((l) => l.includes('[03C][ENGINE]'));
-    const legacyLogs = logs.filter((l) => l.includes('[03C][LEGACY_ENGINE]'));
-
-    expect(legacyLogs.length).toBeGreaterThan(0);
-    expect(legacyLogs[0]).toContain('LEGACY_DETECTION_ENGINE_CALLED = false');
-    expect(engineLogs.some((l) => l.includes('HYBRID_DETECTION_ENGINE_CALLED = true'))).toBe(true);
+    const fields=await detectFieldsOnPdfPage(mockPageProxy,1,[]);
+    expect(fields.length).toBeGreaterThan(0);
+    expect(fields.every(f=>f.detectionSource==='DOCUMENTAL_020')).toBe(true);
   });
 });

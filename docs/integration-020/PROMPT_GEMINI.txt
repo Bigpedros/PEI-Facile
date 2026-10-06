@@ -1,0 +1,16 @@
+PEI FACILE — APPLICAZIONE ESATTA DEL PACCHETTO CONSOLIDATO
+
+Applica la root completa PEI-Facile-integrato-020-consolidato-root.zip oppure la patch PEI-Facile-integrato-020-consolidato-patch.zip. Il lavoro di integrazione è già implementato: non reinterpretare, riscrivere, ottimizzare o rigenerare il motore.
+
+1. Conserva un backup della root attuale e dei dati del browser. La patch è riferita alla baseline pei-facile (9).zip, SHA-256 8190373672c65701f8e8c6c1d43f8042249409829b411dd98c7523f4b4590ecd. Se l'istanza diverge dalla baseline, segnala le differenze e usa una copia separata della root completa; non sovrascrivere modifiche estranee o inventare merge semantici.
+2. Leggi docs/integration-020/RAPPORTO.md, INSTALLAZIONE.md, CONFRONTO.md, FILELIST.tsv e INTEGRATION-020-MANIFEST.json.
+3. Applica esattamente i file ai percorsi relativi alla root. Rimuovi soltanto i percorsi in deleted. Verifica gli hash del manifest corrente: non usare i checksum storici del pacchetto originario per giudicare il nuovo stato. Mantieni i file dell'app non coinvolti.
+4. Conserva il compilatore PEI, editor e calibratore, DocumentSurface/PageSurface, valori/default/originali, checkbox/scelte, stati di revisione, archivi e calibrazioni precedenti. Il nucleo integrato deve restare l'unico percorso automatico PDF/raster/campi. Non aggiungere un selettore tra motori o la shell/store del progetto indipendente 0.3.0.
+5. Esegui npm ci, npm run assets, npm run typecheck, npm run build, npm test, npm run test:integration e npm run test:renderer. Attesi 507 test in 75 file e 26 test mirati. Non sopprimere test, sostituire OCR con risultati inventati o indebolire asserzioni per ottenere il verde. Conserva la configurazione a un worker per i test Canvas/PDF.
+6. Se l'ambiente consente Chromium: npx playwright install chromium, npm run test:browser:integration, node scripts/verify-compiler.mjs e npm run test:persistence. Queste prove esercitano renderer, OCR, compilatore e store reali. Riporta ogni errore preciso. Non dichiarare prove che l'ambiente impedisce di eseguire.
+7. Se disponibili i PDF originali e JSON allegati, configura PEI_REAL_PDF_DIR e PEI_TEST_JSON_DIR e usa gli script indicati in INSTALLAZIONE.md. Tieni i PDF personali e i loro raster fuori dalla root/public. Verifica raster completo, valori presenti, box e allineamento, revisione, salvataggio/riapertura ed export.
+8. Nell'anteprima della tua istanza controlla anche una calibrazione già salvata prima dell'aggiornamento e un documento del tuo archivio reale. Conserva gli esiti come aperti finché non hai effettivamente eseguito il controllo.
+
+L'adattamento A4 mantiene le proporzioni; non certifica una rettifica automatica di curvatura, prospettiva o inclinazione. Le proposte richiedono revisione: numero di campi e suite verde non equivalgono ad accuratezza perfetta dell'OCR. L'export conservato è la stampa PDF dell'app; il canonico raster non è un nuovo AcroForm interattivo.
+
+Non fare deploy, republish o distribuzione automatica. Concludi con file applicati/rimossi, verifica hash, comandi ed esiti, controlli browser realmente eseguiti e limiti/problemi aperti. Se un controllo fallisce, riporta l'errore e conserva lo stato senza avviare una riscrittura fuori perimetro.

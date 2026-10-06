@@ -25,7 +25,7 @@ import {
   type RawTextItem,
 } from '../core/fieldCandidateClustering';
 import { extractCellInteriorRect, isExplicitPrompt } from '../data/geometry/geometryTransform';
-import { detectFieldsOnPdfPage } from '../core/assistedFieldDetectionService';
+import { detectFieldsOnPdfPage } from './pdfPageFixture';
 
 const PAGE_W = 595.32;
 const PAGE_H = 841.92;

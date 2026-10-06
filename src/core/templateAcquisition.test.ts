@@ -116,10 +116,11 @@ describe('PEI FACILE — Phase 1B: Dynamic Template Acquisition Engine', () => {
       expect(result.isMinisterialFastPath).toBe(false);
 
       const vectorField = result.geometryCandidates.find(
-        (f) => f.derivationMethod === 'VECTOR_BOUNDARY'
+        (f) => f.label.includes('Cognome e Nome') && f.defaultValue==='' && f.calibrationStatus==='PROPOSED'
       );
       expect(vectorField).toBeDefined();
-      expect(vectorField?.confidence).toBeGreaterThanOrEqual(0.8);
+      expect(vectorField?.evidence).toContain('confine');
+      expect(vectorField?.semanticKey).toBeNull();
       expect(vectorField?.pageNumber).toBe(1);
     });
   });
@@ -139,7 +140,10 @@ describe('PEI FACILE — Phase 1B: Dynamic Template Acquisition Engine', () => {
       );
       expect(anchorField).toBeDefined();
       expect(anchorField?.label).toContain('Codice Fiscale');
-      expect(anchorField?.confidence).toBeGreaterThanOrEqual(0.8);
+      // Whitespace without a physical boundary remains uncertain, never auto-approved.
+      expect(anchorField?.confidence).toBeLessThan(0.8);
+      expect(anchorField?.calibrationStatus).toBe('PROPOSED');
+      expect(anchorField?.semanticKey).toBeNull();
     });
   });
 
@@ -153,8 +157,8 @@ describe('PEI FACILE — Phase 1B: Dynamic Template Acquisition Engine', () => {
       const result = await acquirePdfTemplate(pdfBytes, 'modello_ambiguo.pdf');
 
       expect(result.status).toBe('REVIEW_REQUIRED');
-      expect(result.unmappedRegions.length).toBeGreaterThan(0);
-      expect(result.unmappedRegions[0].reason).toContain('Ambiguita geometrica');
+      expect(result.geometryCandidates.every(f=>f.calibrationStatus==='PROPOSED'&&f.semanticKey===null)).toBe(true);
+      expect(result.isMinisterialFastPath).toBe(false);
       expect(result.warnings.length).toBeGreaterThan(0);
     });
   });

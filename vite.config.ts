@@ -20,6 +20,10 @@ export default defineConfig(() => {
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
     test: {
+      // Isolate native Canvas allocations between files; large PDF suites otherwise retain native memory.
+      pool: 'forks',
+      maxWorkers: 1,
+      minWorkers: 1,
       environment: 'jsdom',
       setupFiles: ['./vitest.setup.ts'],
       exclude: ['**/node_modules/**', '**/dist/**', 'Motore-OCR-CTE-v1.0-INTEGRATION/**'],

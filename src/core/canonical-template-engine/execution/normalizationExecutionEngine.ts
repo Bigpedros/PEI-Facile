@@ -381,10 +381,8 @@ export class NormalizationExecutionEngine {
 
     // Save the normalized document
     const normalizedPdfBytes = await pdfDoc.save();
-    const normalizedBuffer = normalizedPdfBytes.buffer.slice(
-      normalizedPdfBytes.byteOffset,
-      normalizedPdfBytes.byteOffset + normalizedPdfBytes.byteLength
-    );
+    const finalBufferForDoc = new Uint8Array(normalizedPdfBytes).slice().buffer;
+    const bufferForAnalysis = new Uint8Array(normalizedPdfBytes).slice().buffer;
 
     // ====================================================================
     // AUTOMATIC VALIDATION
@@ -392,7 +390,7 @@ export class NormalizationExecutionEngine {
     // 2. Nuova analisi geometrica
     // 3. Nuovo matching contro il catalogo canonico
     // ====================================================================
-    const newAnalysis = await this.analyzer.analyze(normalizedBuffer);
+    const newAnalysis = await this.analyzer.analyze(bufferForAnalysis);
     const newFingerprint = newAnalysis.structuralFingerprint;
     const newGeometricAnalysis = newAnalysis.geometricAnalysis!;
 
@@ -441,7 +439,7 @@ export class NormalizationExecutionEngine {
     };
 
     return {
-      document: normalizedBuffer,
+      document: finalBufferForDoc,
       documentAnalysis: newAnalysis,
       normalizationReport: report,
       appliedOperations,
