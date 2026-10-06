@@ -7,6 +7,7 @@ import {detectWritingLines,inferFields,isLabel} from './engine/fields';
 import {assignLines} from './engine/geometry';
 import {fieldTokens} from './engine';
 import {detectCanonicalPageFields} from './detection';
+import {pageCandidates} from './bridge';
 import type {Token} from './engine/types';
 
 describe('Calibratore: evidenza raster e associazioni',()=>{
@@ -16,6 +17,26 @@ describe('Calibratore: evidenza raster e associazioni',()=>{
   const tokens:Token[]=[{id:'s',text:'Sezione',box:{x:50,y:90,width:80,height:20},source:'ocr',confidence:90,lineId:'1'},{id:'n',text:'Nella fase transitoria:',box:{x:50,y:210,width:190,height:20},source:'ocr',confidence:90,lineId:'2'}];
   const regions=detectRegions(c as any,tokens);const fields=inferFields(c as any,tokens,regions);
   expect(regions.some(r=>r.kind==='checkbox')).toBe(true);expect(fields.some(f=>f.label==='Sezione'&&f.box.x>=150)).toBe(true);expect(fields.some(f=>/Nella fase/.test(f.label))).toBe(false);expect(isLabel('Nella fase transitoria:')).toBe(false);
+ });
+ it('trasforma il segnaposto scuola in un campo che copre il testo originale',()=>{
+  const c=createCanvas(800,1000),ctx=c.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,800,1000);
+  const tokens:Token[]=[{id:'header',text:'[INTESTAZIONE DELLA SCUOLA]',box:{x:180,y:70,width:360,height:22},source:'ocr',confidence:95,lineId:'header'}];
+  const fields=inferFields(c as any,tokens,[]);
+  expect(fields).toHaveLength(1);expect(fields[0].label).toBe('INTESTAZIONE DELLA SCUOLA');expect(fields[0].maskOriginal).toBe(true);
+  const candidate=pageCandidates({fields,width:800,height:1000,pageNumber:1} as any)[0];
+  expect(candidate.backgroundMode).toBe('OPAQUE_WHITE');expect(candidate.suggestedSemanticKey).toBe('school.institutionName');expect(candidate.semanticKey).toBeNull();
+  expect(isLabel('(ART. 7, D. Lgs. 13 aprile 2017, N. 66 e s.m.i.)')).toBe(false);
+ });
+ it('conserva una data compilata, rifiuta caselle spurie e associa una firma alla riga sottostante',()=>{
+  const c=createCanvas(800,1000),ctx=c.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,800,1000);ctx.strokeStyle='black';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(410,250);ctx.lineTo(620,250);ctx.stroke();
+  const dateLabel:Token={id:'date-label',text:'DATA',box:{x:100,y:100,width:50,height:20},source:'ocr',confidence:95,lineId:'date'};
+  const dateValue:Token={id:'date-value',text:'16/10/24',box:{x:160,y:100,width:100,height:20},source:'ocr',confidence:95,lineId:'date'};
+  const tokens:Token[]=[{...dateLabel,text:'DATA 16/10/24',box:{x:100,y:100,width:160,height:20},fragments:[dateLabel,dateValue]}, {id:'signature',text:'FIRMA DEL DIRIGENTE SCOLASTICO',box:{x:400,y:200,width:280,height:20},source:'ocr',confidence:95,lineId:'signature'}];
+  const fields=inferFields(c as any,tokens,[{id:'noise',kind:'checkbox',box:{x:80,y:100,width:12,height:12},text:'',status:'review',checked:null}]);
+  expect(fields.some(f=>f.type==='checkbox')).toBe(false);
+  const date=fields.find(f=>f.type==='date')!;expect(date.value).toBe('2024-10-16');expect(date.label).toBe('DATA');expect(date.box.x).toBe(160);
+  const signature=fields.find(f=>/FIRMA/.test(f.label))!;expect(signature).toBeDefined();expect(signature.box.width).toBeGreaterThan(180);expect(signature.box.y).toBeGreaterThan(220);
  });
  it('trova geometria reale sulla pagina Roma inclusa nello ZIP e separa Sezione da Plesso',async()=>{
   const d=await pdfjs.getDocument({data:new Uint8Array(fs.readFileSync('public/downloads/PEI_Comune_Roma_Canonico_A4_020.pdf'))}).promise;
@@ -29,6 +50,9 @@ describe('Calibratore: evidenza raster e associazioni',()=>{
    const sezione=result.page.fields.find(f=>/^Sezione$/i.test(f.label))!,plesso=result.page.fields.find(f=>/^Plesso o sede$/i.test(f.label))!;
    expect(sezione.box.x+sezione.box.width).toBeLessThan(plesso.box.x);
    expect(result.page.fields.filter(f=>f.label==='Nome e Cognome')).toHaveLength(1);
+   expect(result.page.fields.some(f=>/intestazione della scuola/i.test(f.label))).toBe(true);
+   expect(result.page.fields.filter(f=>/firma del dirigente scolastico/i.test(f.label))).toHaveLength(4);
+   expect(result.page.fields.some(f=>f.type==='checkbox'&&/^(DATA|FIRMA)/i.test(f.label))).toBe(false);
   }finally{await d.destroy();}
  },120000);
 });

@@ -27,7 +27,7 @@ export function pageCandidates(page: PageResult): CandidateFieldGeometry[] {
       inputType: f.type === 'checkbox' || f.type === 'select' ? f.type : undefined,
       options: f.options,
       defaultValue: f.value, originalValue: f.originalValue, observedText: f.observedText,
-      backgroundMode: f.type === 'checkbox' || (f.value !== '' && f.value !== false) ? 'OPAQUE_WHITE' : 'TRANSPARENT',
+      backgroundMode: f.maskOriginal || f.type === 'checkbox' || (f.value !== '' && f.value !== false) ? 'OPAQUE_WHITE' : 'TRANSPARENT',
     };
   });
 }

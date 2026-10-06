@@ -536,6 +536,7 @@ export const SEMANTIC_PATTERNS: SemanticPattern[] = [
       /istituzione\s+scolastica/i,
       /istituto\s+comprensivo/i,
       /denominazione\s+scuola/i,
+      /intestazione\s+della\s+scuola/i,
       /scuola\s*:\s*$/i,
       /i\.?\s*c\.?\s+/i,
       /nome\s+istituto/i,
