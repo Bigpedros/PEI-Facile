@@ -7,12 +7,10 @@ import { pageCandidates } from './bridge';
 import { renderPdfPageToCanvas } from '../pdfIntakeService';
 import type { EngineOptions, Token } from './engine/types';
 export async function detectCanonicalPageFields(page:any,number:number,custom?:any,suppliedCanvas?:HTMLCanvasElement){
- const viewport=page.getViewport({scale:1});const scale=suppliedCanvas?suppliedCanvas.width/viewport.width:200/72;
- let canvas:HTMLCanvasElement;
- if(suppliedCanvas){
-  if(Math.abs(suppliedCanvas.height/suppliedCanvas.width-viewport.height/viewport.width)>.005)throw new Error('Canvas calibratore e PDF hanno proporzioni differenti.');
-  canvas=document.createElement('canvas');canvas.width=suppliedCanvas.width;canvas.height=suppliedCanvas.height;canvas.getContext('2d')!.drawImage(suppliedCanvas,0,0);
- }else canvas=await renderPdfPageToCanvas(page,scale);
+ // Detection uses a dedicated PDF raster at a stable resolution. The preview
+ // canvas varies with zoom and must not change OCR or field geometry.
+ const scale=200/72;
+ const canvas=await renderPdfPageToCanvas(page,scale);
  const content=await page.getTextContent();const tokens:Token[]=[];
  for(const item of content.items){if(!('str' in item)||!item.str.trim())continue;
   const tx=page.getViewport({scale}).transform;

@@ -76,6 +76,7 @@ import {
   detectFieldsOnEntireDocument,
   collectPageRuntimeDiagnostics,
   getFieldProvenance,
+  isProtectedDetectionField,
 } from '../../core/assistedFieldDetectionService';
 import { isValidLabel } from '../../core/fieldCandidateClustering';
 import {
@@ -966,19 +967,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
       const existingRawFields = targetPageData ? targetPageData.fields : [];
 
       // Safe Reconstruction Rebuild Flow (CTE-FIX-02U): Preserves manual, confirmed, modified and rejected fields
-      const protectedFields = existingRawFields.filter((f) => {
-        const prov = getFieldProvenance(f);
-        return (
-          prov === 'USER_CONFIRMED' ||
-          prov === 'MANUAL_CREATED' ||
-          prov === 'NATIVE_FORM' ||
-          f.calibrationStatus === 'REJECTED' ||
-          f.calibrationStatus === 'CONFIRMED' ||
-          f.calibrationStatus === 'MODIFIED' ||
-          f.derivationMethod === 'MANUAL_VERIFIED' ||
-          f.isModifiedAfterProposal === true
-        );
-      });
+      const protectedFields = existingRawFields.filter(isProtectedDetectionField);
 
       const proposed = await detectFieldsOnPdfPage(pageProxy, targetPageNumber, protectedFields, {
         canvasElement: canvasRef.current || undefined,
@@ -1033,9 +1022,9 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
 
       if (!opts.silentToast) {
         if (proposed.length === 0) {
-          showToast('Ricalibrazione completata: vecchi campi automatici non validi rimossi.');
+          showToast(`Rilevamento completato: nessuna proposta automatica aggiuntiva; ${protectedFields.length} campi revisionati conservati.`);
         } else {
-          showToast(`Rilevamento completato: ${proposed.length} campi attivi proposti.`);
+          showToast(`Pagina ${targetPageNumber}: ${proposed.length} proposte automatiche rigenerate, ${protectedFields.length} campi revisionati conservati.`);
         }
       }
     },
@@ -1544,10 +1533,7 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
       trace.renderedFieldGeometry = renderedFieldGeometry;
 
       // Authoritative State Snapshot: Report exact applied fields from current model state
-      const protectedFieldsCount = rawFieldsOnPage.filter((f) => {
-        const prov = getFieldProvenance(f);
-        return prov === 'USER_CONFIRMED' || prov === 'MANUAL_CREATED' || prov === 'NATIVE_FORM';
-      }).length;
+      const protectedFieldsCount = rawFieldsOnPage.filter(isProtectedDetectionField).length;
 
       const autoFieldsCount = rawFieldsOnPage.filter((f) => getFieldProvenance(f) === 'AUTO_DETECTED').length;
 
@@ -1555,8 +1541,9 @@ export const TemplateCalibrationWorkspace: React.FC<TemplateCalibrationWorkspace
         existingFields: rawFieldsOnPage.length,
         protectedFields: protectedFieldsCount,
         autoFieldsBefore: autoFieldsCount,
-        autoFieldsRemoved: [],
-        autoFieldsRegenerated: autoFieldsCount,
+        snapshotOnly: true,
+        autoFieldsRemoved: null,
+        autoFieldsRegenerated: null,
         duplicatesRemoved: 0,
         finalFields: rawFieldsOnPage.length,
       };

@@ -38,6 +38,16 @@ describe('Calibratore: evidenza raster e associazioni',()=>{
   const date=fields.find(f=>f.type==='date')!;expect(date.value).toBe('2024-10-16');expect(date.label).toBe('DATA');expect(date.box.x).toBe(160);
   const signature=fields.find(f=>/FIRMA/.test(f.label))!;expect(signature).toBeDefined();expect(signature.box.width).toBeGreaterThan(180);expect(signature.box.y).toBeGreaterThan(220);
  });
+ it('lascia statici i titoli e conserva il testo nella zona narrativa sotto la consegna',()=>{
+  const c=createCanvas(800,1000),ctx=c.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,800,1000);
+  const tokens:Token[]=[
+   {id:'heading',text:'4. Osservazioni sul bambino per progettare gli interventi di sostegno:',box:{x:50,y:50,width:650,height:20},source:'ocr',confidence:95,lineId:'heading'},
+   {id:'caption',text:'a. Dimensione della relazione, interazione e socializzazione:',box:{x:55,y:104,width:620,height:20},source:'ocr',confidence:95,lineId:'caption'},
+   {id:'response',text:'Testo già compilato da conservare.',box:{x:55,y:138,width:500,height:20},source:'ocr',confidence:95,lineId:'response'}];
+  const fields=inferFields(c as any,tokens,[{id:'narrative',kind:'cell',box:{x:50,y:100,width:650,height:160},text:'',status:'review',checked:null}]);
+  expect(fields).toHaveLength(1);expect(fields[0].type).toBe('textarea');expect(fields[0].box.y).toBeGreaterThan(124);expect(fields[0].value).toBe('Testo già compilato da conservare.');expect(fields[0].maskOriginal).toBe(true);
+  expect(isLabel('4. Osservazioni sul bambino:')).toBe(false);expect(isLabel('a. Dimensione della relazione:')).toBe(false);
+ });
  it('trova geometria reale sulla pagina Roma inclusa nello ZIP e separa Sezione da Plesso',async()=>{
   const d=await pdfjs.getDocument({data:new Uint8Array(fs.readFileSync('public/downloads/PEI_Comune_Roma_Canonico_A4_020.pdf'))}).promise;
   try{const result=await detectCanonicalPageFields(await d.getPage(1),1);
@@ -53,6 +63,21 @@ describe('Calibratore: evidenza raster e associazioni',()=>{
    expect(result.page.fields.some(f=>/intestazione della scuola/i.test(f.label))).toBe(true);
    expect(result.page.fields.filter(f=>/firma del dirigente scolastico/i.test(f.label))).toHaveLength(4);
    expect(result.page.fields.some(f=>f.type==='checkbox'&&/^(DATA|FIRMA)/i.test(f.label))).toBe(false);
+   // A tiny/blank preview must never be used as OCR input or change geometry.
+   const preview=createCanvas(300,424);
+   const zoomed=await detectCanonicalPageFields(await d.getPage(1),1,undefined,preview as any);
+   expect(zoomed.page.width).toBe(result.page.width);expect(zoomed.page.height).toBe(result.page.height);
+   expect(zoomed.page.fields.map(f=>({label:f.label,box:f.box}))).toEqual(result.page.fields.map(f=>({label:f.label,box:f.box})));
   }finally{await d.destroy();}
  },120000);
+ it('propone aree narrative nelle pagine Roma 2 e 3',async()=>{
+  const d=await pdfjs.getDocument({data:new Uint8Array(fs.readFileSync('public/downloads/PEI_Comune_Roma_Canonico_A4_020.pdf'))}).promise;
+  try{for(const n of [2,3]){const result=await detectCanonicalPageFields(await d.getPage(n),n);
+   fs.writeFileSync(`verification/roma-page${n}.json`,JSON.stringify(result.page,null,2));
+   console.log('ROMA NARRATIVE',n,result.page.fields.filter(f=>f.type==='textarea').map(f=>f.label));
+   expect(result.page.fields.some(f=>f.type==='textarea')).toBe(true);
+   expect(result.page.fields.some(f=>/^\d+[.)]\s*(?:Osservazioni|Interventi|Elementi generali)/i.test(f.label))).toBe(false);
+  }}finally{await d.destroy();}
+ },120000);
+
 });

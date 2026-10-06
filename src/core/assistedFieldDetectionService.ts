@@ -146,6 +146,19 @@ export function getFieldProvenance(field: FieldGeometry): FieldProvenance {
   return 'AUTO_DETECTED';
 }
 
+/** Fields whose geometry must survive automatic reconstruction. */
+export function isProtectedDetectionField(field: FieldGeometry): boolean {
+  return getFieldProvenance(field) !== 'AUTO_DETECTED' || field.calibrationStatus === 'REJECTED';
+}
+
+export function classifyDetectionCandidates(candidates: FieldGeometry[], existing: FieldGeometry[], pageNumber: number) {
+  const protectedFields = existing.filter(isProtectedDetectionField);
+  const proposals = candidates.filter(c => !protectedFields.some(e => isSubstantialDuplicate(c, e, pageNumber)));
+  const matchedAutomatic = proposals.filter(c => existing.some(e => !isProtectedDetectionField(e) && isSubstantialDuplicate(c, e, pageNumber)));
+  return { proposals, protectedDuplicates: candidates.filter(c => !proposals.includes(c)), matchedAutomatic,
+    newProposals: proposals.filter(c => !matchedAutomatic.includes(c)) };
+}
+
 /**
  * Evaluates whether a candidate field is a substantial duplicate of an existing field
  * using a multi-factor combination of IoU, containment ratio, center distance, line-band overlap,
@@ -922,6 +935,8 @@ export async function detectFieldsOnPdfPage(
  */
 export interface PageRuntimeDiagnosticTrace {
   timestamp: string;
+  detectionRevision?: string;
+  detectionDpi?: number;
   renderedFieldGeometry?: any[];
   persistedGeometryRevalidation?: any;
   document: {
@@ -1048,11 +1063,12 @@ export async function collectPageRuntimeDiagnostics(
   const page=result.page;
   const sx=viewport.width/page.width,sy=viewport.height/page.height;
   const vector=await extractVectorGraphics(pdfPage,viewport.width,viewport.height,viewport);
-  const proposed=result.fields.filter(f=>!(opts.existingFields||[]).some(e=>isSubstantialDuplicate(f,e,pageNumber)));
+  const classified=classifyDetectionCandidates(result.fields,opts.existingFields||[],pageNumber);
+  const proposed=classified.proposals;
   const textContent=await pdfPage.getTextContent();
   const boxes=page.regions.map(r=>({x:r.box.x*sx,y:r.box.y*sy,width:r.box.width*sx,height:r.box.height*sy,isCheckbox:r.kind==='checkbox',source:'DOCUMENTAL_020'}));
   const rawCandidates=result.fields.map(f=>({id:f.fieldId,type:f.fieldType||'text',bbox:{x:f.xPt,y:f.yPt,w:f.widthPt,h:f.heightPt},source:f.detectionSource||'DOCUMENTAL_020',associatedLabel:f.label,confidence:f.confidence??0}));
-  return {timestamp:new Date().toISOString(),document:{modelId:opts.modelId||'CUSTOM_PDF',modelName:opts.modelName||'Documento Attivo',pageNumber,pageWidthPt:viewport.width,pageHeightPt:viewport.height,viewport:{...viewport},rotation:pdfPage.rotate||0,view:pdfPage.view||null},
+  return {timestamp:new Date().toISOString(),detectionRevision:'calibratore-20261006-rileva-200dpi',detectionDpi:200,document:{modelId:opts.modelId||'CUSTOM_PDF',modelName:opts.modelName||'Documento Attivo',pageNumber,pageWidthPt:viewport.width,pageHeightPt:viewport.height,viewport:{...viewport},rotation:pdfPage.rotate||0,view:pdfPage.view||null},
     textItems:page.tokens.map((t,i)=>({text:t.text.trim(),x:t.box.x*sx,y:t.box.y*sy,width:t.box.width*sx,height:t.box.height*sy,fontName:t.source==='pdf'?textContent.items.filter((t:any)=>t.str?.trim())[i]?.fontName:undefined})),
     vectorLines:vector.lines.map(l=>({x1:l.x1,y1:l.y,x2:l.x2,y2:l.y,source:'PDF'})),
     vectorBoxes:vector.boxes.map(b=>({x:b.x,y:b.y,width:b.w,height:b.h,isCheckbox:b.isCheckbox,source:'PDF'})),
@@ -1062,8 +1078,8 @@ export async function collectPageRuntimeDiagnostics(
       {step:'extractVectorGraphics',description:'Geometria vettoriale osservata per diagnostica; non una seconda inferenza',counts:{vectorLines:vector.lines.length,vectorBoxes:vector.boxes.length}},
       {step:'ocrExtraction',description:'OCR del nucleo unico, senza seconda esecuzione',counts:{rawOcrWordsCount:page.tokens.filter(t=>t.source==='ocr').length,validOcrTextItemsCount:page.tokens.filter(t=>t.source==='ocr').length,used:result.source==='ocr'}},
       {step:'detectRegions',description:'Regioni misurate sullo stesso raster dei campi',counts:{regions:boxes.length}},
-      {step:'inferFields',description:'Unica inferenza documentale con protezione delle geometrie salvate',counts:{rawCandidates:rawCandidates.length,protectedDuplicates:rawCandidates.length-proposed.length,finalProposalsCount:proposed.length}}],
-      discarded:result.fields.filter(f=>!proposed.includes(f)).map(f=>({candidateId:f.fieldId,discardedAt:'protectExisting',discardedReason:'EXISTING_FIELD',relevantValues:{pageNumber}}))},
+      {step:'inferFields',description:'Candidati del nucleo unico: proposte automatiche aggiornabili, campi revisionati protetti',counts:{rawCandidates:rawCandidates.length,protectedDuplicates:classified.protectedDuplicates.length,matchedAutomatic:classified.matchedAutomatic.length,newProposalsCount:classified.newProposals.length,finalProposalsCount:proposed.length}}],
+      discarded:result.fields.filter(f=>!proposed.includes(f)).map(f=>({candidateId:f.fieldId,discardedAt:'protectExisting',discardedReason:'PROTECTED_EXISTING_FIELD',relevantValues:{pageNumber}}))},
     finalProposedFields:proposed.map(f=>({fieldId:f.fieldId,label:f.label,semanticKey:f.semanticKey??null,fieldType:f.fieldType||'text',bbox:{xPt:f.xPt,yPt:f.yPt,widthPt:f.widthPt,heightPt:f.heightPt},confidence:f.confidence,derivationMethod:f.derivationMethod,detectionSource:f.detectionSource,sourceCandidateIds:[f.fieldId]}))};
 }
 
@@ -1101,31 +1117,9 @@ export async function detectFieldsOnEntireDocument(
 
     try {
       const pageProxy = await pdfDoc.getPage(pageNum);
-      let pageCanvas: HTMLCanvasElement | undefined;
-      try {
-        const textContent = await pageProxy.getTextContent();
-        if ((!textContent.items || textContent.items.length === 0) && typeof document !== 'undefined' && pageProxy.render) {
-          pageCanvas = await renderPdfPageToCanvas(pageProxy, 2.0);
-        }
-      } catch {
-        // non-blocking
-      }
-      const protectedFields = targetPage.fields.filter((f) => {
-        const prov = getFieldProvenance(f);
-        return (
-          prov === 'USER_CONFIRMED' ||
-          prov === 'MANUAL_CREATED' ||
-          prov === 'NATIVE_FORM' ||
-          f.calibrationStatus === 'REJECTED' ||
-          f.calibrationStatus === 'CONFIRMED' ||
-          f.calibrationStatus === 'MODIFIED' ||
-          f.derivationMethod === 'MANUAL_VERIFIED'
-        );
-      });
+      const protectedFields = targetPage.fields.filter(isProtectedDetectionField);
 
-      const detected = await detectFieldsOnPdfPage(pageProxy, pageNum, protectedFields, {
-        canvasElement: pageCanvas,
-      });
+      const detected = await detectFieldsOnPdfPage(pageProxy, pageNum, protectedFields);
 
       targetPage.fields = [...protectedFields, ...detected];
       totalProposed += detected.length;
