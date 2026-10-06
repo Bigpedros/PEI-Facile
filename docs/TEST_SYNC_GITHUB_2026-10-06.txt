@@ -1,0 +1,7 @@
+PEI FACILE - TEST SINCRONIZZAZIONE GITHUB -> AI STUDIO
+Creato esternamente ad AI Studio il 6 ottobre 2026.
+Marcatore: PEI_SYNC_20261006_TEST_01
+
+Questo file verifica esclusivamente il recupero delle modifiche dal repository.
+Non contiene codice eseguibile e non richiede modifiche al motore OCR.
+Il test riesce se questo file compare nel pannello Code dell'istanza AI Studio esistente, con il marcatore indicato.
