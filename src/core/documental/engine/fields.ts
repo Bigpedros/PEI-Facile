@@ -13,7 +13,7 @@ export function isLabel(text:string):boolean {
  // A keyword embedded in a heading/narrative is not itself a prompt.
  return /^(?:nome(?: e cognome)?|cognome(?: e nome)?|data(?: di nascita)?|luogo(?: di nascita)?|indirizzo|residenza|telefono|cellulare|email|e-mail|classe|sezione|scuola|istituto|codice(?: fiscale)?|firma|note(?: cliniche)?|osservazioni|descrizione|obiettivi|risposta|motivazione|comune|provincia|cap|anno scolastico|alunn[oa](?:\/a)?|bambin[oa](?:\/?a)?|plesso(?: o sede)?|docente|genitore|consenso)$/i.test(s.replace(/[:?]\s*$/,''));
 }
-const normalizePrompt=(s:string)=>s.replace(/\bOblettivi\b/gi,'Obiettivi').replace(/\bVERDALE(?=\s+ALLEGATO)/gi,'VERBALE');
+const normalizePrompt=(s:string)=>s.replace(/\bsp[a-z]{1,3}ficare\b/gi,'Specificare').replace(/\bOblettivi\b/gi,'Obiettivi').replace(/\bVERDALE(?=\s+ALLEGATO)/gi,'VERBALE');
 const clean=(s:string)=>s.replace(/[_\.]{3,}/g,'').replace(/\s+/g,' ').trim().replace(/[,:;]$/, '');
 export function fieldType(label:string,height:number,typicalHeight:number):FormField['type']{return /\bdata\b|(?:nato|nata)\s+il/i.test(label)?'date':((/note|osservazioni|descrizione|obiettivi|motivazione|risposta/i.test(label)&&height>typicalHeight*2)||(!/nome|cognome|classe|sezione|indirizzo|telefono|email|codice|luogo|comune|provincia|firma/i.test(label)&&height>typicalHeight*6))?'textarea':'text';}
 export function semanticKey(label:string):string{return label.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');}
@@ -76,10 +76,10 @@ export function inferFields(canvas:HTMLCanvasElement,tokens:Token[],regions:Regi
  }
  // OCR can read a printed square as C] or Q]. Require an explicit choice
  // beside it; a solitary glyph or a mark beside DATA/FIRMA is not enough.
- for(const t of words.filter(t=>t.source==='ocr'&&/^(?:[[(COQ]\s*[xX015LD]?\s*[\])]|[015]\])$/.test(t.text.trim()))){
+ for(const t of words.filter(t=>t.source==='ocr'&&/^(?:[[(]\s*[COQxX015LD]?\s*[\])]|[COQ015]\s*[\])])$/.test(t.text.trim()))){
   const right=words.filter(w=>w.id!==t.id&&w.box.x>=t.box.x+t.box.width-2&&w.box.x-t.box.x-t.box.width<textHeight*3&&Math.abs(w.box.y-t.box.y)<textHeight).sort((a,b)=>a.box.x-b.box.x);
   if(!right[0]||!/^(?:non|redatto|da|va|sì|si|no)$/i.test(right[0].text))continue;
-  const caption=right.filter(w=>w.lineId===right[0].lineId&&w.box.x<right[0].box.x+textHeight*10).map(w=>w.text).join(' ');
+  const caption=right.filter(w=>Math.abs(w.box.y-right[0].box.y)<textHeight*.65&&w.box.x<right[0].box.x+textHeight*10).map(w=>w.text).join(' ');
   if(!/^(?:non (?:redatto|indicata)|redatto in data|da redigere|va (?:definita|omessa)|sì\b|si\b|no\b)/i.test(caption))continue;
   const choice=caption.match(/^(?:va (?:definita|omessa)|non indicata)/i)?.[0];
   const dimension=choice&&/^va /i.test(choice)?words.filter(w=>w.lineId===right[0].lineId&&w.box.x<t.box.x&&/^4[A-D]\//i.test(w.text)).sort((a,b)=>b.box.x-a.box.x)[0]?.text:undefined;
@@ -118,6 +118,16 @@ export function inferFields(canvas:HTMLCanvasElement,tokens:Token[],regions:Regi
   const label=(context?context+': ':'')+clean(right.text);
   const f=makeField({...t.box},label,'checkbox');f.type='checkbox';f.value=/x/i.test(t.text);f.originalValue=f.value;f.observedText=t.text;f.maskOriginal=true;f.confidence=.8;f.reason='Casella esplicita tra parentesi nel testo PDF, associata a una scelta adiacente.';add(f);
  }
+ // A short date rule may touch a table border and be excluded from the
+ // general writing-line list. Require the explicit DATA word and a narrow
+ // measured rule on its baseline, never borrow the whole response cell.
+ for(const t of words.filter(w=>/^data:?$/i.test(w.text))){
+  const evidence=signatureEvidence??=rasterStrokes(canvas),scale=evidence.scale;
+  const labelEnd=t.box.x+Math.min(t.box.width,t.box.height*4*.6);
+  const lines=evidence.writing.map(l=>({x:l.start/scale,y:l.pos/scale,width:(l.end-l.start)/scale})).filter(l=>l.x>=labelEnd-margin&&l.x<labelEnd+textHeight*6&&l.y>=t.box.y+t.box.height*.65&&l.y<t.box.y+t.box.height+textHeight*.8&&l.width>textHeight*3&&l.width<canvas.width*.4).sort((a,b)=>a.x-b.x||Math.abs(a.y-t.box.y-t.box.height)-Math.abs(b.y-t.box.y-t.box.height));
+  if(!lines[0])continue;const l=lines[0],f=makeField({x:Math.max(l.x,labelEnd+margin),y:l.y-textHeight*1.3,width:l.width-Math.max(0,labelEnd+margin-l.x),height:textHeight*1.3},'Data','line');f.type='date';f.confidence=.7;f.reason='Data associata alla riga breve misurata sulla propria baseline, anche vicino al bordo di una tabella.';
+  const date=words.find(w=>intersectionRatio(w.box,f.box)>.5&&/^\d{1,2}[/.]\d{1,2}[/.]\d{2,4}$/.test(w.text));if(date){f.value=date.text;f.originalValue=f.value;f.observedText=f.value;f.maskOriginal=true;}add(f);
+ }
  // A signature caption and its measured dotted line remain valid evidence
  // even when a faint outer border prevents reconstruction of the whole cell.
  for(const start of words.filter(t=>/^FIRMA\b/i.test(t.text))){
@@ -155,10 +165,10 @@ export function inferFields(canvas:HTMLCanvasElement,tokens:Token[],regions:Regi
  // occupies the area below. Use individual word boxes so grouped OCR rows
  // spanning a border do not erase the distinction between prompt and value.
  const cellWords=words.filter(t=>/[a-zà-ù0-9]/i.test(t.text)&&(intersectionRatio(t.box,region.box)>.55||(t.box.x>=region.box.x&&t.box.x+t.box.width<=region.box.x+region.box.width&&t.box.y<region.box.y+textHeight&&t.box.y+t.box.height>region.box.y-margin*2))).sort((a,b)=>a.box.y-b.box.y||a.box.x-b.box.x);
- const captionStart=cellWords.filter(t=>t.box.x<region.box.x+textHeight*4&&Math.abs(t.box.y-region.box.y)<textHeight*1.8&&/^(?:[a-d][.)]\s*)?(?:dimensione|situazione|sintetica|sintesi|indicazioni|ob[iIl]ettivi|attività|strategie)(?=\s|$|[:.,])/i.test(t.text)).sort((a,b)=>Math.abs(a.box.y-region.box.y)-Math.abs(b.box.y-region.box.y))[0];
- const topWords=captionStart?cellWords.filter(t=>Math.abs(t.box.y-captionStart.box.y)<textHeight*.8):[];
+ const captionStart=cellWords.filter(t=>t.box.x<region.box.x+textHeight*4&&Math.abs(t.box.y-region.box.y)<textHeight*1.8&&/^(?:[a-d][.)]\s*)?(?:dimensione|situazione|sintetica|sintesi|indicazioni|modalità|ob[iIl]ettivi|attività|strategie)(?=\s|$|[:.,])/i.test(t.text)).sort((a,b)=>Math.abs(a.box.y-region.box.y)-Math.abs(b.box.y-region.box.y))[0];
+ const topWords=captionStart?cellWords.filter(t=>t.lineId===captionStart.lineId&&Math.abs(t.box.y-captionStart.box.y)<textHeight*.65):[];
  const caption=normalizePrompt(tokensToText(topWords).trim());
- const captionMatch=caption.match(/^(?:(?:[a-d][.)]\s*)?dimensione\s+(?:della|dell[’']|del|cognitiva)[^:]*:|(?:[a-d][.)]\s*)?sintesi dei contenuti[^:]*|(?:[a-d][.)]\s*)?indicazioni da considerare[^:]*|sintetica descrizione[^:]*|situazione familiare[^:]*|obiettivi ed esiti attes[iIl]|attività|strategie(?: e strumenti)?)/i);
+ const captionMatch=caption.match(/^(?:(?:[a-d][.)]\s*)?dimensione\s+(?:della|dell[’']|del|cognitiva)[^:]*:|(?:[a-d][.)]\s*)?sintesi dei contenuti[^:]*|(?:[a-d][.)]\s*)?indicazioni da considerare[^:]*|modalità di sostegno[^:]*|sintetica descrizione[^:]*|situazione familiare[^:]*|obiettivi ed esiti attes[iIl]|attività|strategie(?: e strumenti)?)/i);
  const narrativeCaption=!!captionMatch;
  if(region.box.height>textHeight*3&&narrativeCaption&&topWords.length){
   const instructionWords=tokens.filter(t=>intersectionRatio(t.box,region.box)>.55&&t.box.y<region.box.y+region.box.height*.45&&/^(?:A cura|In base|specificare|indicare)/i.test(t.text));
@@ -178,7 +188,7 @@ export function inferFields(canvas:HTMLCanvasElement,tokens:Token[],regions:Regi
  // A measured response cell may be labelled outside its top border, or by
  // the instruction cell on its left. Never use a distant DATA as its label.
  const leftCell=regions.filter(r=>r.kind==='cell'&&Math.abs(r.box.x+r.box.width-region.box.x)<textHeight&&Math.abs(r.box.y-region.box.y)<textHeight).sort((a,b)=>b.box.x-a.box.x)[0];
- const leftCaption=leftCell?tokensToText(words.filter(w=>intersectionRatio(w.box,leftCell.box)>.55)):'';
+ const leftCaption=leftCell?normalizePrompt(tokensToText(words.filter(w=>intersectionRatio(w.box,leftCell.box)>.55))):'';
  const externalObjective=words.find(w=>/^ob[iIl]ettivi[:]?$/i.test(w.text)&&w.box.x>=region.box.x-textHeight*3&&w.box.x<region.box.x+textHeight*4&&w.box.y+w.box.height<=region.box.y+margin&&region.box.y-w.box.y-w.box.height<textHeight*1.5);
  const revision=/specificare\s+[iIl|]?\s*punti.*revisione/is.test(leftCaption)?'Punti oggetto di revisione':/con verifica dei risultati.*efficacia/is.test(leftCaption)?'Verifica conclusiva degli esiti':null;
  if(region.box.height>textHeight*3&&(revision||externalObjective)){
@@ -186,6 +196,20 @@ export function inferFields(canvas:HTMLCanvasElement,tokens:Token[],regions:Regi
   const y=revision?region.box.y+margin:Math.max(region.box.y+textHeight*1.6,externalObjective!.box.y+externalObjective!.box.height+margin);
   const f=makeField({x:region.box.x+margin,y,width:region.box.width-margin*2,height:region.box.y+region.box.height-margin-y},revision||'Obiettivi ed esiti attesi','cell');
   f.type='textarea';f.value=tokensToText(cellWords.filter(w=>w.box.y>=y));f.originalValue=f.value;f.observedText=f.value;f.maskOriginal=!!f.value;f.confidence=.65;f.reason='Riquadro di risposta misurato, associato alla consegna esterna o alla cella descrittiva a sinistra, da verificare.';add(f);continue;
+ }
+ // Paired measured cells under this explicit PEI heading have stable
+ // roles even when OCR loses their short captions at the upper border.
+ const pairedCell=regions.find(r=>r.id!==region.id&&r.kind==='cell'&&Math.abs(r.box.y-region.box.y)<textHeight&&Math.abs(r.box.height-region.box.height)<textHeight&&Math.min(Math.abs(r.box.x-region.box.x-region.box.width),Math.abs(region.box.x-r.box.x-r.box.width))<textHeight&&r.box.width+region.box.width>canvas.width*.7);
+ const interventionHeading=pairedCell?tokens.find(t=>/^interventi didattici e metodologici$/i.test(clean(t.text))&&t.box.y+t.box.height<=region.box.y+margin&&region.box.y-t.box.y-t.box.height<textHeight*3):undefined;
+ if(pairedCell&&interventionHeading&&region.box.height>textHeight*2){
+  const y=region.box.y+textHeight*1.6,f=makeField({x:region.box.x+margin,y,width:region.box.width-margin*2,height:region.box.y+region.box.height-margin-y},region.box.x<pairedCell.box.x?'Attività':'Strategie e Strumenti','cell');f.type='textarea';f.value=tokensToText(cellWords.filter(w=>w.box.y>=y));f.originalValue=f.value;f.observedText=f.value;f.maskOriginal=!!f.value;f.confidence=.6;f.reason='Coppia di riquadri misurata sotto la consegna Interventi didattici e metodologici; etichetta interna OCR da verificare.';add(f);continue;
+ }
+ // Some PEI response frames are blank: their explanatory paragraph is
+ // printed above the frame. Require an explicit known instruction and a
+ // measured wide frame; a generic section heading alone is not sufficient.
+ if(region.box.width>canvas.width*.55&&region.box.height>textHeight*3&&!cellWords.some(w=>/[a-zà-ù]{3}/i.test(w.text))){
+  const external=tokens.filter(t=>t.box.y+t.box.height<=region.box.y+margin&&region.box.y-t.box.y-t.box.height<textHeight*8&&t.box.x<region.box.x+textHeight*4).sort((a,b)=>b.box.y-a.box.y).find(t=>/^(?:osservazioni nel contesto scolastico|obiettivi educativi e didattici)/i.test(t.text));
+  if(external){const label=/^osservazioni/i.test(external.text)?'Osservazioni sul contesto: barriere e facilitatori':'Interventi sul contesto per un ambiente inclusivo';const f=makeField(inset(region.box,margin),label,'cell');f.type='textarea';f.confidence=.65;f.reason='Riquadro vuoto misurato, associato alla consegna esplicita stampata sopra, da verificare.';add(f);continue;}
  }
  // A wide framed area with at least two inset writing rules provides
  // geometric evidence even when its printed caption is unreadable. Keep

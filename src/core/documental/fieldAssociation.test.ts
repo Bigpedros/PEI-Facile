@@ -27,11 +27,27 @@ describe('Associazioni dei riquadri e delle tabelle',()=>{
   expect(fields.filter(f=>f.label==='Nome e Cognome — Docente di sezione')).toHaveLength(1);
   expect(fields.some(f=>f.box.x>=350&&f.box.y>=250)).toBe(false);
  });
+ it('mantiene Attività anche se un frammento della riga precedente attraversa il bordo',()=>{
+  const activity={...word('Attività',60,199,55,'same'),box:{x:60,y:199,width:55,height:14}};
+  const residue={...word('e',160,189,5,'same'),box:{x:160,y:189,width:5,height:6}};
+  const fields=infer([residue,activity],[cell('activity',50,200,250,60)]);
+  expect(fields.some(f=>f.label==='Attività'&&f.type==='textarea')).toBe(true);
+ });
+ it('associa consegne esterne e modalità di sostegno ai riquadri misurati',()=>{
+  const words=[word('Osservazioni nel contesto scolastico',40,100,320,'a'),word('Obiettivi educativi e didattici, strumenti e strategie',40,300,450,'b'),word('Modalità di sostegno educativo e ulteriori interventi di inclusione',60,505,550,'c')];
+  const fields=infer(words,[cell('observations',50,130,650,80),cell('context',50,365,650,60),cell('support',50,500,650,100)]);
+  expect(fields.filter(f=>f.type==='textarea')).toHaveLength(3);expect(fields.some(f=>f.label.startsWith('Modalità di sostegno'))).toBe(true);
+ });
+ it('recupera la coppia narrativa quando OCR perde le due etichette interne',()=>{
+  const fields=infer([word('INTERVENTI DIDATTICI e METODOLOGICI',35,170,350)],[cell('left',50,200,250,60),cell('right',300,200,400,60)]);
+  expect(fields.filter(f=>f.type==='textarea').map(f=>f.label)).toEqual(['Attività','Strategie e Strumenti']);
+ });
  it('riconosce scelte Va definita e Va omessa senza inglobarle in un campo Sezione',()=>{
-  const words=[word('Sezione',50,100,60),word('4A/5A',115,100,45),word('[0]',165,100,12),word('Va',185,100,15),word('definita',205,100,45),word('0]',270,100,12),word('Va',290,100,15),word('omessa',310,100,45)];
+  const words=[word('Sezione',50,100,60),word('4A/5A',115,100,45),word('[0]',165,100,12),word('Va',185,100,15),word('definita',205,100,45),word('(Q]',270,100,12),word('Va',290,100,15),word('omessa',310,100,45)];
   const fields=infer(words,[]);
   expect(fields.filter(f=>f.type==='checkbox')).toHaveLength(2);
   expect(fields.some(f=>f.label==='Sezione')).toBe(false);
   expect(fields.every(f=>f.status==='review')).toBe(true);
+  expect(infer(words.map(w=>({...w,text:w.text==='(Q]'?'[O]':w.text})),[]).filter(f=>f.type==='checkbox')).toHaveLength(2);
  });
 });

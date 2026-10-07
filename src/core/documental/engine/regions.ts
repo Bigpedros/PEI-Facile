@@ -19,6 +19,9 @@ export function detectRegions(canvas:HTMLCanvasElement,tokens:Token[]):Region[] 
  const unique:Segment[]=[];for(const s of sides)if(!unique.length||s.pos-unique[unique.length-1].pos>4)unique.push(s);
  for(let i=0;i<unique.length-1;i++){
  const corners=[borderIntersection(top,unique[i]),borderIntersection(top,unique[i+1]),borderIntersection(bottom,unique[i]),borderIntersection(bottom,unique[i+1])];
+ // At least one corner on each horizontal border must retain strict
+ // support. Inset writing rules with gaps at both ends are not cell borders.
+ if(pass==='cell'&&((top.start-corners[0].x>10&&corners[1].x-top.end>10)||(bottom.start-corners[2].x>10&&corners[3].x-bottom.end>10)))continue;
  const x=Math.min(...corners.map(p=>p.x)),y=Math.min(...corners.map(p=>p.y)),bw=Math.max(...corners.map(p=>p.x))-x,bh=Math.max(...corners.map(p=>p.y))-y;
  if(bw<8||bh<8)continue;
  if(bw<60&&bh<60&&unique.slice(i,i+2).some(v=>v.start>y+3||v.end<bottom.pos-3))continue;

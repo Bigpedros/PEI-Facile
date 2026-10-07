@@ -20,7 +20,7 @@ describe('Calibratore: evidenza raster e associazioni',()=>{
  });
  it('ricostruisce un riquadro con un angolo interrotto senza usare le righe interne come bordi',()=>{
   const c=createCanvas(800,1000),ctx=c.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,800,1000);ctx.strokeStyle='#808080';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(62,100);ctx.lineTo(750,100);ctx.moveTo(50,100);ctx.lineTo(50,250);ctx.lineTo(750,250);ctx.lineTo(750,100);ctx.moveTo(80,190);ctx.lineTo(720,190);ctx.moveTo(80,215);ctx.lineTo(720,215);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(62,100);ctx.lineTo(750,100);ctx.moveTo(50,100);ctx.lineTo(50,250);ctx.lineTo(750,250);ctx.lineTo(750,100);ctx.moveTo(62,190);ctx.lineTo(738,190);ctx.moveTo(62,215);ctx.lineTo(738,215);ctx.stroke();
   const tokens:Token[]=[{id:'caption',text:'b. Indicazioni da considerare per il progetto individuale',box:{x:60,y:120,width:500,height:20},source:'ocr',confidence:95,lineId:'caption'}];
   const regions=detectRegions(c as any,tokens),fields=inferFields(c as any,tokens,regions);
   expect(regions.filter(r=>r.kind==='cell')).toHaveLength(1);expect(fields.filter(f=>f.type==='textarea')).toHaveLength(1);expect(fields[0].box.height).toBeGreaterThan(90);
