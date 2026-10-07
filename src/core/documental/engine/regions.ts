@@ -12,7 +12,10 @@ export function detectRegions(canvas:HTMLCanvasElement,tokens:Token[]):Region[] 
  const bottoms=hs.filter(b=>b.pos-top.pos>=8&&b.pos-top.pos<=h*.4&&Math.min(b.end,top.end)-Math.max(b.start,top.start)>=Math.max(8,Math.max(b.end-b.start,top.end-top.start)*.5));
  for(const bottom of bottoms.slice(0,30)){
  const left=Math.max(top.start,bottom.start),right=Math.min(top.end,bottom.end);
- const sides=vs.filter(v=>{const a=borderIntersection(top,v),b=borderIntersection(bottom,v);return a.x>=left-10&&a.x<=right+10&&b.x>=left-10&&b.x<=right+10&&v.start<=a.y+10&&v.end>=b.y-10;}).sort((a,b)=>segmentAt(a,(top.pos+bottom.pos)/2)-segmentAt(b,(top.pos+bottom.pos)/2));
+ // A photocopy may lose a short corner of an otherwise long border. Both
+ // measured side strokes must still span top and bottom intersections.
+ const cornerGap=pass==='cell'?Math.max(10,Math.min(35,Math.min(top.end-top.start,bottom.end-bottom.start)*.03)):10;
+ const sides=vs.filter(v=>{const a=borderIntersection(top,v),b=borderIntersection(bottom,v);return a.x>=left-cornerGap&&a.x<=right+cornerGap&&b.x>=left-cornerGap&&b.x<=right+cornerGap&&v.start<=a.y+10&&v.end>=b.y-10;}).sort((a,b)=>segmentAt(a,(top.pos+bottom.pos)/2)-segmentAt(b,(top.pos+bottom.pos)/2));
  const unique:Segment[]=[];for(const s of sides)if(!unique.length||s.pos-unique[unique.length-1].pos>4)unique.push(s);
  for(let i=0;i<unique.length-1;i++){
  const corners=[borderIntersection(top,unique[i]),borderIntersection(top,unique[i+1]),borderIntersection(bottom,unique[i]),borderIntersection(bottom,unique[i+1])];

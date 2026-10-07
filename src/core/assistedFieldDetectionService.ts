@@ -1068,7 +1068,7 @@ export async function collectPageRuntimeDiagnostics(
   const textContent=await pdfPage.getTextContent();
   const boxes=page.regions.map(r=>({x:r.box.x*sx,y:r.box.y*sy,width:r.box.width*sx,height:r.box.height*sy,isCheckbox:r.kind==='checkbox',source:'DOCUMENTAL_020'}));
   const rawCandidates=result.fields.map(f=>({id:f.fieldId,type:f.fieldType||'text',bbox:{x:f.xPt,y:f.yPt,w:f.widthPt,h:f.heightPt},source:f.detectionSource||'DOCUMENTAL_020',associatedLabel:f.label,confidence:f.confidence??0}));
-  return {timestamp:new Date().toISOString(),detectionRevision:'calibratore-20261006-bordi-inclinati',detectionDpi:200,document:{modelId:opts.modelId||'CUSTOM_PDF',modelName:opts.modelName||'Documento Attivo',pageNumber,pageWidthPt:viewport.width,pageHeightPt:viewport.height,viewport:{...viewport},rotation:pdfPage.rotate||0,view:pdfPage.view||null},
+  return {timestamp:new Date().toISOString(),detectionRevision:'calibratore-20261007-celle-etichette',detectionDpi:200,document:{modelId:opts.modelId||'CUSTOM_PDF',modelName:opts.modelName||'Documento Attivo',pageNumber,pageWidthPt:viewport.width,pageHeightPt:viewport.height,viewport:{...viewport},rotation:pdfPage.rotate||0,view:pdfPage.view||null},
     textItems:page.tokens.map((t,i)=>({text:t.text.trim(),x:t.box.x*sx,y:t.box.y*sy,width:t.box.width*sx,height:t.box.height*sy,fontName:t.source==='pdf'?textContent.items.filter((t:any)=>t.str?.trim())[i]?.fontName:undefined})),
     vectorLines:vector.lines.map(l=>({x1:l.x1,y1:l.y,x2:l.x2,y2:l.y,source:'PDF'})),
     vectorBoxes:vector.boxes.map(b=>({x:b.x,y:b.y,width:b.w,height:b.h,isCheckbox:b.isCheckbox,source:'PDF'})),
