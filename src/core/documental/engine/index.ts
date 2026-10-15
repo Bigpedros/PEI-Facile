@@ -33,11 +33,29 @@ export async function analyzeRasterPage(raw:RasterPage,options:EngineOptions,rec
  const warnings=[...raw.warnings];
  const mixed=raw.hasRasterImages&&prepared.tokens.length>0;
  const native=(prepared.tokens.length>0||(raw.nativeFields?.length??0)>0)&&!mixed&&!options.forceOcr&&!warnings.some(w=>w.startsWith('Testo PDF ruotato'));
- let tokens=prepared.tokens,text=tokensToText(tokens);
+ let tokens=prepared.tokens,text=tokensToText(tokens),ocrReading:PageResult['ocrReading'];
+ let secondReader:NonNullable<PageResult['secondReader']>={
+  configured:options.independentReading!==false&&!options.customOcrRunner,
+  availability:options.independentReading===false||options.customOcrRunner?'not-configured':'provided-unverified',
+  execution:options.independentReading===false?'disabled':'not-needed',
+  reason:options.independentReading===false?'INDEPENDENT_READING_DISABLED':options.customOcrRunner?'CUSTOM_OCR_RUNNER':'NATIVE_PDF_TEXT',
+  returnedPositionedWords:null,readerId:options.recognizerB?.id??'ocrs-rten-wasm',stage:'core',
+ };
  if(!native){
   options.onProgress?.(`Pagina ${raw.pageNumber} · OCR`,0);
   if(options.customOcrRunner){const read=await options.customOcrRunner(prepared.canvas);text=read.text;tokens=read.tokens??[];if(!tokens.length)warnings.push('OCR esterno senza coordinate: geometrie testuali non disponibili.');}
   else{const read=await recognizer.recognize(recognitionImage(prepared.canvas,options.contrast),raw.pageNumber);tokens=read.tokens;text=read.text;}
+  if(options.independentReading!==false&&!options.customOcrRunner){
+   options.onProgress?.(`Pagina ${raw.pageNumber} · seconda lettura OCRS/RTen`,0);
+   const independent=await recognizer.recognizeIndependent(prepared.canvas,raw.pageNumber,{tokens,text});
+   tokens=independent.tokens;text=independent.text;ocrReading=independent.diagnostics;
+   secondReader={configured:true,readerId:ocrReading.secondary,stage:'core',
+    availability:ocrReading.status==='unavailable'?'unavailable':'available',
+    execution:ocrReading.status==='unavailable'?'fallback-primary':'completed',
+    reason:ocrReading.status==='unavailable'?'RECOGNIZER_B_UNAVAILABLE':ocrReading.status==='empty'?'RECOGNIZER_B_EMPTY':'DUAL_READING_COMPLETED',
+    returnedPositionedWords:ocrReading.secondaryTokens.length};
+   warnings.push(...ocrReading.warnings,`RECOGNIZER_B_STATUS:${ocrReading.status}`,`RECOGNIZER_B_TOKENS:${ocrReading.secondaryTokens.length}`,`DUAL_READING_CHANGED:${ocrReading.changed}`);
+  }
  }
  if(mixed&&!options.forceOcr){tokens=assignLines([...prepared.tokens,...tokens.filter(t=>!prepared.tokens.some(n=>intersectionRatio(t.box,n.box)>.55))]);text=tokensToText(tokens);warnings.push('Pagina mista: testo nativo conservato e OCR delle informazioni raster, da verificare.');}
  options.signal?.throwIfAborted();
@@ -50,7 +68,7 @@ export async function analyzeRasterPage(raw:RasterPage,options:EngineOptions,rec
  const fieldInferenceDiagnostics=inferenceAudit?.finish(inferred);
  const explicit=(raw.nativeFields||[]).map(f=>({...f,box:alreadyCanonical?f.box:mapBox(rotateBox(f.box,raw.canvas.width,raw.canvas.height,options.rotation),prepared.transform.scale,prepared.transform.offsetX,prepared.transform.offsetY)}));
  const fields=[...explicit,...inferred.filter(f=>!explicit.some(e=>intersectionRatio(f.box,e.box)>.5||intersectionRatio(e.box,f.box)>.5))];
- return {pageNumber:raw.pageNumber,width:prepared.canvas.width,height:prepared.canvas.height,unit:'px',image:prepared.canvas.toDataURL('image/png'),text,tokens,regions,fields,source:native?'pdf':'ocr',transform:prepared.transform,physicalSizeMm:prepared.physicalSizeMm,warnings,fieldInferenceDiagnostics,elapsedMs:Math.round(performance.now()-start)};
+ return {pageNumber:raw.pageNumber,width:prepared.canvas.width,height:prepared.canvas.height,unit:'px',image:prepared.canvas.toDataURL('image/png'),text,tokens,regions,fields,source:native?'pdf':'ocr',transform:prepared.transform,physicalSizeMm:prepared.physicalSizeMm,warnings,fieldInferenceDiagnostics,ocrReading,secondReader,elapsedMs:Math.round(performance.now()-start)};
 }
 
 export async function analyzeDocument(file:File,options:EngineOptions):Promise<DocumentResult> {

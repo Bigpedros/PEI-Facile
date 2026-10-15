@@ -137,6 +137,7 @@ export interface DocumentAcquisitionResult {
 
 /** Opzioni per il processo di acquisizione */
 export interface DocumentAcquisitionOptions {
+  independentReading?:boolean;
   renderScale?: number;
   onProgress?: (progress: AcquisitionProgress) => void;
   signal?: AbortSignal;

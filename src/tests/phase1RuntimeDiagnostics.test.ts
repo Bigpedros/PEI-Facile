@@ -13,7 +13,7 @@ describe('Fase 1: export diagnostico dalla pipeline PDF',()=>{
    const page=await doc.getPage(1),plain=await detectCanonicalPageFields(page,1);
    const diagnostic=await collectPageRuntimeDiagnostics(page,{pageNumber:1});
    expect(diagnostic.diagnosticSchema).toBe('PEI_CALIBRATION_AUDIT_V1');
-   expect(diagnostic.secondReader?.availability).toBe('not-configured');
+   expect(diagnostic.secondReader).toMatchObject({availability:'provided-unverified',execution:'not-needed',reason:'NATIVE_PDF_TEXT'});
    const audit=diagnostic.fieldInference!.firstPass!;
    expect(audit.summary.regions).toBe(diagnostic.rasterBoxes.length);expect(audit.regions.every(r=>!!r.reason)).toBe(true);
    expect(diagnostic.finalProposedFields).toHaveLength(plain.fields.length);

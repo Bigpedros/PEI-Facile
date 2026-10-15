@@ -16,6 +16,8 @@ export interface PageResult {
  transform:{sourceWidth:number;sourceHeight:number;scale:number;offsetX:number;offsetY:number;rotation:number;deskewDegrees?:number;rectification?:string};
  physicalSizeMm:{width:number;height:number}|null;warnings:string[];elapsedMs:number;
  fieldInferenceDiagnostics?:import('./fieldDiagnostics').FieldInferenceDiagnostics;
+ ocrReading?:import('./dualReading').DualReadingDiagnostics;
+ secondReader?:import('./dualReading').IndependentReaderState;
 }
 export interface ReceiptItem {description:string;amount:number;line:string}
 export interface ReceiptResult {merchant:string|null;date:string|null;total:number|null;items:ReceiptItem[];itemsSum:number;difference:number|null;warnings:string[];status:'review'}
@@ -27,6 +29,8 @@ export interface EngineOptions {
  profile:Profile;language:'ita'|'eng'|'ita+eng';forceOcr:boolean;contrast:boolean;
  rotation:0|90|180|270;segmentation:'auto'|'block'|'sparse';dpi:number;maxPages:number;
  autoDeskew?:boolean;fineRotation?:number;signal?:AbortSignal;
+ independentReading?:boolean;
+ recognizerB?:import('../vendor/motore-ocr-ai/src/core/ocr/recognizerB').RecognizerB;
  customOcrRunner?:(canvas:HTMLCanvasElement)=>Promise<{text:string;confidence?:number;tokens?:Token[]}>;
  onProgress?:(message:string,progress:number)=>void;onPage?:(page:PageResult)=>void;
 }

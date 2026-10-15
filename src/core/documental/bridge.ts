@@ -66,6 +66,7 @@ export async function runDocumental(input: File | File[] | ArrayBuffer | Uint8Ar
     const result = await analyzeDocument(file, {profile:'pei',language:'ita',forceOcr:false,contrast:true,
       rotation:0,autoDeskew:false,dpi:200,segmentation:'auto',maxPages:100,signal:options.signal,
       customOcrRunner:options.customOcrRunner,
+      independentReading:options.independentReading,
       onProgress:(message,progress)=>options.onProgress?.({currentPage:pages.length+1,totalPages:0,
         percentage:Math.min(85,Math.round(progress*85)),stage:message.includes('lettura')||message.includes('OCR')?'OCR':'READING',stageLabel:message})});
     first ??= result;

@@ -80,6 +80,8 @@ describe('PEI field detection specialization', () => {
       forceOcr: true,
       segmentation: 'sparse',
       contrast: true,
+      signal:undefined,
+      independentReading:false,
     });
     expect(out.diagnostics.secondPassTriggered).toBe(true);
     expect(out.diagnostics.secondPassAdded).toBe(1);

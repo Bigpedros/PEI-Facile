@@ -3,9 +3,12 @@ const OEM={LSTM_ONLY:1};
 const PSM={AUTO:3,SINGLE_BLOCK:6,SPARSE_TEXT:11};
 type Worker = Awaited<ReturnType<typeof createWorker>>;
 import type {EngineOptions,Token} from './types';
+import {createIndependentRecognizer,readIndependent} from './dualReading';
+import type {RecognizerB} from '../vendor/motore-ocr-ai/src/core/ocr/recognizerB';
 export class LocalRecognizer {
  private worker:Worker|undefined;
  private terminated=false;
+ private secondary:RecognizerB|undefined;
  constructor(private options:EngineOptions){}
  async recognize(canvas:HTMLCanvasElement,page:number):Promise<{tokens:Token[];text:string}> {
  this.options.signal?.throwIfAborted();
@@ -26,7 +29,15 @@ export class LocalRecognizer {
  }
  return {tokens,text:data.text};
  }
- async terminate(){this.terminated=true;const worker=this.worker;this.worker=undefined;if(worker)await worker.terminate();}
+ async recognizeIndependent(canvas:HTMLCanvasElement,page:number,primary:{tokens:Token[];text:string}){
+  this.options.signal?.throwIfAborted();
+  this.secondary??=this.options.recognizerB??createIndependentRecognizer();
+  const secondary=this.secondary,stop=()=>{void secondary.dispose?.();};
+  this.options.signal?.addEventListener('abort',stop,{once:true});
+  try{return await readIndependent(canvas,page,primary,secondary,this.options.signal);}
+  finally{this.options.signal?.removeEventListener('abort',stop);}
+ }
+ async terminate(){this.terminated=true;const worker=this.worker;this.worker=undefined;await this.secondary?.dispose?.();this.secondary=undefined;if(worker)await worker.terminate();}
 }
 function translate(s:string){return ({'loading tesseract core':'caricamento OCR','initializing tesseract':'inizializzazione OCR','loading language traineddata':'caricamento lingua','initializing api':'preparazione lettura','recognizing text':'lettura testo'} as Record<string,string>)[s]||s;}
 

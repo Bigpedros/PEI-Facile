@@ -19,16 +19,12 @@ export interface PeiFieldDetectionProfileOptions {
   primaryOcrRunner?: PeiOcrRunner;
   secondaryOcrRunner?: PeiOcrRunner;
   canvasElement?: HTMLCanvasElement;
+  signal?:AbortSignal;
+  independentReading?:boolean;
 }
 
 export interface PeiFieldDetectionProfileDiagnostics {
-  secondReader: {
-    configured: boolean;
-    availability: 'not-configured' | 'provided-unverified' | 'available';
-    execution: 'blocked-no-reader' | 'not-needed' | 'completed';
-    reason: 'NO_SECONDARY_RUNNER' | 'NO_UNCOVERED_TEXT_EVIDENCE' | 'SECOND_PASS_COMPLETED';
-    returnedPositionedWords: number | null;
-  };
+  secondReader: import('../documental/engine/dualReading').IndependentReaderState;
   uncoveredEvidenceKind: 'text-markers-and-short-prompts';
   firstPassFields: number;
   secondPassTriggered: boolean;
@@ -120,9 +116,8 @@ function specializeSecondPassField(field: FieldGeometry): FieldGeometry {
 /**
  * Profilo specialistico PEI sopra il core documentale.
  *
- * PASS 1: pipeline generalista, invariata.
- * PASS 2: parte solo quando la prima lettura lascia evidenze PEI plausibili
- *         non coperte e l'app fornisce un secondo OCR indipendente.
+ * PASS 1: pipeline comune con Tesseract + OCRS/RTen sulle pagine raster.
+ * PASS 2: hook custom su evidenze scoperte, solo se B non è già stato eseguito.
  * MERGE: il secondo passaggio non modifica il primo; aggiunge soltanto proposte
  *        non sovrapposte e sempre soggette a revisione umana.
  */
@@ -135,23 +130,27 @@ export async function runPeiFieldDetectionProfile(
     pdfPage,
     pageNumber,
     options.primaryOcrRunner,
-    options.canvasElement
+    options.canvasElement,
+    {signal:options.signal,independentReading:options.independentReading}
   );
 
   const evidence = uncoveredEvidence(firstPass);
   const uncoveredCount = evidence.uncoveredMarkers.length + evidence.uncoveredPrompts.length;
   const underDetectionSuspected = uncoveredCount > 0;
-  const shouldRunSecondPass = underDetectionSuspected && typeof options.secondaryOcrRunner === 'function';
+  const coreReader=firstPass.page.secondReader;
+  const shouldRunSecondPass = options.independentReading!==false && underDetectionSuspected && typeof options.secondaryOcrRunner === 'function' && !firstPass.page.ocrReading;
 
   let secondPass: Awaited<ReturnType<typeof detectCanonicalPageFields>> | undefined;
   const merged = [...firstPass.fields];
   let secondPassAdded = 0;
 
   if (shouldRunSecondPass) {
-    const overrides: Partial<Pick<EngineOptions, 'forceOcr' | 'segmentation' | 'contrast'>> = {
+    const overrides: Partial<Pick<EngineOptions, 'forceOcr' | 'segmentation' | 'contrast'|'signal'|'independentReading'>> = {
       forceOcr: true,
       segmentation: 'sparse',
       contrast: true,
+      signal:options.signal,
+      independentReading:false,
     };
     secondPass = await detectCanonicalPageFields(
       pdfPage,
@@ -168,18 +167,21 @@ export async function runPeiFieldDetectionProfile(
     }
   }
 
+  let secondReader=coreReader;
+  if(!coreReader||(!firstPass.page.ocrReading&&options.secondaryOcrRunner))secondReader={
+    configured: typeof options.secondaryOcrRunner === 'function',
+    availability: secondPass ? 'available' : typeof options.secondaryOcrRunner === 'function' ? 'provided-unverified' : 'not-configured',
+    execution: shouldRunSecondPass ? 'completed' : underDetectionSuspected ? 'blocked-no-reader' : 'not-needed',
+    reason: shouldRunSecondPass ? 'SECOND_PASS_COMPLETED' : underDetectionSuspected ? 'NO_SECONDARY_RUNNER' : 'NO_UNCOVERED_TEXT_EVIDENCE',
+    returnedPositionedWords: secondPass?.page.tokens.length ?? null,stage:'pei-recovery',
+  };
+  if(options.independentReading===false)secondReader={configured:false,availability:'not-configured',execution:'disabled',reason:'INDEPENDENT_READING_DISABLED',returnedPositionedWords:null,stage:'core'};
   return {
     fields: merged,
     firstPass,
     secondPass,
     diagnostics: {
-      secondReader: {
-        configured: typeof options.secondaryOcrRunner === 'function',
-        availability: secondPass ? 'available' : typeof options.secondaryOcrRunner === 'function' ? 'provided-unverified' : 'not-configured',
-        execution: shouldRunSecondPass ? 'completed' : underDetectionSuspected ? 'blocked-no-reader' : 'not-needed',
-        reason: shouldRunSecondPass ? 'SECOND_PASS_COMPLETED' : underDetectionSuspected ? 'NO_SECONDARY_RUNNER' : 'NO_UNCOVERED_TEXT_EVIDENCE',
-        returnedPositionedWords: secondPass?.page.tokens.length ?? null,
-      },
+      secondReader,
       uncoveredEvidenceKind: 'text-markers-and-short-prompts',
       firstPassFields: firstPass.fields.length,
       secondPassTriggered: shouldRunSecondPass,

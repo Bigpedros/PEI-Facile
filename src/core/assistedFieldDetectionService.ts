@@ -45,6 +45,8 @@ import { PeiOcrCteAdapter } from '../integrations/ocrCte/PeiOcrCteAdapter';
 import { runPeiFieldDetectionProfile } from './pei-specialization/PeiFieldDetectionProfile';
 
 export interface DetectPageFieldsOptions {
+  signal?:AbortSignal;
+  independentReading?:boolean;
   canvasElement?: HTMLCanvasElement;
   onDiagnostics?: (diagnostics: PageDetectionDiagnostics) => void;
   customOcrRunner?: (canvas: HTMLCanvasElement) => Promise<{
@@ -931,6 +933,8 @@ export async function detectFieldsOnPdfPage(
     primaryOcrRunner: opts.customOcrRunner,
     secondaryOcrRunner: opts.secondaryOcrRunner,
     canvasElement: opts.canvasElement,
+    signal:opts.signal,
+    independentReading:opts.independentReading,
   });
   const result = profile.firstPass;
   const proposed = profile.fields;
@@ -946,7 +950,7 @@ export async function detectFieldsOnPdfPage(
     secondReader:profile.diagnostics.secondReader,
     fieldInferenceDiagnostics:result.page.fieldInferenceDiagnostics,
     rasterFallbackUsed:true,ocrFallbackUsed:result.source==='ocr',
-    rawOcrWordsCount:result.source==='ocr'?result.tokens:0});
+    rawOcrWordsCount:result.page.ocrReading?.rawTokens.length??(result.source==='ocr'?result.tokens:0)});
   return filtered;
 }
 
@@ -955,6 +959,7 @@ export async function detectFieldsOnPdfPage(
  * Captures real browser data from PDF.js, text items, vector graphics, raster lines, and pipeline transformations.
  */
 export interface PageRuntimeDiagnosticTrace {
+  ocrReading?:import('./documental/engine/dualReading').DualReadingDiagnostics;
   diagnosticSchema?:'PEI_CALIBRATION_AUDIT_V1';
   secondReader?:import('./pei-specialization/PeiFieldDetectionProfile').PeiFieldDetectionProfileDiagnostics['secondReader'];
   fieldInference?:{
@@ -1068,6 +1073,8 @@ export interface PageRuntimeDiagnosticTrace {
 export async function collectPageRuntimeDiagnostics(
   pdfPage: any,
   opts: {
+    signal?:AbortSignal;
+    independentReading?:boolean;
     canvasElement?: HTMLCanvasElement | null;
     modelId?: string;
     modelName?: string;
@@ -1101,6 +1108,8 @@ export async function collectPageRuntimeDiagnostics(
     primaryOcrRunner:opts.customOcrRunner,
     secondaryOcrRunner:opts.secondaryOcrRunner,
     canvasElement:opts.canvasElement||undefined,
+    signal:opts.signal,
+    independentReading:opts.independentReading,
   });
   const result=profile.firstPass;
   const page=result.page;
@@ -1116,7 +1125,8 @@ export async function collectPageRuntimeDiagnostics(
     const index=visibleFields.findIndex(f=>f.id===a.fieldId);
     return {internalFieldId:a.fieldId,candidateFieldId:index>=0?`doc-p${pageNumber}-${index+1}`:null,retainedInPage:index>=0};
   });
-  return {timestamp:new Date().toISOString(),diagnosticSchema:'PEI_CALIBRATION_AUDIT_V1',detectionRevision:'calibratore-20261015-fase1-diagnostica',detectionDpi:200,
+  return {timestamp:new Date().toISOString(),diagnosticSchema:'PEI_CALIBRATION_AUDIT_V1',detectionRevision:'calibratore-20261015-fase2-doppio-lettore',detectionDpi:200,
+    ocrReading:page.ocrReading,
     secondReader:profile.diagnostics.secondReader,
     fieldInference:{firstPass:page.fieldInferenceDiagnostics,secondPass:profile.secondPass?.page.fieldInferenceDiagnostics,fieldIdMap},
     document:{modelId:opts.modelId||'CUSTOM_PDF',modelName:opts.modelName||'Documento Attivo',pageNumber,pageWidthPt:viewport.width,pageHeightPt:viewport.height,viewport:{...viewport},rotation:pdfPage.rotate||0,view:pdfPage.view||null},
@@ -1127,8 +1137,9 @@ export async function collectPageRuntimeDiagnostics(
     pipelineTrace:{steps:[
       {step:'getTextContent',description:'Testo nativo letto sul raster finale',counts:{rawItemsCount:result.textItems}},
       {step:'extractVectorGraphics',description:'Geometria vettoriale osservata per diagnostica; non una seconda inferenza',counts:{vectorLines:vector.lines.length,vectorBoxes:vector.boxes.length}},
-      {step:'ocrExtraction',description:'Prima lettura del core documentale',counts:{rawOcrWordsCount:page.tokens.filter(t=>t.source==='ocr').length,validOcrTextItemsCount:page.tokens.filter(t=>t.source==='ocr').length,used:result.source==='ocr'}},
-      {step:'peiSpecializationSecondPass',description:'Stato esplicito del lettore e recupero su evidenze testuali; non misura la copertura di tutte le regioni',counts:{triggered:profile.diagnostics.secondPassTriggered,secondPassFields:profile.diagnostics.secondPassFields,secondPassAdded:profile.diagnostics.secondPassAdded,uncoveredPlausibleRegionsCount:profile.diagnostics.uncoveredPlausibleRegionsCount},details:{secondReader:profile.diagnostics.secondReader,uncoveredEvidenceKind:profile.diagnostics.uncoveredEvidenceKind}},
+      {step:'ocrExtraction',description:'Prima lettura del core documentale',counts:{rawOcrWordsCount:page.ocrReading?.rawTokens.length??page.tokens.filter(t=>t.source==='ocr').length,validOcrTextItemsCount:page.tokens.filter(t=>t.source==='ocr').length,used:result.source==='ocr'}},
+      {step:'independentOcrComparison',description:'Tesseract e OCRS/RTen nello stesso spazio raster, confronto deterministico',counts:{executed:!!page.ocrReading,rawPrimaryWords:page.ocrReading?.rawTokens.length??null,secondaryWords:page.ocrReading?.secondaryTokens.length??null,agreements:page.ocrReading?.agreements??null,disagreements:page.ocrReading?.disagreements??null,changed:page.ocrReading?.changed??null},details:{secondReader:profile.diagnostics.secondReader,warnings:page.ocrReading?.warnings??[]}},
+      {step:'peiSpecializationSecondPass',description:'Hook specialistico opzionale per integrazioni custom; B ordinario e nel core, la copertura resta basata su evidenze testuali',counts:{triggered:profile.diagnostics.secondPassTriggered,secondPassFields:profile.diagnostics.secondPassFields,secondPassAdded:profile.diagnostics.secondPassAdded,uncoveredPlausibleRegionsCount:profile.diagnostics.uncoveredPlausibleRegionsCount},details:{secondReader:profile.diagnostics.secondReader,uncoveredEvidenceKind:profile.diagnostics.uncoveredEvidenceKind}},
       {step:'detectRegions',description:'Regioni misurate sullo stesso raster dei campi',counts:{regions:boxes.length}},
       {step:'inferFields',description:'Merge non distruttivo: il secondo passaggio può solo aggiungere proposte PEI',counts:{rawCandidates:rawCandidates.length,protectedDuplicates:classified.protectedDuplicates.length,matchedAutomatic:classified.matchedAutomatic.length,newProposalsCount:classified.newProposals.length,finalProposalsCount:proposed.length}}],
       discarded:[
@@ -1150,12 +1161,13 @@ export async function detectFieldsOnEntireDocument(
   abortSignal?: AbortSignal,
   detectionOptions: DetectPageFieldsOptions = {}
 ): Promise<{ pages: PageGeometry[]; totalProposed: number }> {
+  const effectiveSignal=abortSignal??detectionOptions.signal;
   const totalPages = pdfDoc.numPages || existingPages.length;
   const updatedPages: PageGeometry[] = JSON.parse(JSON.stringify(existingPages));
   let totalProposed = 0;
 
   for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-    if (abortSignal?.aborted) {
+    if (effectiveSignal?.aborted) {
       break;
     }
 
@@ -1176,11 +1188,12 @@ export async function detectFieldsOnEntireDocument(
       const pageProxy = await pdfDoc.getPage(pageNum);
       const protectedFields = targetPage.fields.filter(isProtectedDetectionField);
 
-      const detected = await detectFieldsOnPdfPage(pageProxy, pageNum, protectedFields);
+      const detected = await detectFieldsOnPdfPage(pageProxy, pageNum, protectedFields,{...detectionOptions,signal:effectiveSignal});
 
       targetPage.fields = [...protectedFields, ...detected];
       totalProposed += detected.length;
     } catch (err) {
+      if(effectiveSignal?.aborted)break;
       console.warn(`Detection on page ${pageNum} encountered warning:`, err);
     }
 
