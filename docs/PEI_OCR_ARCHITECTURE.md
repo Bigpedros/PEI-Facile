@@ -42,3 +42,26 @@ Sono validi per Gestione Casa, non per PEI FACILE.
 
 ## Privacy
 Il core OCR è locale. Il modello `ita.traineddata` è incluso nel pacchetto. Non inviare PDF o contenuti degli alunni a servizi OCR remoti senza una decisione architetturale esplicita e separata.
+
+
+## Specializzazione PEI e seconda lettura
+
+La pipeline runtime mantiene un solo core documentale generalista. La specializzazione PEI è
+orchestrata da `src/core/pei-specialization/PeiFieldDetectionProfile.ts`.
+
+Flusso:
+
+1. Il core esegue la prima lettura senza regole distruttive specifiche PEI.
+2. Il profilo PEI verifica la copertura di marker e prompt compilabili osservabili.
+3. Se resta sotto-rilevamento e l'app fornisce un secondo OCR indipendente, viene eseguito
+   un secondo passaggio forzato OCR con segmentazione `sparse`.
+4. I candidati del secondo passaggio sono marcati `PEI_SECOND_PASS`, restano proposte
+   da revisionare e possono soltanto aggiungersi al risultato del primo passaggio.
+5. Candidati sovrapposti non sostituiscono il primo passaggio. I campi confermati,
+   modificati, manuali, AcroForm o rifiutati continuano a essere protetti dalla logica
+   di deduplicazione esistente.
+
+Il secondo lettore non appartiene al core PEI: viene iniettato tramite `secondaryOcrRunner`.
+Questo consente a PEI Facile di specializzarsi senza introdurre dipendenze PEI nel motore
+generalista e permette in futuro di promuovere nel core soltanto tecniche dimostrate
+generalizzabili dopo regressione globale.
