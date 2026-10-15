@@ -63,8 +63,29 @@ function tokenCovered(token: Token, fields: FieldGeometry[], pageWidth: number, 
     const y = field.yNorm * pageHeight;
     const w = field.wNorm * pageWidth;
     const h = field.hNorm * pageHeight;
-    return Math.min(x + w, token.box.x + token.box.width) > Math.max(x, token.box.x) &&
-      Math.min(y + h, token.box.y + token.box.height) > Math.max(y, token.box.y);
+    const tokenRight = token.box.x + token.box.width;
+    const tokenBottom = token.box.y + token.box.height;
+    const fieldRight = x + w;
+    const fieldBottom = y + h;
+    const intersects =
+      Math.min(fieldRight, tokenRight) > Math.max(x, token.box.x) &&
+      Math.min(fieldBottom, tokenBottom) > Math.max(y, token.box.y);
+    if (intersects) return true;
+
+    // Nei moduli PEI l'area compilabile è spesso a destra o subito sotto
+    // l'etichetta, quindi non deve necessariamente sovrapporsi al token.
+    const sameRow =
+      x >= tokenRight - 4 &&
+      x - tokenRight <= Math.max(260, token.box.height * 14) &&
+      Math.abs((y + h / 2) - (token.box.y + token.box.height / 2)) <=
+        Math.max(h, token.box.height) * 1.25;
+    const horizontalOverlap = Math.min(fieldRight, tokenRight) - Math.max(x, token.box.x);
+    const justBelow =
+      y >= tokenBottom - 4 &&
+      y - tokenBottom <= token.box.height * 3 &&
+      horizontalOverlap > -Math.max(token.box.width, w) * .25;
+
+    return sameRow || justBelow;
   });
 }
 
