@@ -1,6 +1,7 @@
 import type {Box,FormField,Region,Token} from './types';
 import {intersectionRatio,tokensToText} from './geometry';
 import {rasterStrokes} from './strokes';
+import type {FieldInferenceAudit} from './fieldDiagnostics';
 const labelWords=/\b(nome|cognome|data|nato|nata|nascita|luogo|indirizzo|residenza|telefono|cellulare|email|e-mail|classe|sezione|scuola|istituto|codice|firma|note|osservazioni|descrizione|obiettivi|risposta|motivazione|comune|provincia|cap|anno|alunno|alunna|bambino|bambina|plesso|sede|docente|genitore|consenso)\b/i;
 export function isLabel(text:string):boolean {
  const s=text.trim();
@@ -49,12 +50,12 @@ export function detectWritingLines(canvas:HTMLCanvasElement,regions:Region[],tok
  }
  return result.slice(0,200);
 }
-export function inferFields(canvas:HTMLCanvasElement,tokens:Token[],regions:Region[]):FormField[]{
+export function inferFields(canvas:HTMLCanvasElement,tokens:Token[],regions:Region[],audit?:FieldInferenceAudit):FormField[]{
  const fields:FormField[]=[];const textHeight=typical(tokens),margin=Math.max(4,textHeight*.18);
  const words=tokens.flatMap(t=>t.fragments||[t]);
  let signatureEvidence:ReturnType<typeof rasterStrokes>|undefined;
  const promptLabel=(text:string)=>clean(normalizePrompt(text)).replace(/\s*[_ ]*\d{1,2}[/.]\d{1,2}[/.]\d{2,4}\s*$/, '').replace(/\s*[([]\s*1?\s*$/, '').replace(/\s*\|\s*$/,'').trim();
- const add=(field:FormField)=>{field.box.x=Math.max(0,field.box.x);field.box.y=Math.max(0,field.box.y);field.box.width=Math.min(field.box.width,canvas.width-field.box.x);field.box.height=Math.min(field.box.height,canvas.height-field.box.y);if(field.box.width<6||field.box.height<6)return;if(fields.some(f=>intersectionRatio(field.box,f.box)>.6||intersectionRatio(f.box,field.box)>.8))return;fields.push(field);};
+ const add=(field:FormField)=>{field.box.x=Math.max(0,field.box.x);field.box.y=Math.max(0,field.box.y);field.box.width=Math.min(field.box.width,canvas.width-field.box.x);field.box.height=Math.min(field.box.height,canvas.height-field.box.y);if(field.box.width<6||field.box.height<6){audit?.candidate(field,'excluded','FIELD_TOO_SMALL_AFTER_CLAMP');return;}const duplicate=fields.find(f=>intersectionRatio(field.box,f.box)>.6||intersectionRatio(f.box,field.box)>.8);if(duplicate){audit?.candidate(field,'excluded','DUPLICATE_FIELD',duplicate.id);return;}fields.push(field);audit?.candidate(field,'proposed','FIELD_PROPOSED');};
  // Bracketed placeholders are writable content, even without an underline.
  // Require a known prompt so legal citations and ordinary headings stay static.
  for(const t of tokens){
@@ -141,14 +142,15 @@ export function inferFields(canvas:HTMLCanvasElement,tokens:Token[],regions:Regi
   const l=lines[0],f=makeField({x:l.x,y:l.y-textHeight*1.3,width:l.width,height:textHeight*1.3},'Firma del dirigente scolastico','line');f.confidence=.8;f.reason='Area di firma misurata sulla riga tratteggiata sotto una intestazione esplicita, senza includere il timbro.';add(f);
  }
  for(const region of regions){
+ audit?.enter(region);
  if(region.kind==='checkbox'){
  const captionTokens=tokens.flatMap(t=>t.fragments||[t]);
  const next=captionTokens.filter(t=>t.box.x>=region.box.x+region.box.width-2&&t.box.x-region.box.x-region.box.width<250&&Math.abs(t.box.y-region.box.y)<textHeight).sort((a,b)=>a.box.x-b.box.x);
  const stop=regions.filter(r=>r.kind==='checkbox'&&r.box.x>region.box.x+region.box.width&&Math.abs(r.box.y-region.box.y)<textHeight).sort((a,b)=>a.box.x-b.box.x)[0]?.box.x??canvas.width;
  // Tiny marks next to table headings are not selectable options.
- if(next[0]&&/^(?:DATA|FIRMA|VERBALE)\b/i.test(next[0].text))continue;
- if(Math.min(region.box.width,region.box.height)<textHeight*.75)continue;
- const label=(next[0]?captionTokens.filter(t=>t.lineId===next[0].lineId&&t.box.x>=next[0].box.x&&t.box.x<stop).sort((a,b)=>a.box.x-b.box.x).map(t=>t.text).join(' '):'')||'Selezione da verificare';if(/^DATA\s+FIRMA\b/i.test(label))continue;const f=makeField({...region.box},label.replace(/\s*[C([]\]?\s*$/,'').trim(),'checkbox');const state=checkedState(canvas,region.box);f.type='checkbox';f.value=state??false;f.originalValue=f.value;f.maskOriginal=true;f.confidence=state===null?.4:.85;f.reason=state===null?'Quadratino rilevato; stato ambiguo da verificare.':'Quadratino e contenuto interno rilevati.';add(f);continue;
+ if(next[0]&&/^(?:DATA|FIRMA|VERBALE)\b/i.test(next[0].text)){audit?.reject('CHECKBOX_NEXT_TO_STATIC_HEADING','filter');continue;}
+ if(Math.min(region.box.width,region.box.height)<textHeight*.75){audit?.reject('CHECKBOX_BELOW_TEXT_SCALE','geometry',{minimumSide:Math.min(region.box.width,region.box.height),requiredSide:textHeight*.75});continue;}
+ const label=(next[0]?captionTokens.filter(t=>t.lineId===next[0].lineId&&t.box.x>=next[0].box.x&&t.box.x<stop).sort((a,b)=>a.box.x-b.box.x).map(t=>t.text).join(' '):'')||'Selezione da verificare';if(/^DATA\s+FIRMA\b/i.test(label)){audit?.reject('CHECKBOX_COMBINED_HEADING','filter');continue;}const f=makeField({...region.box},label.replace(/\s*[C([]\]?\s*$/,'').trim(),'checkbox');const state=checkedState(canvas,region.box);f.type='checkbox';f.value=state??false;f.originalValue=f.value;f.maskOriginal=true;f.confidence=state===null?.4:.85;f.reason=state===null?'Quadratino rilevato; stato ambiguo da verificare.':'Quadratino e contenuto interno rilevati.';add(f);continue;
  }
  // Signature captions plus a measured dotted line define a writable area.
  // OCR frequently reads the printed dots as letters; that noise is not a value.
@@ -159,6 +161,7 @@ export function inferFields(canvas:HTMLCanvasElement,tokens:Token[],regions:Regi
   const evidence=signatureEvidence??=rasterStrokes(canvas),scale=evidence.scale;
   const lines=evidence.writing.map(l=>({x:l.start/scale,y:l.pos/scale,width:(l.end-l.start)/scale})).filter(l=>l.y>signature.box.y+signature.box.height+margin&&l.y<region.box.y+region.box.height-margin&&l.x>=region.box.x-margin*2&&l.x+l.width<region.box.x+region.box.width-margin&&l.width>region.box.width*.35).sort((a,b)=>b.width-a.width);
   if(lines[0]){const l=lines[0],f=makeField({x:l.x,y:l.y-textHeight*1.3,width:l.width,height:textHeight*1.3},'Firma del dirigente scolastico','line');f.confidence=.8;f.reason='Area di firma misurata sulla riga tratteggiata nella cella, senza includere il timbro.';add(f);}
+  if(!lines[0])audit?.reject('SIGNATURE_WITHOUT_MEASURED_WRITING_LINE');
   continue;
  }
  // In narrative cells, the prompt is printed at the top and the response
@@ -183,6 +186,7 @@ export function inferFields(canvas:HTMLCanvasElement,tokens:Token[],regions:Regi
   const y=sharesResponseRow?region.box.y+margin:captionBottom+margin,height=region.box.y+region.box.height-margin-y;
   if(height>=textHeight){const f=makeField({x:region.box.x+margin,y,width:region.box.width-margin*2,height},prompt,'cell');f.type='textarea';f.value=tokensToText(sharesResponseRow?cellWords.filter(w=>w.box.y>=Math.min(...topWords.map(t=>t.box.y))-margin):response);f.originalValue=f.value;f.observedText=f.value;f.maskOriginal=!!f.value;f.confidence=sharesResponseRow?.65:.75;f.reason=sharesResponseRow?'Consegna e risposta con geometrie sovrapposte: cella compilabile completa con testo originale conservato, da verificare.':'Area narrativa sotto la consegna della cella; testo presente conservato e intestazione esclusa.';add(f);}
 
+  if(height<textHeight)audit?.reject('NARRATIVE_RESPONSE_TOO_SHORT','geometry',{responseHeight:height,requiredHeight:textHeight});
   continue;
  }
  // A measured response cell may be labelled outside its top border, or by
@@ -224,10 +228,10 @@ export function inferFields(canvas:HTMLCanvasElement,tokens:Token[],regions:Regi
    const f=makeField({x:region.box.x+margin,y,width:region.box.width-margin*2,height:region.box.y+region.box.height-margin-y},'Testo su righe — da verificare','cell');f.type='textarea';f.value=tokensToText(cellWords.filter(w=>w.box.y>=y));f.originalValue=f.value;f.observedText=f.value;f.maskOriginal=!!f.value;f.confidence=.45;f.reason='Riquadro e più righe di scrittura misurati; consegna OCR non affidabile, associazione da verificare.';add(f);continue;
   }
  }
- if(tokens.some(t=>/^\s*[*•]?\s*(?:specificare|indicare|compilare|istruzioni|a cura)\b/i.test(t.text)&&intersectionRatio(t.box,region.box)>.1))continue;
+ if(tokens.some(t=>/^\s*[*•]?\s*(?:specificare|indicare|compilare|istruzioni|a cura)\b/i.test(t.text)&&intersectionRatio(t.box,region.box)>.1)){audit?.reject('PRINTED_INSTRUCTION_IN_REGION','filter');continue;}
  const content=inside(tokens,region.box);const rawText=tokensToText(content).trim();const text=clean(rawText);
  // Missing OCR coordinates do not turn printed instructions into an empty cell.
- if(!text){const b=inset(region.box,margin*2),pixels=canvas.getContext('2d')!.getImageData(Math.floor(b.x),Math.floor(b.y),Math.max(1,Math.floor(b.width)),Math.max(1,Math.floor(b.height))).data;let ink=0;for(let i=0;i<pixels.length;i+=4)if(pixels[i]+pixels[i+1]+pixels[i+2]<600)ink++;if(ink/(pixels.length/4)>.015)continue;}
+ if(!text){const b=inset(region.box,margin*2),pixels=canvas.getContext('2d')!.getImageData(Math.floor(b.x),Math.floor(b.y),Math.max(1,Math.floor(b.width)),Math.max(1,Math.floor(b.height))).data;let ink=0;for(let i=0;i<pixels.length;i+=4)if(pixels[i]+pixels[i+1]+pixels[i+2]<600)ink++;if(ink/(pixels.length/4)>.015){audit?.reject('INK_WITHOUT_POSITIONED_TEXT','filter',{inkRatio:ink/(pixels.length/4),threshold:.015});continue;}}
  const left=regions.filter(r=>r.kind==='cell'&&r.box.x+r.box.width<=region.box.x+8&&region.box.x-r.box.x-r.box.width<15&&Math.abs(r.box.y-region.box.y)<10&&isLabel(r.text)).sort((a,b)=>b.box.x-a.box.x)[0];
  const above=regions.filter(r=>r.kind==='cell'&&r.box.y+r.box.height<=region.box.y+8&&region.box.y-r.box.y-r.box.height<15&&Math.abs(r.box.x-region.box.x)<15&&isLabel(r.text)&&r.box.height<textHeight*4).sort((a,b)=>b.box.y-a.box.y)[0];
  // Column headers apply to every measured body row, including when an
@@ -240,7 +244,7 @@ export function inferFields(canvas:HTMLCanvasElement,tokens:Token[],regions:Regi
   if(/^variazione\b/i.test(text))return 'Variazione del componente GLO';
   return null;
  };
- if(headerLabel(region)&&regions.some(r=>r.id!==region.id&&r.kind==='cell'&&r.box.y>=region.box.y+region.box.height-margin&&r.box.y-region.box.y-region.box.height<textHeight*2&&Math.abs(r.box.x-region.box.x)<textHeight&&Math.abs(r.box.width-region.box.width)<textHeight*2))continue;
+ if(headerLabel(region)&&regions.some(r=>r.id!==region.id&&r.kind==='cell'&&r.box.y>=region.box.y+region.box.height-margin&&r.box.y-region.box.y-region.box.height<textHeight*2&&Math.abs(r.box.x-region.box.x)<textHeight&&Math.abs(r.box.width-region.box.width)<textHeight*2)){audit?.reject('COLUMN_HEADER_STATIC','filter');continue;}
  const columnHeader=regions.filter(r=>r.kind==='cell'&&r.box.y+r.box.height<=region.box.y+margin&&region.box.y-r.box.y<canvas.height*.18&&Math.abs(r.box.x-region.box.x)<textHeight&&Math.abs(r.box.width-region.box.width)<textHeight*2&&headerLabel(r)).sort((a,b)=>b.box.y-a.box.y)[0];
  const rightCell=regions.find(r=>r.kind==='cell'&&Math.abs(r.box.x-region.box.x-region.box.width)<textHeight&&Math.abs(r.box.y-region.box.y)<textHeight);
  const role=rightCell?clean(tokensToText(words.filter(w=>intersectionRatio(w.box,rightCell.box)>.55))).replace(/^\d+[.)]?\s*/,''):'';
@@ -256,16 +260,18 @@ export function inferFields(canvas:HTMLCanvasElement,tokens:Token[],regions:Regi
   f.value=value;f.originalValue=value;f.observedText=value;f.maskOriginal=!!value;f.confidence=.7;f.reason='Cella della tabella associata alla intestazione di colonna o al ruolo nella cella destra, da verificare.';add(f);continue;
  }
  const label=left?.text||(above&&(!/\bdata\b/i.test(above.text)||region.box.height<textHeight*3)?above.text:undefined);
- if(label&&isLabel(text))continue;
+ if(label&&isLabel(text)){audit?.reject('LABEL_CELL_WITH_ADJACENT_LABEL','filter');continue;}
  if(label){const f=makeField(inset(region.box,margin),clean(label),'cell');f.type=fieldType(label,f.box.height,textHeight);f.value=rawText;f.originalValue=rawText;f.observedText=rawText;f.maskOriginal=!!text;f.confidence=.85;f.reason='Cella associata a etichetta adiacente; contenuto presente conservato.';add(f);continue;}
- if(!text){const nearby=labelNearby(region.box,tokens);if(nearby&&/\bdata\b/i.test(nearby)&&region.box.height>textHeight*3)continue;if(!nearby)continue;const f=makeField(inset(region.box,margin),clean(nearby||'Campo da verificare'),'cell');f.type=fieldType(f.label,f.box.height,textHeight);f.confidence=nearby?.7:.3;f.reason=nearby?'Cella vuota vicino a una possibile etichetta.':'Cella vuota senza etichetta certa: potrebbe essere uno spazio grafico.';add(f);continue;}
+ if(!text){const nearby=labelNearby(region.box,tokens);if(nearby&&/\bdata\b/i.test(nearby)&&region.box.height>textHeight*3){audit?.reject('DATE_LABEL_NEAR_LARGE_EMPTY_CELL','filter');continue;}if(!nearby){audit?.reject('EMPTY_CELL_WITHOUT_RECOGNIZED_LABEL');continue;}const f=makeField(inset(region.box,margin),clean(nearby||'Campo da verificare'),'cell');f.type=fieldType(f.label,f.box.height,textHeight);f.confidence=nearby?.7:.3;f.reason=nearby?'Cella vuota vicino a una possibile etichetta.':'Cella vuota senza etichetta certa: potrebbe essere uno spazio grafico.';add(f);continue;}
  // Label-only cell with a separate cell on the right must remain static.
  const right=regions.some(r=>Math.abs(r.box.x-region.box.x-region.box.width)<10&&Math.abs(r.box.y-region.box.y)<10);
  if(isLabel(text)&&!right&&content.length){
  const last=Math.max(...content.map(t=>t.box.x+t.box.width));const remaining=region.box.x+region.box.width-margin-last;
  if(remaining>textHeight*3){const f=makeField({x:last+margin,y:region.box.y+margin,width:remaining-margin,height:region.box.height-margin*2},text,'inline');f.type=fieldType(text,f.box.height,textHeight);f.confidence=.6;f.reason='Spazio libero dopo un’etichetta nella stessa cella.';add(f);}
+  if(remaining<=textHeight*3)audit?.reject('INLINE_RESPONSE_SPACE_TOO_SHORT','geometry',{remainingWidth:remaining,requiredWidth:textHeight*3});
+ }else audit?.reject(isLabel(text)&&right?'STATIC_LABEL_WITH_RIGHT_CELL':'CONTENT_WITHOUT_RECOGNIZED_FIELD_RELATION');
  }
- }
+ audit?.leave();
  for(const line of detectWritingLines(canvas,regions,tokens)){
  const box={x:line.x,y:Math.max(0,line.y-textHeight*1.3),width:line.width,height:textHeight*1.3};
  const row=tokens.filter(t=>!/^[_.\s]+$/.test(t.text)&&t.box.x<line.x&&line.x-t.box.x-t.box.width<textHeight*4&&Math.abs(t.box.y+t.box.height-line.y)<textHeight*1.2).sort((a,b)=>b.box.x-a.box.x);

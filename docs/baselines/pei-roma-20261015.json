@@ -1,0 +1,24 @@
+{
+  "schema": "PEI_OBSERVED_BASELINE_V1",
+  "sourceCommit": "82f2e27c154a1af4d2fc0453a2a7725ea709577d",
+  "observedAt": "2026-10-15T09:35:29+02:00",
+  "documentLabel": "PEI Comune di ROMA def",
+  "pageCount": 12,
+  "provenance": "User screenshots 2026-10-15 09:25–09:35; runtime JSON for page 12 only. Not a fresh automated acquisition, not a ground-truth field inventory.",
+  "containsSourceDocumentOrPersonalText": false,
+  "totalVisibleFields": 101,
+  "pages": [
+    {"page":1,"visibleFields":25,"source":"Screenshot 2026-10-15 092512.png","ocrWords":null,"regions":null,"notes":"Many fields present; completeness not certified."},
+    {"page":2,"visibleFields":21,"source":"Screenshot 2026-10-15 092527.png","ocrWords":null,"regions":null,"notes":"Tables and narrative regions partly proposed."},
+    {"page":3,"visibleFields":9,"source":"Screenshot 2026-10-15 092600.png","ocrWords":null,"regions":null,"notes":"Top narrative writing frame appears unproposed."},
+    {"page":4,"visibleFields":14,"source":"Screenshot 2026-10-15 092618.png","ocrWords":null,"regions":null,"notes":"Preserve current narrative proposals."},
+    {"page":5,"visibleFields":10,"source":"Screenshot 2026-10-15 092643.png","ocrWords":null,"regions":null,"notes":"Some filled narrative frames missing or only partially proposed."},
+    {"page":6,"visibleFields":1,"source":"Screenshot 2026-10-15 092730.png","ocrWords":null,"regions":null,"notes":"One large narrative region proposed; count alone is not an error."},
+    {"page":7,"visibleFields":1,"source":"Screenshot 2026-10-15 093002.png","ocrWords":null,"regions":null,"notes":"Weekly timetable and resource areas largely unproposed."},
+    {"page":8,"visibleFields":6,"source":"Screenshot 2026-10-15 092950.png","ocrWords":null,"regions":null,"notes":"Incomplete table coverage; inspect caption/value association and date duplicates."},
+    {"page":9,"visibleFields":0,"source":"Screenshot 2026-10-15 093127.png","ocrWords":null,"regions":null,"notes":"Visible response areas and choices have no proposed fields."},
+    {"page":10,"visibleFields":1,"source":"Screenshot 2026-10-15 093216.png","ocrWords":null,"regions":null,"notes":"Names/roles/signatures table missing; transport area labelled scuola."},
+    {"page":11,"visibleFields":1,"source":"Screenshot 2026-10-15 093415.png","ocrWords":null,"regions":null,"notes":"Assistance choices and response fields largely missing."},
+    {"page":12,"visibleFields":2,"source":"Screenshot 2026-10-15 093500.png and runtime JSON","ocrWords":297,"regions":31,"secondPassTriggered":false,"uncoveredTextEvidence":1,"internalExclusionReasons":null,"notes":"Names/roles/signatures table missing; anomalous OCR span in table; internal reasons absent in old diagnostic schema."}
+  ]
+}

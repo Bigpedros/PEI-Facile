@@ -43,6 +43,8 @@ describe('PEI field detection specialization', () => {
     expect(out.fields).toHaveLength(0);
     expect(out.diagnostics.underDetectionSuspected).toBe(true);
     expect(out.diagnostics.secondPassTriggered).toBe(false);
+    expect(out.diagnostics.secondReader).toMatchObject({configured:false,availability:'not-configured',execution:'blocked-no-reader',reason:'NO_SECONDARY_RUNNER'});
+    expect(out.diagnostics.uncoveredEvidenceKind).toBe('text-markers-and-short-prompts');
   });
 
   it('runs the independent PEI second pass only on under-detection and adds non-overlapping proposals', async () => {
@@ -83,6 +85,7 @@ describe('PEI field detection specialization', () => {
     expect(out.diagnostics.secondPassAdded).toBe(1);
     expect(out.fields).toHaveLength(1);
     expect(out.fields[0].detectionSource).toBe('PEI_SECOND_PASS');
+    expect(out.diagnostics.secondReader).toMatchObject({configured:true,availability:'available',execution:'completed',returnedPositionedWords:0});
   });
 
   it('never lets the second pass replace an overlapping first-pass candidate', async () => {
@@ -117,5 +120,12 @@ describe('PEI field detection specialization', () => {
     expect(out.fields).toHaveLength(1);
     expect(out.fields[0].fieldId).toBe('first-1');
     expect(out.diagnostics.secondPassAdded).toBe(0);
+  });
+
+  it('separates a configured but unused reader from a missing reader without forcing OCR',async()=>{
+    mockedDetect.mockResolvedValueOnce(result([],[]));
+    const out=await runPeiFieldDetectionProfile({} as any,1,{secondaryOcrRunner:secondary});
+    expect(out.diagnostics.secondReader).toMatchObject({configured:true,availability:'provided-unverified',execution:'not-needed',reason:'NO_UNCOVERED_TEXT_EVIDENCE',returnedPositionedWords:null});
+    expect(mockedDetect).toHaveBeenCalledTimes(1);
   });
 });

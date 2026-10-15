@@ -3,6 +3,7 @@ import {normalize,recognitionImage} from './raster';
 import {LocalRecognizer} from './ocr';
 import {inferFields} from './fields';
 import {detectRegions} from './regions';
+import {FieldInferenceAudit} from './fieldDiagnostics';
 import {tokensToText,mapBox,rotateBox,intersectionRatio,assignLines} from './geometry';
 import {parseReceipt} from '../adapters/receipt';
 import type {DocumentResult,EngineOptions,PageResult,RasterPage,Token} from './types';
@@ -43,10 +44,13 @@ export async function analyzeRasterPage(raw:RasterPage,options:EngineOptions,rec
  if(!tokens.length)warnings.push('Nessun testo posizionato: revisione richiesta.');
  if(native)warnings.push('Testo nativo PDF: eventuali valori presenti solo nelle immagini richiedono verifica OCR.');
  const regions=options.profile!=='receipt'?detectRegions(prepared.canvas,tokens):[];
- const inferred=options.profile!=='receipt'?inferFields(prepared.canvas,fieldTokens(tokens,regions),regions):[];
+ const groupedTokens=options.profile!=='receipt'?fieldTokens(tokens,regions):tokens;
+ const inferenceAudit=options.profile!=='receipt'?new FieldInferenceAudit(prepared.canvas.width,prepared.canvas.height,regions,groupedTokens):undefined;
+ const inferred=options.profile!=='receipt'?inferFields(prepared.canvas,groupedTokens,regions,inferenceAudit):[];
+ const fieldInferenceDiagnostics=inferenceAudit?.finish(inferred);
  const explicit=(raw.nativeFields||[]).map(f=>({...f,box:alreadyCanonical?f.box:mapBox(rotateBox(f.box,raw.canvas.width,raw.canvas.height,options.rotation),prepared.transform.scale,prepared.transform.offsetX,prepared.transform.offsetY)}));
  const fields=[...explicit,...inferred.filter(f=>!explicit.some(e=>intersectionRatio(f.box,e.box)>.5||intersectionRatio(e.box,f.box)>.5))];
- return {pageNumber:raw.pageNumber,width:prepared.canvas.width,height:prepared.canvas.height,unit:'px',image:prepared.canvas.toDataURL('image/png'),text,tokens,regions,fields,source:native?'pdf':'ocr',transform:prepared.transform,physicalSizeMm:prepared.physicalSizeMm,warnings,elapsedMs:Math.round(performance.now()-start)};
+ return {pageNumber:raw.pageNumber,width:prepared.canvas.width,height:prepared.canvas.height,unit:'px',image:prepared.canvas.toDataURL('image/png'),text,tokens,regions,fields,source:native?'pdf':'ocr',transform:prepared.transform,physicalSizeMm:prepared.physicalSizeMm,warnings,fieldInferenceDiagnostics,elapsedMs:Math.round(performance.now()-start)};
 }
 
 export async function analyzeDocument(file:File,options:EngineOptions):Promise<DocumentResult> {

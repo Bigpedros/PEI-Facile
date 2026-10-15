@@ -71,6 +71,8 @@ export interface DetectPageFieldsOptions {
 }
 
 export interface PageDetectionDiagnostics {
+  secondReader?:import('./pei-specialization/PeiFieldDetectionProfile').PeiFieldDetectionProfileDiagnostics['secondReader'];
+  fieldInferenceDiagnostics?:import('./documental/engine/fieldDiagnostics').FieldInferenceDiagnostics;
   textItemsCount: number | null;
   annotationsCount: number | null;
   vectorCandidatesCount: number | null;
@@ -941,6 +943,8 @@ export async function detectFieldsOnPdfPage(
     underDetectionSuspected:profile.diagnostics.underDetectionSuspected,
     uncoveredPlausibleRegionsCount:profile.diagnostics.uncoveredPlausibleRegionsCount,
     recoveryPassAddedCount:profile.diagnostics.secondPassAdded,
+    secondReader:profile.diagnostics.secondReader,
+    fieldInferenceDiagnostics:result.page.fieldInferenceDiagnostics,
     rasterFallbackUsed:true,ocrFallbackUsed:result.source==='ocr',
     rawOcrWordsCount:result.source==='ocr'?result.tokens:0});
   return filtered;
@@ -951,6 +955,13 @@ export async function detectFieldsOnPdfPage(
  * Captures real browser data from PDF.js, text items, vector graphics, raster lines, and pipeline transformations.
  */
 export interface PageRuntimeDiagnosticTrace {
+  diagnosticSchema?:'PEI_CALIBRATION_AUDIT_V1';
+  secondReader?:import('./pei-specialization/PeiFieldDetectionProfile').PeiFieldDetectionProfileDiagnostics['secondReader'];
+  fieldInference?:{
+    firstPass?:import('./documental/engine/fieldDiagnostics').FieldInferenceDiagnostics;
+    secondPass?:import('./documental/engine/fieldDiagnostics').FieldInferenceDiagnostics;
+    fieldIdMap:Array<{internalFieldId:string;candidateFieldId:string|null;retainedInPage:boolean}>;
+  };
   timestamp: string;
   detectionRevision?: string;
   detectionDpi?: number;
@@ -1100,7 +1111,15 @@ export async function collectPageRuntimeDiagnostics(
   const textContent=await pdfPage.getTextContent();
   const boxes=page.regions.map(r=>({x:r.box.x*sx,y:r.box.y*sy,width:r.box.width*sx,height:r.box.height*sy,isCheckbox:r.kind==='checkbox',source:'DOCUMENTAL_020'}));
   const rawCandidates=profile.fields.map(f=>({id:f.fieldId,type:f.fieldType||'text',bbox:{x:f.xPt,y:f.yPt,w:f.widthPt,h:f.heightPt},source:f.detectionSource||'DOCUMENTAL_020',associatedLabel:f.label,confidence:f.confidence??0}));
-  return {timestamp:new Date().toISOString(),detectionRevision:'calibratore-20261007-consegne-esterne',detectionDpi:200,document:{modelId:opts.modelId||'CUSTOM_PDF',modelName:opts.modelName||'Documento Attivo',pageNumber,pageWidthPt:viewport.width,pageHeightPt:viewport.height,viewport:{...viewport},rotation:pdfPage.rotate||0,view:pdfPage.view||null},
+  const visibleFields=page.fields.filter(f=>f.status!=='ignored');
+  const fieldIdMap=(page.fieldInferenceDiagnostics?.attempts.filter(a=>a.outcome==='proposed')??[]).map(a=>{
+    const index=visibleFields.findIndex(f=>f.id===a.fieldId);
+    return {internalFieldId:a.fieldId,candidateFieldId:index>=0?`doc-p${pageNumber}-${index+1}`:null,retainedInPage:index>=0};
+  });
+  return {timestamp:new Date().toISOString(),diagnosticSchema:'PEI_CALIBRATION_AUDIT_V1',detectionRevision:'calibratore-20261015-fase1-diagnostica',detectionDpi:200,
+    secondReader:profile.diagnostics.secondReader,
+    fieldInference:{firstPass:page.fieldInferenceDiagnostics,secondPass:profile.secondPass?.page.fieldInferenceDiagnostics,fieldIdMap},
+    document:{modelId:opts.modelId||'CUSTOM_PDF',modelName:opts.modelName||'Documento Attivo',pageNumber,pageWidthPt:viewport.width,pageHeightPt:viewport.height,viewport:{...viewport},rotation:pdfPage.rotate||0,view:pdfPage.view||null},
     textItems:page.tokens.map((t,i)=>({text:t.text.trim(),x:t.box.x*sx,y:t.box.y*sy,width:t.box.width*sx,height:t.box.height*sy,fontName:t.source==='pdf'?textContent.items.filter((t:any)=>t.str?.trim())[i]?.fontName:undefined})),
     vectorLines:vector.lines.map(l=>({x1:l.x1,y1:l.y,x2:l.x2,y2:l.y,source:'PDF'})),
     vectorBoxes:vector.boxes.map(b=>({x:b.x,y:b.y,width:b.w,height:b.h,isCheckbox:b.isCheckbox,source:'PDF'})),
@@ -1109,10 +1128,14 @@ export async function collectPageRuntimeDiagnostics(
       {step:'getTextContent',description:'Testo nativo letto sul raster finale',counts:{rawItemsCount:result.textItems}},
       {step:'extractVectorGraphics',description:'Geometria vettoriale osservata per diagnostica; non una seconda inferenza',counts:{vectorLines:vector.lines.length,vectorBoxes:vector.boxes.length}},
       {step:'ocrExtraction',description:'Prima lettura del core documentale',counts:{rawOcrWordsCount:page.tokens.filter(t=>t.source==='ocr').length,validOcrTextItemsCount:page.tokens.filter(t=>t.source==='ocr').length,used:result.source==='ocr'}},
-      {step:'peiSpecializationSecondPass',description:'Seconda lettura indipendente attivata solo su sotto-rilevamento PEI',counts:{triggered:profile.diagnostics.secondPassTriggered,secondPassFields:profile.diagnostics.secondPassFields,secondPassAdded:profile.diagnostics.secondPassAdded,uncoveredPlausibleRegionsCount:profile.diagnostics.uncoveredPlausibleRegionsCount}},
+      {step:'peiSpecializationSecondPass',description:'Stato esplicito del lettore e recupero su evidenze testuali; non misura la copertura di tutte le regioni',counts:{triggered:profile.diagnostics.secondPassTriggered,secondPassFields:profile.diagnostics.secondPassFields,secondPassAdded:profile.diagnostics.secondPassAdded,uncoveredPlausibleRegionsCount:profile.diagnostics.uncoveredPlausibleRegionsCount},details:{secondReader:profile.diagnostics.secondReader,uncoveredEvidenceKind:profile.diagnostics.uncoveredEvidenceKind}},
       {step:'detectRegions',description:'Regioni misurate sullo stesso raster dei campi',counts:{regions:boxes.length}},
       {step:'inferFields',description:'Merge non distruttivo: il secondo passaggio può solo aggiungere proposte PEI',counts:{rawCandidates:rawCandidates.length,protectedDuplicates:classified.protectedDuplicates.length,matchedAutomatic:classified.matchedAutomatic.length,newProposalsCount:classified.newProposals.length,finalProposalsCount:proposed.length}}],
-      discarded:result.fields.filter(f=>!proposed.includes(f)).map(f=>({candidateId:f.fieldId,discardedAt:'protectExisting',discardedReason:'PROTECTED_EXISTING_FIELD',relevantValues:{pageNumber}}))},
+      discarded:[
+        ...(page.fieldInferenceDiagnostics?.regions.filter(r=>r.outcome==='excluded').map(r=>({candidateId:r.regionId,discardedAt:'inferFields.region',discardedReason:r.reason,relevantValues:{pageNumber,category:r.category,box:r.box,unit:'px',positionedWords:r.positionedWords,overlappingFieldIds:r.overlappingFieldIds,...r.details}}))??[]),
+        ...(page.fieldInferenceDiagnostics?.attempts.filter(a=>a.outcome==='excluded').map(a=>({candidateId:a.fieldId,discardedAt:'inferFields.candidate',discardedReason:a.reason,relevantValues:{pageNumber,regionId:a.regionId,box:a.box,unit:'px',duplicateOf:a.duplicateOf}}))??[]),
+        ...profile.fields.filter(f=>!proposed.includes(f)).map(f=>({candidateId:f.fieldId,discardedAt:'protectExisting',discardedReason:'PROTECTED_EXISTING_FIELD',relevantValues:{pageNumber}})),
+      ]},
     finalProposedFields:proposed.map(f=>({fieldId:f.fieldId,label:f.label,semanticKey:f.semanticKey??null,fieldType:f.fieldType||'text',bbox:{xPt:f.xPt,yPt:f.yPt,widthPt:f.widthPt,heightPt:f.heightPt},confidence:f.confidence,derivationMethod:f.derivationMethod,detectionSource:f.detectionSource,sourceCandidateIds:[f.fieldId]}))};
 }
 

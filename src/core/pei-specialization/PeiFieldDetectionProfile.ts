@@ -22,6 +22,14 @@ export interface PeiFieldDetectionProfileOptions {
 }
 
 export interface PeiFieldDetectionProfileDiagnostics {
+  secondReader: {
+    configured: boolean;
+    availability: 'not-configured' | 'provided-unverified' | 'available';
+    execution: 'blocked-no-reader' | 'not-needed' | 'completed';
+    reason: 'NO_SECONDARY_RUNNER' | 'NO_UNCOVERED_TEXT_EVIDENCE' | 'SECOND_PASS_COMPLETED';
+    returnedPositionedWords: number | null;
+  };
+  uncoveredEvidenceKind: 'text-markers-and-short-prompts';
   firstPassFields: number;
   secondPassTriggered: boolean;
   secondPassFields: number;
@@ -165,6 +173,14 @@ export async function runPeiFieldDetectionProfile(
     firstPass,
     secondPass,
     diagnostics: {
+      secondReader: {
+        configured: typeof options.secondaryOcrRunner === 'function',
+        availability: secondPass ? 'available' : typeof options.secondaryOcrRunner === 'function' ? 'provided-unverified' : 'not-configured',
+        execution: shouldRunSecondPass ? 'completed' : underDetectionSuspected ? 'blocked-no-reader' : 'not-needed',
+        reason: shouldRunSecondPass ? 'SECOND_PASS_COMPLETED' : underDetectionSuspected ? 'NO_SECONDARY_RUNNER' : 'NO_UNCOVERED_TEXT_EVIDENCE',
+        returnedPositionedWords: secondPass?.page.tokens.length ?? null,
+      },
+      uncoveredEvidenceKind: 'text-markers-and-short-prompts',
       firstPassFields: firstPass.fields.length,
       secondPassTriggered: shouldRunSecondPass,
       secondPassFields: secondPass?.fields.length ?? 0,

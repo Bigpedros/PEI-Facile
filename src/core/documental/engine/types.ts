@@ -15,6 +15,7 @@ export interface PageResult {
  tokens:Token[];regions:Region[];fields:FormField[];source:'pdf'|'ocr';
  transform:{sourceWidth:number;sourceHeight:number;scale:number;offsetX:number;offsetY:number;rotation:number;deskewDegrees?:number;rectification?:string};
  physicalSizeMm:{width:number;height:number}|null;warnings:string[];elapsedMs:number;
+ fieldInferenceDiagnostics?:import('./fieldDiagnostics').FieldInferenceDiagnostics;
 }
 export interface ReceiptItem {description:string;amount:number;line:string}
 export interface ReceiptResult {merchant:string|null;date:string|null;total:number|null;items:ReceiptItem[];itemsSum:number;difference:number|null;warnings:string[];status:'review'}
