@@ -42,11 +42,23 @@ import { runHybridDetectionPipeline } from './canonical-template-engine/geometry
 import { analyzeDocumentImage } from './ocrEngine';
 import { renderPdfPageToCanvas } from './pdfIntakeService';
 import { PeiOcrCteAdapter } from '../integrations/ocrCte/PeiOcrCteAdapter';
+import { runPeiFieldDetectionProfile } from './pei-specialization/PeiFieldDetectionProfile';
 
 export interface DetectPageFieldsOptions {
   canvasElement?: HTMLCanvasElement;
   onDiagnostics?: (diagnostics: PageDetectionDiagnostics) => void;
   customOcrRunner?: (canvas: HTMLCanvasElement) => Promise<{
+    words?: Array<{
+      text: string;
+      confidence: number;
+      bbox: { x0: number; y0: number; x1: number; y1: number };
+    }>;
+    text?: string;
+    rawText?: string;
+    confidence?: number;
+  }>;
+  /** Independent OCR channel used only by the PEI specialization recovery pass. */
+  secondaryOcrRunner?: (canvas: HTMLCanvasElement) => Promise<{
     words?: Array<{
       text: string;
       confidence: number;
@@ -913,19 +925,24 @@ export async function detectFieldsOnPdfPage(
       ? { canvasElement: options as HTMLCanvasElement }
       : (options as DetectPageFieldsOptions) || {};
 
-  const result = await detectCanonicalPageFields(pdfPage, pageNumber, opts.customOcrRunner, opts.canvasElement);
-  const proposed=result.fields;
+  const profile = await runPeiFieldDetectionProfile(pdfPage, pageNumber, {
+    primaryOcrRunner: opts.customOcrRunner,
+    secondaryOcrRunner: opts.secondaryOcrRunner,
+    canvasElement: opts.canvasElement,
+  });
+  const result = profile.firstPass;
+  const proposed = profile.fields;
   const filtered = proposed.filter(c => !existingFields.some(e => isSubstantialDuplicate(c,e,pageNumber)));
-  const markedTokens=result.page.tokens.filter(t=>t.source==='pdf'&&(/_{3,}/.test(t.text)||/^\[\s*[xX]?\s*\]$/.test(t.text.trim())));
-  const uncovered=markedTokens.filter(t=>!proposed.some(f=>{
-    const b={x:f.xNorm!*result.page.width,y:f.yNorm!*result.page.height,width:f.wNorm!*result.page.width,height:f.hNorm!*result.page.height};
-    return Math.min(b.x+b.width,t.box.x+t.box.width)>Math.max(b.x,t.box.x)&&Math.min(b.y+b.height,t.box.y+t.box.height)>Math.max(b.y,t.box.y);
-  })).length;
   opts.onDiagnostics?.({textItemsCount:result.textItems,annotationsCount:null,vectorCandidatesCount:null,
     labelCandidatesCount:null,checkboxRadioCandidatesCount:proposed.filter(f=>f.inputType==='checkbox').length,
     candidatesRaw:proposed.length,candidatesDeduplicated:proposed.length,matchedExisting:proposed.length-filtered.length,
     newProposals:filtered.length,ignoredDuplicates:proposed.length-filtered.length,ignoredRejected:0,
-    finalProposalsCount:filtered.length,underDetectionSuspected:uncovered>0,uncoveredPlausibleRegionsCount:uncovered,rasterFallbackUsed:true,ocrFallbackUsed:result.source==='ocr',rawOcrWordsCount:result.source==='ocr'?result.tokens:0});
+    finalProposalsCount:filtered.length,
+    underDetectionSuspected:profile.diagnostics.underDetectionSuspected,
+    uncoveredPlausibleRegionsCount:profile.diagnostics.uncoveredPlausibleRegionsCount,
+    recoveryPassAddedCount:profile.diagnostics.secondPassAdded,
+    rasterFallbackUsed:true,ocrFallbackUsed:result.source==='ocr',
+    rawOcrWordsCount:result.source==='ocr'?result.tokens:0});
   return filtered;
 }
 
