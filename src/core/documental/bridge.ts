@@ -21,7 +21,7 @@ export function pageCandidates(page: PageResult): CandidateFieldGeometry[] {
       fieldType: f.type==='date'?'DATE':f.type==='textarea'?'TEXT_LONG':f.type==='checkbox'?'MULTI_CHOICE':f.type==='select'?'SINGLE_CHOICE':'TEXT_SHORT', anchorText: f.label, confidence: f.confidence,
       suggestedLabel:f.label, status: 'REVIEW_REQUIRED', calibrationStatus: 'PROPOSED',
       derivationMethod: f.reason.startsWith('Widget AcroForm') ? 'ACROFORM' : f.origin === 'checkbox' ? 'CHECKBOX_BOX' : f.origin === 'cell' ? 'TABLE_CELL' : f.origin === 'line' ? 'VECTOR_LINE' : 'TEXT_ANCHOR',
-      detectionSource: f.reason.startsWith('Widget AcroForm')?'ACROFORM':'DOCUMENTAL_020', evidence: f.reason,
+      detectionSource: f.reason.startsWith('Widget AcroForm')?'ACROFORM':f.reason.startsWith('Recupero strutturale PEI:')?'PEI_STRUCTURAL_RECOVERY':'DOCUMENTAL_020', evidence: f.reason,
       // Suggestions are not confirmed PEI associations.
       semanticKey: null, suggestedSemanticKey: suggestion.confidence >= .75 ? suggestion.semanticKey : null,
       inputType: f.type === 'checkbox' || f.type === 'select' ? f.type : undefined,

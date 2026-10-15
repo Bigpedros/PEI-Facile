@@ -166,6 +166,7 @@ export interface PeiModelDefinition {
 }
 
 export interface PeiDocument {
+  fieldProperties?:Record<string,import('../core/fieldPresentation').FieldPresentation>;
   originalSourceBinary?: Uint8Array;
   originalSourceSha256?: string;
   acquiredSchema?: import('../core/templateSchemaTypes').TemplateSchema;

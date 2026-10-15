@@ -34,6 +34,9 @@ import {
 import { resolveMinisterialOrder } from '../../data/peiModelRegistry';
 import { PageSurface } from './PageSurface';
 import { AlertTriangle, ShieldAlert, Sliders } from 'lucide-react';
+import {FieldPropertiesDialog} from './FieldPropertiesDialog';
+import {applyFieldPresentation,type FieldPresentation} from '../../core/fieldPresentation';
+import {flushSync} from 'react-dom';
 
 export interface DocumentSurfaceProps {
   document: PeiDocument;
@@ -52,6 +55,7 @@ export interface DocumentSurfaceProps {
   activeFieldId?: string;
   onFieldFocus?: (fieldId: string) => void;
   onFieldValueChange?: (fieldId: string, value: any) => void;
+  onFieldPropertiesChange?:(fieldId:string,patch:FieldPresentation|null)=>void;
   onOpenCalibration?: () => void;
   className?: string;
 }
@@ -75,6 +79,7 @@ export const DocumentSurface: React.FC<DocumentSurfaceProps> = ({
   activeFieldId,
   onFieldFocus,
   onFieldValueChange,
+  onFieldPropertiesChange,
   onOpenCalibration,
   className = '',
 }) => {
@@ -96,6 +101,16 @@ export const DocumentSurface: React.FC<DocumentSurfaceProps> = ({
   const effectiveModelDef = modelDef || foundCustomModel;
 
   const [resolvedSource, setResolvedSource] = useState<ResolvedTemplateSource | null>(null);
+  const [propertiesFieldId,setPropertiesFieldId]=useState<string|null>(null);
+  const [printing,setPrinting]=useState(false);
+  useEffect(()=>{
+    const media=window.matchMedia('print');
+    const before=()=>flushSync(()=>setPrinting(true)),after=()=>setPrinting(false);
+    const change=()=>{if(media.matches)before();else after();};
+    window.addEventListener('beforeprint',before);window.addEventListener('afterprint',after);media.addEventListener('change',change);
+    return()=>{window.removeEventListener('beforeprint',before);window.removeEventListener('afterprint',after);media.removeEventListener('change',change);};
+  },[]);
+  const effectiveMode=printing?'PRINT':mode;
 
   const isMinisterial = useMemo(() => {
     if (resolvedSource) {
@@ -340,6 +355,7 @@ export const DocumentSurface: React.FC<DocumentSurfaceProps> = ({
   }
 
   const activeSchema = schema || resolvedSource?.templateSchema;
+  const propertiesField=activeSchema?.fields.find(f=>f.templateFieldId===propertiesFieldId);
   const totalPages = pdfDoc ? pdfDoc.numPages : activeSchema?.totalPages || 1;
   const pagesToRender: number[] = showAllPages
     ? Array.from({ length: totalPages }, (_, i) => i + 1)
@@ -352,7 +368,7 @@ export const DocumentSurface: React.FC<DocumentSurfaceProps> = ({
     >
       {pagesToRender.map((pNum) => {
         const pageGeometry = activeSchema?.pages.find((p) => p.pageNumber === pNum);
-        const pageFields = activeSchema?.fields.filter((f) => f.pageNumber === pNum) || [];
+        const pageFields = activeSchema?.fields.filter((f) => f.pageNumber === pNum).map(f=>applyFieldPresentation(f,document.fieldProperties?.[f.templateFieldId],pageGeometry??{widthPt:595.28,heightPt:841.89})) || [];
 
         return (
           <div key={`page-${pNum}`} className="flex flex-col items-center w-full">
@@ -373,12 +389,14 @@ export const DocumentSurface: React.FC<DocumentSurfaceProps> = ({
               onFieldValueChange={onFieldValueChange}
               activeFieldId={activeFieldId}
               onFieldFocus={onFieldFocus}
-              mode={mode}
+              onFieldProperties={mode==='EDIT'&&onFieldPropertiesChange?setPropertiesFieldId:undefined}
+              mode={effectiveMode}
               zoomScale={zoomScale}
             />
           </div>
         );
       })}
+      {mode==='EDIT'&&propertiesField&&onFieldPropertiesChange&&<FieldPropertiesDialog field={propertiesField} properties={document.fieldProperties?.[propertiesField.templateFieldId]} page={activeSchema?.pages.find(p=>p.pageNumber===propertiesField.pageNumber)??{widthPt:595.28,heightPt:841.89}} onChange={patch=>onFieldPropertiesChange(propertiesField.templateFieldId,patch)} onClose={()=>setPropertiesFieldId(null)}/>}
     </div>
   );
 };

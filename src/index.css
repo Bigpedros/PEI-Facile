@@ -171,6 +171,16 @@ body {
 }
 
 @media print {
+  @page { size: A4; margin: 0; }
+  #root, #root *:has(.document-surface) {
+    display: block !important; position: static !important;
+    height: auto !important; min-height: 0 !important; max-height: none !important;
+    overflow: visible !important; margin: 0 !important; padding: 0 !important; border: 0 !important;
+  }
+  #root *:has(.document-surface) > :not(.document-surface):not(:has(.document-surface)) { display: none !important; }
+  .document-surface { display: block !important; }
+  .document-surface [id^="document-page-"] { break-inside: avoid; break-after: page; }
+  .document-surface > div:last-child [id^="document-page-"] { break-after: auto; }
   body {
     background-color: #FFFFFF !important;
     color: #000000 !important;

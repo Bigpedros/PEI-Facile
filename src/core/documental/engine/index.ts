@@ -4,6 +4,8 @@ import {LocalRecognizer} from './ocr';
 import {inferFields} from './fields';
 import {detectRegions} from './regions';
 import {FieldInferenceAudit} from './fieldDiagnostics';
+import {recoverStructuralFields} from './structuralCoverage';
+import {rasterStrokes} from './strokes';
 import {tokensToText,mapBox,rotateBox,intersectionRatio,assignLines} from './geometry';
 import {parseReceipt} from '../adapters/receipt';
 import type {DocumentResult,EngineOptions,PageResult,RasterPage,Token} from './types';
@@ -30,6 +32,7 @@ export async function analyzeRasterPage(raw:RasterPage,options:EngineOptions,rec
  options.signal?.throwIfAborted();const start=performance.now();
  const prepared=alreadyCanonical?{canvas:raw.canvas,tokens:raw.nativeTokens,
   transform:{sourceWidth:raw.canvas.width,sourceHeight:raw.canvas.height,scale:1,offsetX:0,offsetY:0,rotation:0},physicalSizeMm:raw.physicalSizeMm??null}:normalize(raw,options);
+ const stageTimingsMs={normalization:Math.round(performance.now()-start),primaryOcr:0,secondaryOcr:0,geometry:0,fieldInference:0,structuralRecovery:0};
  const warnings=[...raw.warnings];
  const mixed=raw.hasRasterImages&&prepared.tokens.length>0;
  const native=(prepared.tokens.length>0||(raw.nativeFields?.length??0)>0)&&!mixed&&!options.forceOcr&&!warnings.some(w=>w.startsWith('Testo PDF ruotato'));
@@ -43,11 +46,15 @@ export async function analyzeRasterPage(raw:RasterPage,options:EngineOptions,rec
  };
  if(!native){
   options.onProgress?.(`Pagina ${raw.pageNumber} · OCR`,0);
+  const primaryStart=performance.now();
   if(options.customOcrRunner){const read=await options.customOcrRunner(prepared.canvas);text=read.text;tokens=read.tokens??[];if(!tokens.length)warnings.push('OCR esterno senza coordinate: geometrie testuali non disponibili.');}
   else{const read=await recognizer.recognize(recognitionImage(prepared.canvas,options.contrast),raw.pageNumber);tokens=read.tokens;text=read.text;}
+  stageTimingsMs.primaryOcr=Math.round(performance.now()-primaryStart);
   if(options.independentReading!==false&&!options.customOcrRunner){
    options.onProgress?.(`Pagina ${raw.pageNumber} · seconda lettura OCRS/RTen`,0);
+   const secondaryStart=performance.now();
    const independent=await recognizer.recognizeIndependent(prepared.canvas,raw.pageNumber,{tokens,text});
+   stageTimingsMs.secondaryOcr=Math.round(performance.now()-secondaryStart);
    tokens=independent.tokens;text=independent.text;ocrReading=independent.diagnostics;
    secondReader={configured:true,readerId:ocrReading.secondary,stage:'core',
     availability:ocrReading.status==='unavailable'?'unavailable':'available',
@@ -61,14 +68,23 @@ export async function analyzeRasterPage(raw:RasterPage,options:EngineOptions,rec
  options.signal?.throwIfAborted();
  if(!tokens.length)warnings.push('Nessun testo posizionato: revisione richiesta.');
  if(native)warnings.push('Testo nativo PDF: eventuali valori presenti solo nelle immagini richiedono verifica OCR.');
- const regions=options.profile!=='receipt'?detectRegions(prepared.canvas,tokens):[];
+ options.onProgress?.(`Pagina ${raw.pageNumber} · analisi di celle e righe`,0);
+ const geometryStart=performance.now();
+ const strokes=options.profile!=='receipt'?rasterStrokes(prepared.canvas):undefined;
+ const regions=strokes?detectRegions(prepared.canvas,tokens,strokes):[];
+ stageTimingsMs.geometry=Math.round(performance.now()-geometryStart);
+ const inferenceStart=performance.now();
  const groupedTokens=options.profile!=='receipt'?fieldTokens(tokens,regions):tokens;
  const inferenceAudit=options.profile!=='receipt'?new FieldInferenceAudit(prepared.canvas.width,prepared.canvas.height,regions,groupedTokens):undefined;
- const inferred=options.profile!=='receipt'?inferFields(prepared.canvas,groupedTokens,regions,inferenceAudit):[];
- const fieldInferenceDiagnostics=inferenceAudit?.finish(inferred);
+ const inferred=options.profile!=='receipt'?inferFields(prepared.canvas,groupedTokens,regions,inferenceAudit,strokes):[];
+ stageTimingsMs.fieldInference=Math.round(performance.now()-inferenceStart);
  const explicit=(raw.nativeFields||[]).map(f=>({...f,box:alreadyCanonical?f.box:mapBox(rotateBox(f.box,raw.canvas.width,raw.canvas.height,options.rotation),prepared.transform.scale,prepared.transform.offsetX,prepared.transform.offsetY)}));
- const fields=[...explicit,...inferred.filter(f=>!explicit.some(e=>intersectionRatio(f.box,e.box)>.5||intersectionRatio(e.box,f.box)>.5))];
- return {pageNumber:raw.pageNumber,width:prepared.canvas.width,height:prepared.canvas.height,unit:'px',image:prepared.canvas.toDataURL('image/png'),text,tokens,regions,fields,source:native?'pdf':'ocr',transform:prepared.transform,physicalSizeMm:prepared.physicalSizeMm,warnings,fieldInferenceDiagnostics,ocrReading,secondReader,elapsedMs:Math.round(performance.now()-start)};
+ const baseFields=[...explicit,...inferred.filter(f=>!explicit.some(e=>intersectionRatio(f.box,e.box)>.5||intersectionRatio(e.box,f.box)>.5))];
+ const recoveryStart=performance.now();
+ const recovery=options.profile==='pei'?recoverStructuralFields(prepared.canvas,groupedTokens,regions,baseFields,inferenceAudit?.finish(inferred),inferenceAudit,strokes):undefined;
+ stageTimingsMs.structuralRecovery=Math.round(performance.now()-recoveryStart);
+ const fields=recovery?.fields??baseFields,fieldInferenceDiagnostics=inferenceAudit?.finish(fields);
+ return {pageNumber:raw.pageNumber,width:prepared.canvas.width,height:prepared.canvas.height,unit:'px',image:prepared.canvas.toDataURL('image/png'),text,tokens,regions,fields,source:native?'pdf':'ocr',transform:prepared.transform,physicalSizeMm:prepared.physicalSizeMm,warnings,fieldInferenceDiagnostics,ocrReading,secondReader,structuralCoverage:recovery?.diagnostics,stageTimingsMs,elapsedMs:Math.round(performance.now()-start)};
 }
 
 export async function analyzeDocument(file:File,options:EngineOptions):Promise<DocumentResult> {

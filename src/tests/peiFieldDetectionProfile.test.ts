@@ -44,7 +44,7 @@ describe('PEI field detection specialization', () => {
     expect(out.diagnostics.underDetectionSuspected).toBe(true);
     expect(out.diagnostics.secondPassTriggered).toBe(false);
     expect(out.diagnostics.secondReader).toMatchObject({configured:false,availability:'not-configured',execution:'blocked-no-reader',reason:'NO_SECONDARY_RUNNER'});
-    expect(out.diagnostics.uncoveredEvidenceKind).toBe('text-markers-and-short-prompts');
+    expect(out.diagnostics.uncoveredEvidenceKind).toBe('structure-and-text');
   });
 
   it('runs the independent PEI second pass only on under-detection and adds non-overlapping proposals', async () => {
@@ -129,5 +129,23 @@ describe('PEI field detection specialization', () => {
     const out=await runPeiFieldDetectionProfile({} as any,1,{secondaryOcrRunner:secondary});
     expect(out.diagnostics.secondReader).toMatchObject({configured:true,availability:'provided-unverified',execution:'not-needed',reason:'NO_UNCOVERED_TEXT_EVIDENCE',returnedPositionedWords:null});
     expect(mockedDetect).toHaveBeenCalledTimes(1);
+  });
+  function structure(covered=false,recovered=0){return {schema:'PEI_STRUCTURAL_COVERAGE_V1',unit:'px',evidence:[{id:'r1',regionId:'r1',kind:'cell',box:{x:400,y:300,width:400,height:100},responseBox:{x:405,y:305,width:390,height:90},plausible:true,reason:'UNPOSITIONED_OR_PRINTED_INK',context:['repeated-table-cells'],coveredBefore:false,coveredAfter:covered,coverageBefore:0,coverageAfter:covered?1:0,outcome:covered?'recovered':'unresolved'}],summary:{measured:1,plausible:1,uncoveredBefore:1,recovered,uncoveredAfter:covered?0:1,cells:1,checkboxes:0,lines:0}};}
+  it('una tabella scoperta attiva il recupero custom anche senza etichette',async()=>{
+    const first=result();first.page.structuralCoverage=structure();mockedDetect.mockResolvedValueOnce(first).mockResolvedValueOnce(result());
+    const out=await runPeiFieldDetectionProfile({},1,{secondaryOcrRunner:secondary});expect(out.diagnostics.underDetectionSuspected).toBe(true);expect(out.diagnostics.uncoveredCellCount).toBe(1);expect(out.diagnostics.secondPassTriggered).toBe(true);expect(mockedDetect).toHaveBeenCalledTimes(2);
+  });
+  it('il recupero strutturale risolto non causa nuovo OCR',async()=>{
+    const first=result();first.page.structuralCoverage=structure(true,1);mockedDetect.mockResolvedValueOnce(first);const out=await runPeiFieldDetectionProfile({},1,{secondaryOcrRunner:secondary});
+    expect(out.diagnostics.underDetectionSuspected).toBe(true);expect(out.diagnostics.structuralRecoveryAdded).toBe(1);expect(out.diagnostics.uncoveredPlausibleRegionsCount).toBe(0);expect(out.diagnostics.secondPassTriggered).toBe(false);expect(mockedDetect).toHaveBeenCalledTimes(1);
+  });
+  it('non conta due volte un marcatore dentro la regione scoperta',async()=>{
+    const first=result([],[{id:'m',text:'____',box:{x:450,y:330,width:100,height:16},source:'ocr',lineId:'1'}]);first.page.structuralCoverage=structure();mockedDetect.mockResolvedValueOnce(first);const out=await runPeiFieldDetectionProfile({},1);expect(out.diagnostics.uncoveredMarkerCount).toBe(1);expect(out.diagnostics.uncoveredPlausibleRegionsCount).toBe(1);
+  });
+  it('una proposta con etichetta diversa non copre il prompt vicino',async()=>{
+    mockedDetect.mockResolvedValueOnce(result([{label:'Classe',anchorText:'Classe',xNorm:.15,yNorm:.02,wNorm:.1,hNorm:.02}],[{id:'s',text:'Sezione',box:{x:20,y:20,width:60,height:15},source:'pdf',lineId:'1'}]));expect((await runPeiFieldDetectionProfile({},1)).diagnostics.uncoveredPromptCount).toBe(1);
+  });
+  it('non ripete B già eseguito dal nucleo',async()=>{
+    const first=result();first.page.structuralCoverage=structure();first.page.ocrReading={status:'used'};first.page.secondReader={configured:true,availability:'available',execution:'completed',reason:'DUAL_READING_COMPLETED',returnedPositionedWords:20,stage:'core'};mockedDetect.mockResolvedValueOnce(first);const out=await runPeiFieldDetectionProfile({},1,{secondaryOcrRunner:secondary});expect(out.diagnostics.uncoveredCellCount).toBe(1);expect(out.diagnostics.secondReader).toEqual(first.page.secondReader);expect(out.diagnostics.secondPassTriggered).toBe(false);expect(mockedDetect).toHaveBeenCalledTimes(1);
   });
 });

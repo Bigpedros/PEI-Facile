@@ -1,8 +1,7 @@
 import type {Region,Token} from './types';
 import {intersectionRatio} from './geometry';
-import {rasterStrokes,segmentAt,borderIntersection,type Segment} from './strokes';
-export function detectRegions(canvas:HTMLCanvasElement,tokens:Token[]):Region[] {
- const evidence=rasterStrokes(canvas);
+import {rasterStrokes,segmentAt,borderIntersection,type Segment,type RasterStrokeEvidence} from './strokes';
+export function detectRegions(canvas:HTMLCanvasElement,tokens:Token[],evidence:RasterStrokeEvidence=rasterStrokes(canvas)):Region[] {
  const {scale,width:w,height:h}=evidence;
  const heights=tokens.map(t=>t.box.height).filter(n=>n>5).sort((a,b)=>a-b);const minCheck=(heights[Math.floor(heights.length/2)]||16)*.6;
  const regions:Region[]=[];const seen=new Set<string>();

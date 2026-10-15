@@ -1,6 +1,7 @@
 /** Shared raster evidence for cells, checkboxes and writing lines. Coordinates stay
  * in the canonical raster; the image itself is never changed. */
 export interface Segment {pos:number;start:number;end:number;slope?:number}
+export type RasterStrokeEvidence=ReturnType<typeof rasterStrokes>;
 /** Position of a measured border along its major axis. */
 export const segmentAt=(line:Segment,axis:number)=>line.pos+(line.slope??0)*(axis-(line.start+line.end)/2);
 export function borderIntersection(horizontal:Segment,vertical:Segment):{x:number;y:number} {

@@ -1,0 +1,40 @@
+{
+  "page": 9,
+  "sameGeometryAndFields": true,
+  "separateGeometryMs": 7119,
+  "sharedGeometryMs": 2060,
+  "timings": {
+    "normalization": 0,
+    "primaryOcr": 4473,
+    "secondaryOcr": 62229,
+    "geometry": 2225,
+    "fieldInference": 43,
+    "structuralRecovery": 13
+  },
+  "secondaryTimings": {
+    "fullPage": 51619,
+    "regional": 10561
+  },
+  "primaryWords": 277,
+  "secondaryWords": 257,
+  "reader": {
+    "configured": true,
+    "readerId": "ocrs-rten-wasm",
+    "stage": "core",
+    "availability": "available",
+    "execution": "completed",
+    "reason": "DUAL_READING_COMPLETED",
+    "returnedPositionedWords": 257
+  },
+  "fields": 3,
+  "structural": {
+    "measured": 18,
+    "plausible": 3,
+    "uncoveredBefore": 3,
+    "recovered": 3,
+    "uncoveredAfter": 0,
+    "cells": 3,
+    "checkboxes": 0,
+    "lines": 0
+  }
+}

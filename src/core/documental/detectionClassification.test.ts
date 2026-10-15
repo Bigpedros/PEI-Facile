@@ -11,4 +11,12 @@ describe('Diagnostica del rilevamento e ricostruzione',()=>{
   expect(result.matchedAutomatic).toHaveLength(1);expect(result.newProposals).toHaveLength(1);expect(result.protectedDuplicates).toHaveLength(2);
   expect(isProtectedDetectionField(existing[0])).toBe(false);expect(isProtectedDetectionField(existing[1])).toBe(true);expect(isProtectedDetectionField(existing[2])).toBe(true);
  });
+ it('il recupero ampio non copre piccoli campi protetti',()=>{
+  const candidate={...field('recovery',10),yPt:50,widthPt:500,heightPt:300,detectionSource:'PEI_STRUCTURAL_RECOVERY'};
+  for(const protection of [{calibrationStatus:'CONFIRMED'},{calibrationStatus:'REJECTED'},{detectionSource:'MANUAL_ENTRY'},{derivationMethod:'ACROFORM'}]){
+   const existing={...field('protected',100),widthPt:10,heightPt:10,...protection} as FieldGeometry,before=JSON.stringify(existing),out=classifyDetectionCandidates([candidate],[existing],1);
+   expect(out.proposals).toHaveLength(0);expect(out.protectedDuplicates).toHaveLength(1);expect(JSON.stringify(existing)).toBe(before);
+  }
+  expect(classifyDetectionCandidates([candidate],[{...field('other',100),pageNumber:2,calibrationStatus:'CONFIRMED'}],1).proposals).toHaveLength(1);
+ });
 });

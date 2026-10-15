@@ -28,6 +28,7 @@ interface CompilazioneScreenProps {
   activeSectionId: string;
   onSelectSection: (sectionId: string) => void;
   onFieldValueChange: (fieldId: string, value: any) => void;
+  onFieldPropertiesChange?:(fieldId:string,patch:import('../../core/fieldPresentation').FieldPresentation|null)=>void;
   zoomScale: number;
   onSave: () => void;
   onGoToPreview: () => void;
@@ -41,6 +42,7 @@ export const CompilazioneScreen: React.FC<CompilazioneScreenProps> = ({
   activeSectionId,
   onSelectSection,
   onFieldValueChange,
+  onFieldPropertiesChange,
   zoomScale,
   onSave,
   onGoToPreview,
@@ -248,6 +250,7 @@ export const CompilazioneScreen: React.FC<CompilazioneScreenProps> = ({
             activeFieldId={activeField?.id}
             onFieldFocus={handleFieldFocusFromSurface}
             onFieldValueChange={onFieldValueChange}
+            onFieldPropertiesChange={onFieldPropertiesChange}
             onOpenCalibration={onOpenCalibration || (() => {
               window.location.search = '?dev=geometry';
             })}

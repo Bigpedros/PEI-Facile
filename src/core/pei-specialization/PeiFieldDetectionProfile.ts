@@ -1,6 +1,9 @@
 import type { FieldGeometry } from '../../data/geometry/types';
 import { detectCanonicalPageFields } from '../documental/detection';
 import type { EngineOptions, Token } from '../documental/engine/types';
+import {fieldTokens} from '../documental/engine';
+import {intersectionRatio} from '../documental/engine/geometry';
+import type {StructuralCoverageDiagnostics} from '../documental/engine/structuralCoverage';
 
 export interface PeiSecondaryOcrResult {
   words?: Array<{
@@ -25,7 +28,13 @@ export interface PeiFieldDetectionProfileOptions {
 
 export interface PeiFieldDetectionProfileDiagnostics {
   secondReader: import('../documental/engine/dualReading').IndependentReaderState;
-  uncoveredEvidenceKind: 'text-markers-and-short-prompts';
+  uncoveredEvidenceKind: 'structure-and-text';
+  structuralCoverage?:StructuralCoverageDiagnostics;
+  structuralRecoveryAdded:number;
+  uncoveredCellCount:number;
+  uncoveredCheckboxCount:number;
+  uncoveredLineCount:number;
+  uncoveredBeforeRecoveryCount:number;
   firstPassFields: number;
   secondPassTriggered: boolean;
   secondPassFields: number;
@@ -74,28 +83,33 @@ function tokenCovered(token: Token, fields: FieldGeometry[], pageWidth: number, 
     const intersects =
       Math.min(fieldRight, tokenRight) > Math.max(x, token.box.x) &&
       Math.min(fieldBottom, tokenBottom) > Math.max(y, token.box.y);
-    if (intersects) return true;
+    if(intersects&&intersectionRatio(token.box,{x,y,width:w,height:h})>=.5)return true;
+    const normalize=(s:string)=>s.toLocaleLowerCase('it').replace(/[^a-zà-ù0-9]+/g,' ').trim();
+    const prompt=normalize(token.text),label=normalize(field.anchorText||field.label||'');
+    const matchedLabel=markerPattern.test(token.text)||!!prompt&&(label===prompt||label.startsWith(prompt+' '));
+    if(!matchedLabel)return false;
 
     // Nei moduli PEI l'area compilabile è spesso a destra o subito sotto
     // l'etichetta, quindi non deve necessariamente sovrapporsi al token.
     const sameRow =
       x >= tokenRight - 4 &&
-      x - tokenRight <= Math.max(260, token.box.height * 14) &&
+      x - tokenRight <= Math.max(40, token.box.height * 4) &&
       Math.abs((y + h / 2) - (token.box.y + token.box.height / 2)) <=
-        Math.max(h, token.box.height) * 1.25;
+        Math.max(token.box.height,Math.min(h,token.box.height*2)) * .75;
     const horizontalOverlap = Math.min(fieldRight, tokenRight) - Math.max(x, token.box.x);
     const justBelow =
       y >= tokenBottom - 4 &&
-      y - tokenBottom <= token.box.height * 3 &&
-      horizontalOverlap > -Math.max(token.box.width, w) * .25;
+      y - tokenBottom <= token.box.height * 2 &&
+      horizontalOverlap >= Math.min(token.box.width,w) * .5;
 
     return sameRow || justBelow;
   });
 }
 
 function uncoveredEvidence(result: Awaited<ReturnType<typeof detectCanonicalPageFields>>) {
-  const markers = result.page.tokens.filter(token => markerPattern.test(token.text.trim()));
-  const prompts = result.page.tokens.filter(token => peiPromptPattern.test(token.text.trim()));
+  const grouped=fieldTokens(result.page.tokens,result.page.regions??[]);
+  const markers = grouped.filter(token => markerPattern.test(token.text.trim()));
+  const prompts = grouped.filter(token => peiPromptPattern.test(token.text.trim()));
   const uncoveredMarkers = markers.filter(token => !tokenCovered(token, result.fields, result.page.width, result.page.height));
   const uncoveredPrompts = prompts.filter(token => !tokenCovered(token, result.fields, result.page.width, result.page.height));
   return { uncoveredMarkers, uncoveredPrompts };
@@ -135,10 +149,14 @@ export async function runPeiFieldDetectionProfile(
   );
 
   const evidence = uncoveredEvidence(firstPass);
-  const uncoveredCount = evidence.uncoveredMarkers.length + evidence.uncoveredPrompts.length;
-  const underDetectionSuspected = uncoveredCount > 0;
+  const structural=firstPass.page.structuralCoverage;
+  const uncoveredStructures=structural?.evidence.filter(e=>e.plausible&&!e.coveredAfter)??[];
+  const additionalText=[...evidence.uncoveredMarkers,...evidence.uncoveredPrompts].filter(t=>!uncoveredStructures.some(e=>intersectionRatio(t.box,e.box)>.5));
+  const uncoveredCount=uncoveredStructures.length+additionalText.length;
+  const beforeRecovery=(structural?.summary.uncoveredBefore??0)+additionalText.length;
+  const underDetectionSuspected=beforeRecovery>0;
   const coreReader=firstPass.page.secondReader;
-  const shouldRunSecondPass = options.independentReading!==false && underDetectionSuspected && typeof options.secondaryOcrRunner === 'function' && !firstPass.page.ocrReading;
+  const shouldRunSecondPass = options.independentReading!==false && uncoveredCount>0 && typeof options.secondaryOcrRunner === 'function' && !firstPass.page.ocrReading;
 
   let secondPass: Awaited<ReturnType<typeof detectCanonicalPageFields>> | undefined;
   const merged = [...firstPass.fields];
@@ -171,8 +189,8 @@ export async function runPeiFieldDetectionProfile(
   if(!coreReader||(!firstPass.page.ocrReading&&options.secondaryOcrRunner))secondReader={
     configured: typeof options.secondaryOcrRunner === 'function',
     availability: secondPass ? 'available' : typeof options.secondaryOcrRunner === 'function' ? 'provided-unverified' : 'not-configured',
-    execution: shouldRunSecondPass ? 'completed' : underDetectionSuspected ? 'blocked-no-reader' : 'not-needed',
-    reason: shouldRunSecondPass ? 'SECOND_PASS_COMPLETED' : underDetectionSuspected ? 'NO_SECONDARY_RUNNER' : 'NO_UNCOVERED_TEXT_EVIDENCE',
+    execution: shouldRunSecondPass ? 'completed' : uncoveredCount>0 ? 'blocked-no-reader' : 'not-needed',
+    reason: shouldRunSecondPass ? 'SECOND_PASS_COMPLETED' : uncoveredCount>0 ? 'NO_SECONDARY_RUNNER' : 'NO_UNCOVERED_TEXT_EVIDENCE',
     returnedPositionedWords: secondPass?.page.tokens.length ?? null,stage:'pei-recovery',
   };
   if(options.independentReading===false)secondReader={configured:false,availability:'not-configured',execution:'disabled',reason:'INDEPENDENT_READING_DISABLED',returnedPositionedWords:null,stage:'core'};
@@ -182,7 +200,13 @@ export async function runPeiFieldDetectionProfile(
     secondPass,
     diagnostics: {
       secondReader,
-      uncoveredEvidenceKind: 'text-markers-and-short-prompts',
+      uncoveredEvidenceKind: 'structure-and-text',
+      structuralCoverage:structural,
+      structuralRecoveryAdded:structural?.summary.recovered??0,
+      uncoveredBeforeRecoveryCount:beforeRecovery,
+      uncoveredCellCount:uncoveredStructures.filter(e=>e.kind==='cell').length,
+      uncoveredCheckboxCount:uncoveredStructures.filter(e=>e.kind==='checkbox').length,
+      uncoveredLineCount:uncoveredStructures.filter(e=>e.kind==='line').length,
       firstPassFields: firstPass.fields.length,
       secondPassTriggered: shouldRunSecondPass,
       secondPassFields: secondPass?.fields.length ?? 0,

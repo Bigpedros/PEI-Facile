@@ -18,6 +18,8 @@ export interface PageResult {
  fieldInferenceDiagnostics?:import('./fieldDiagnostics').FieldInferenceDiagnostics;
  ocrReading?:import('./dualReading').DualReadingDiagnostics;
  secondReader?:import('./dualReading').IndependentReaderState;
+ structuralCoverage?:import('./structuralCoverage').StructuralCoverageDiagnostics;
+ stageTimingsMs?:{normalization:number;primaryOcr:number;secondaryOcr:number;geometry:number;fieldInference:number;structuralRecovery:number};
 }
 export interface ReceiptItem {description:string;amount:number;line:string}
 export interface ReceiptResult {merchant:string|null;date:string|null;total:number|null;items:ReceiptItem[];itemsSum:number;difference:number|null;warnings:string[];status:'review'}

@@ -1,6 +1,6 @@
 import type {Box,FormField,Region,Token} from './types';
 import {intersectionRatio,tokensToText} from './geometry';
-import {rasterStrokes} from './strokes';
+import {rasterStrokes,type RasterStrokeEvidence} from './strokes';
 import type {FieldInferenceAudit} from './fieldDiagnostics';
 const labelWords=/\b(nome|cognome|data|nato|nata|nascita|luogo|indirizzo|residenza|telefono|cellulare|email|e-mail|classe|sezione|scuola|istituto|codice|firma|note|osservazioni|descrizione|obiettivi|risposta|motivazione|comune|provincia|cap|anno|alunno|alunna|bambino|bambina|plesso|sede|docente|genitore|consenso)\b/i;
 export function isLabel(text:string):boolean {
@@ -33,8 +33,8 @@ function checkedState(canvas:HTMLCanvasElement,box:Box):boolean|null {
  for(let i=0;i<pixels.length;i+=4)if(pixels[i]+pixels[i+1]+pixels[i+2]<420)dark++;
  const ratio=dark/(w*h);return ratio<.025?false:ratio>.1?true:null;
 }
-export function detectWritingLines(canvas:HTMLCanvasElement,regions:Region[],tokens:Token[]):Box[]{
- const strokes=rasterStrokes(canvas),scale=strokes.scale,horizontal=[...strokes.horizontal,...strokes.writing];const result:Box[]=[];const words=tokens.flatMap(t=>t.fragments||[t]);
+export function detectWritingLines(canvas:HTMLCanvasElement,regions:Region[],tokens:Token[],measuredStrokes?:RasterStrokeEvidence):Box[]{
+ const strokes=measuredStrokes??rasterStrokes(canvas),scale=strokes.scale,horizontal=[...strokes.horizontal,...strokes.writing];const result:Box[]=[];const words=tokens.flatMap(t=>t.fragments||[t]);
  for(const line of [...horizontal].sort((a,b)=>(b.end-b.start)-(a.end-a.start))){
   if(line.end-line.start<30)continue;
   const box={x:line.start/scale,y:line.pos/scale,width:(line.end-line.start)/scale,height:1/scale};
@@ -50,10 +50,10 @@ export function detectWritingLines(canvas:HTMLCanvasElement,regions:Region[],tok
  }
  return result.slice(0,200);
 }
-export function inferFields(canvas:HTMLCanvasElement,tokens:Token[],regions:Region[],audit?:FieldInferenceAudit):FormField[]{
+export function inferFields(canvas:HTMLCanvasElement,tokens:Token[],regions:Region[],audit?:FieldInferenceAudit,measuredStrokes?:RasterStrokeEvidence):FormField[]{
  const fields:FormField[]=[];const textHeight=typical(tokens),margin=Math.max(4,textHeight*.18);
  const words=tokens.flatMap(t=>t.fragments||[t]);
- let signatureEvidence:ReturnType<typeof rasterStrokes>|undefined;
+ let signatureEvidence:ReturnType<typeof rasterStrokes>|undefined=measuredStrokes;
  const promptLabel=(text:string)=>clean(normalizePrompt(text)).replace(/\s*[_ ]*\d{1,2}[/.]\d{1,2}[/.]\d{2,4}\s*$/, '').replace(/\s*[([]\s*1?\s*$/, '').replace(/\s*\|\s*$/,'').trim();
  const add=(field:FormField)=>{field.box.x=Math.max(0,field.box.x);field.box.y=Math.max(0,field.box.y);field.box.width=Math.min(field.box.width,canvas.width-field.box.x);field.box.height=Math.min(field.box.height,canvas.height-field.box.y);if(field.box.width<6||field.box.height<6){audit?.candidate(field,'excluded','FIELD_TOO_SMALL_AFTER_CLAMP');return;}const duplicate=fields.find(f=>intersectionRatio(field.box,f.box)>.6||intersectionRatio(f.box,field.box)>.8);if(duplicate){audit?.candidate(field,'excluded','DUPLICATE_FIELD',duplicate.id);return;}fields.push(field);audit?.candidate(field,'proposed','FIELD_PROPOSED');};
  // Bracketed placeholders are writable content, even without an underline.
@@ -272,7 +272,7 @@ export function inferFields(canvas:HTMLCanvasElement,tokens:Token[],regions:Regi
  }else audit?.reject(isLabel(text)&&right?'STATIC_LABEL_WITH_RIGHT_CELL':'CONTENT_WITHOUT_RECOGNIZED_FIELD_RELATION');
  }
  audit?.leave();
- for(const line of detectWritingLines(canvas,regions,tokens)){
+ for(const line of detectWritingLines(canvas,regions,tokens,signatureEvidence)){
  const box={x:line.x,y:Math.max(0,line.y-textHeight*1.3),width:line.width,height:textHeight*1.3};
  const row=tokens.filter(t=>!/^[_.\s]+$/.test(t.text)&&t.box.x<line.x&&line.x-t.box.x-t.box.width<textHeight*4&&Math.abs(t.box.y+t.box.height-line.y)<textHeight*1.2).sort((a,b)=>b.box.x-a.box.x);
  const above=tokens.filter(t=>(isLabel(promptLabel(t.text))||/\b(?:redatt[oa]|approvato|rilasciato) in data\b/i.test(t.text))&&t.box.y+t.box.height<=line.y+margin&&line.y-t.box.y-t.box.height<textHeight*2&&Math.min(line.x+line.width,t.box.x+t.box.width)-Math.max(line.x,t.box.x)>Math.min(line.width,t.box.width)*.5).sort((a,b)=>b.box.y-a.box.y);

@@ -63,6 +63,8 @@ export interface TemplateFieldGeometry {
 }
 
 export interface TemplateSchemaField {
+  presentation?:import('./fieldPresentation').FieldPresentation;
+  sourceGeometry?:TemplateFieldGeometry;
   templateFieldId: string;
   pageNumber: number;
   geometry: TemplateFieldGeometry;

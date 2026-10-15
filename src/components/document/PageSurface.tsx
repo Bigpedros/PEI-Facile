@@ -21,6 +21,7 @@ interface PageSurfaceProps {
   onFieldValueChange?: (fieldId: string, value: any) => void;
   activeFieldId?: string;
   onFieldFocus?: (fieldId: string) => void;
+  onFieldProperties?:(fieldId:string)=>void;
   mode: DocumentSurfaceMode;
   zoomScale: number;
   className?: string;
@@ -57,6 +58,7 @@ export const PageSurface: React.FC<PageSurfaceProps> = ({
   onFieldValueChange,
   activeFieldId,
   onFieldFocus,
+  onFieldProperties,
   mode,
   zoomScale,
   className = '',
@@ -67,6 +69,8 @@ export const PageSurface: React.FC<PageSurfaceProps> = ({
 
   // PDF points use 72/in; browser print pixels use 96/in.
   const surfaceScale = mode === 'PRINT' ? 96 / 72 : zoomScale;
+  // Preserve the bitmap during beforeprint; only layout changes synchronously.
+  const rasterScale=Math.max(zoomScale,96/72);
 
   // Exact target dimensions in viewport pixels
   const viewportWidthPx = widthPt * surfaceScale;
@@ -85,7 +89,7 @@ export const PageSurface: React.FC<PageSurfaceProps> = ({
         const page = await pdfDoc.getPage(pageNumber);
         if (isCancelled) return;
 
-        const viewport = page.getViewport({ scale: surfaceScale });
+        const viewport = page.getViewport({ scale: rasterScale });
         const canvas = canvasRef.current;
         if (!canvas) return;
 
@@ -127,7 +131,7 @@ export const PageSurface: React.FC<PageSurfaceProps> = ({
         }
       }
     };
-  }, [pdfDoc, pageNumber, surfaceScale]);
+  }, [pdfDoc, pageNumber, rasterScale]);
 
   return (
     <div
@@ -184,6 +188,7 @@ export const PageSurface: React.FC<PageSurfaceProps> = ({
             zoomScale={surfaceScale}
             isActive={activeFieldId === f.templateFieldId}
             onFocus={() => onFieldFocus?.(f.templateFieldId)}
+            onProperties={mode==='EDIT'&&onFieldProperties?()=>onFieldProperties(f.templateFieldId):undefined}
           />
         ))}
       </div>

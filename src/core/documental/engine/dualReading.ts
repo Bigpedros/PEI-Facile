@@ -18,6 +18,7 @@ export interface DualReadingDiagnostics {
  regionalTokens:Token[];decisions:OcrDecision[];
  agreements:number;disagreements:number;changed:number;
  secondaryConfidenceKind:'heuristic';warnings:string[];
+ timingsMs?:{fullPage:number;regional:number};
 }
 
 export function createIndependentRecognizer():RecognizerB {
@@ -44,17 +45,21 @@ export async function readIndependent(
  const rawTokens=primary.tokens.map(toOcrToken);
  const raw=createRawOcrSnapshot({...input,tokens:rawTokens,text:primary.text,warnings:[]});
  const evidence=createEvidenceSet(raw);
+ const fullStart=performance.now();
  const result=await secondary.recognize(input,signal).catch(error=>{
   signal?.throwIfAborted();
   return {id:secondary.id,tokens:[],text:'',score:0,confidence:null,warnings:[`RECOGNIZER_B_UNAVAILABLE:${error instanceof Error?error.message:String(error)}`]};
  });
+ const fullMs=performance.now()-fullStart;
  signal?.throwIfAborted();
  const full=result.tokens.filter(t=>validToken(t,canvas.width,canvas.height));
  addEvidenceTokens(evidence,'recognizer-b',full,`independent:${secondary.id}`);
  const disputed=rawTokens.filter(a=>(a.confidence??0)<80||full.some(b=>overlaps(a,b)&&key(a.text)!==key(b.text)));
  const regions=disputed.slice(0,8).map(t=>({box:{...t.box},reason:'independent-disagreement',kind:'text' as const}));
+ const regionalStart=performance.now();
  const regional=(full.length&&regions.length&&secondary.recognizeRegions
   ?await secondary.recognizeRegions(input,regions,signal).catch(error=>{signal?.throwIfAborted();result.warnings.push(`RECOGNIZER_B_REGION_UNAVAILABLE:${String(error)}`);return [];}):[]).filter(t=>validToken(t,canvas.width,canvas.height));
+ const regionalMs=performance.now()-regionalStart;
  signal?.throwIfAborted();
  addEvidenceTokens(evidence,'recognizer-b-region',regional,`independent-region:${secondary.id}`);
  const stabilized=stabilizeOcrPage(evidence);
@@ -71,6 +76,7 @@ export async function readIndependent(
   disagreements:rawTokens.filter(a=>full.some(b=>overlaps(a,b)&&key(a.text)!==key(b.text))).length,
   changed:stabilized.decisions.filter(d=>d.changed).length,
   secondaryConfidenceKind:'heuristic',warnings:[...result.warnings],
+  timingsMs:{fullPage:Math.round(fullMs),regional:Math.round(regionalMs)},
  };
  return {tokens:full.length?tokens:primary.tokens.map(clone),text:full.length&&changed?tokensToText(tokens):primary.text,diagnostics};
 }

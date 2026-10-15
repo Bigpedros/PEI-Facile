@@ -565,6 +565,16 @@ export default function App() {
     });
   };
 
+  const handleFieldPropertiesChange=(fieldId:string,patch:import('./core/fieldPresentation').FieldPresentation|null)=>{
+    setDocument(prev=>{
+      const fieldProperties={...prev.fieldProperties};
+      if(patch===null)delete fieldProperties[fieldId];else fieldProperties[fieldId]={...fieldProperties[fieldId],...patch};
+      const updated={...prev,fieldProperties,updatedAt:new Date().toISOString()};
+      void savePeiDocument(updated).then(()=>setSavedDocument(updated)).catch(()=>showToast('Salvataggio delle proprietà del campo non riuscito.'));
+      return updated;
+    });
+  };
+
   // Cambio ordine di scuola (A1 - A4)
   const handleChangeSchoolOrder = (newOrder: SchoolOrder) => {
     if (hasOpenDocument) return; // Protected: open document model cannot be changed implicitly
@@ -812,6 +822,7 @@ export default function App() {
             activeSectionId={activeSectionId}
             onSelectSection={setActiveSectionId}
             onFieldValueChange={handleFieldValueChange}
+            onFieldPropertiesChange={handleFieldPropertiesChange}
             zoomScale={zoomScale}
             onSave={handleSaveDocument}
             onGoToPreview={() => setCurrentScreen('SCR-003')}
