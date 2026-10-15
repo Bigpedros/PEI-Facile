@@ -1072,19 +1072,34 @@ export async function collectPageRuntimeDiagnostics(
       rawText?: string;
       confidence?: number;
     }>;
+    secondaryOcrRunner?: (canvas: HTMLCanvasElement) => Promise<{
+      words?: Array<{
+        text: string;
+        confidence: number;
+        bbox: { x0: number; y0: number; x1: number; y1: number };
+      }>;
+      text?: string;
+      rawText?: string;
+      confidence?: number;
+    }>;
   }
 ): Promise<PageRuntimeDiagnosticTrace> {
   const pageNumber=opts.pageNumber||pdfPage.pageNumber||1;
   const viewport=pdfPage.getViewport({scale:1});
-  const result=await detectCanonicalPageFields(pdfPage,pageNumber,opts.customOcrRunner,opts.canvasElement||undefined);
+  const profile=await runPeiFieldDetectionProfile(pdfPage,pageNumber,{
+    primaryOcrRunner:opts.customOcrRunner,
+    secondaryOcrRunner:opts.secondaryOcrRunner,
+    canvasElement:opts.canvasElement||undefined,
+  });
+  const result=profile.firstPass;
   const page=result.page;
   const sx=viewport.width/page.width,sy=viewport.height/page.height;
   const vector=await extractVectorGraphics(pdfPage,viewport.width,viewport.height,viewport);
-  const classified=classifyDetectionCandidates(result.fields,opts.existingFields||[],pageNumber);
+  const classified=classifyDetectionCandidates(profile.fields,opts.existingFields||[],pageNumber);
   const proposed=classified.proposals;
   const textContent=await pdfPage.getTextContent();
   const boxes=page.regions.map(r=>({x:r.box.x*sx,y:r.box.y*sy,width:r.box.width*sx,height:r.box.height*sy,isCheckbox:r.kind==='checkbox',source:'DOCUMENTAL_020'}));
-  const rawCandidates=result.fields.map(f=>({id:f.fieldId,type:f.fieldType||'text',bbox:{x:f.xPt,y:f.yPt,w:f.widthPt,h:f.heightPt},source:f.detectionSource||'DOCUMENTAL_020',associatedLabel:f.label,confidence:f.confidence??0}));
+  const rawCandidates=profile.fields.map(f=>({id:f.fieldId,type:f.fieldType||'text',bbox:{x:f.xPt,y:f.yPt,w:f.widthPt,h:f.heightPt},source:f.detectionSource||'DOCUMENTAL_020',associatedLabel:f.label,confidence:f.confidence??0}));
   return {timestamp:new Date().toISOString(),detectionRevision:'calibratore-20261007-consegne-esterne',detectionDpi:200,document:{modelId:opts.modelId||'CUSTOM_PDF',modelName:opts.modelName||'Documento Attivo',pageNumber,pageWidthPt:viewport.width,pageHeightPt:viewport.height,viewport:{...viewport},rotation:pdfPage.rotate||0,view:pdfPage.view||null},
     textItems:page.tokens.map((t,i)=>({text:t.text.trim(),x:t.box.x*sx,y:t.box.y*sy,width:t.box.width*sx,height:t.box.height*sy,fontName:t.source==='pdf'?textContent.items.filter((t:any)=>t.str?.trim())[i]?.fontName:undefined})),
     vectorLines:vector.lines.map(l=>({x1:l.x1,y1:l.y,x2:l.x2,y2:l.y,source:'PDF'})),
@@ -1093,9 +1108,10 @@ export async function collectPageRuntimeDiagnostics(
     pipelineTrace:{steps:[
       {step:'getTextContent',description:'Testo nativo letto sul raster finale',counts:{rawItemsCount:result.textItems}},
       {step:'extractVectorGraphics',description:'Geometria vettoriale osservata per diagnostica; non una seconda inferenza',counts:{vectorLines:vector.lines.length,vectorBoxes:vector.boxes.length}},
-      {step:'ocrExtraction',description:'OCR del nucleo unico, senza seconda esecuzione',counts:{rawOcrWordsCount:page.tokens.filter(t=>t.source==='ocr').length,validOcrTextItemsCount:page.tokens.filter(t=>t.source==='ocr').length,used:result.source==='ocr'}},
+      {step:'ocrExtraction',description:'Prima lettura del core documentale',counts:{rawOcrWordsCount:page.tokens.filter(t=>t.source==='ocr').length,validOcrTextItemsCount:page.tokens.filter(t=>t.source==='ocr').length,used:result.source==='ocr'}},
+      {step:'peiSpecializationSecondPass',description:'Seconda lettura indipendente attivata solo su sotto-rilevamento PEI',counts:{triggered:profile.diagnostics.secondPassTriggered,secondPassFields:profile.diagnostics.secondPassFields,secondPassAdded:profile.diagnostics.secondPassAdded,uncoveredPlausibleRegionsCount:profile.diagnostics.uncoveredPlausibleRegionsCount}},
       {step:'detectRegions',description:'Regioni misurate sullo stesso raster dei campi',counts:{regions:boxes.length}},
-      {step:'inferFields',description:'Candidati del nucleo unico: proposte automatiche aggiornabili, campi revisionati protetti',counts:{rawCandidates:rawCandidates.length,protectedDuplicates:classified.protectedDuplicates.length,matchedAutomatic:classified.matchedAutomatic.length,newProposalsCount:classified.newProposals.length,finalProposalsCount:proposed.length}}],
+      {step:'inferFields',description:'Merge non distruttivo: il secondo passaggio può solo aggiungere proposte PEI',counts:{rawCandidates:rawCandidates.length,protectedDuplicates:classified.protectedDuplicates.length,matchedAutomatic:classified.matchedAutomatic.length,newProposalsCount:classified.newProposals.length,finalProposalsCount:proposed.length}}],
       discarded:result.fields.filter(f=>!proposed.includes(f)).map(f=>({candidateId:f.fieldId,discardedAt:'protectExisting',discardedReason:'PROTECTED_EXISTING_FIELD',relevantValues:{pageNumber}}))},
     finalProposedFields:proposed.map(f=>({fieldId:f.fieldId,label:f.label,semanticKey:f.semanticKey??null,fieldType:f.fieldType||'text',bbox:{xPt:f.xPt,yPt:f.yPt,widthPt:f.widthPt,heightPt:f.heightPt},confidence:f.confidence,derivationMethod:f.derivationMethod,detectionSource:f.detectionSource,sourceCandidateIds:[f.fieldId]}))};
 }
@@ -1108,7 +1124,8 @@ export async function detectFieldsOnEntireDocument(
   pdfDoc: any,
   existingPages: PageGeometry[],
   onProgress?: (current: number, total: number) => void,
-  abortSignal?: AbortSignal
+  abortSignal?: AbortSignal,
+  detectionOptions: DetectPageFieldsOptions = {}
 ): Promise<{ pages: PageGeometry[]; totalProposed: number }> {
   const totalPages = pdfDoc.numPages || existingPages.length;
   const updatedPages: PageGeometry[] = JSON.parse(JSON.stringify(existingPages));
