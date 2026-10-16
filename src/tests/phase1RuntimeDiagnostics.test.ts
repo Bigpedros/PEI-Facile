@@ -16,6 +16,7 @@ describe('Fase 1: export diagnostico dalla pipeline PDF',()=>{
    expect(diagnostic.structuralCoverage?.schema).toBe('PEI_STRUCTURAL_COVERAGE_V1');
    expect(diagnostic.fieldAssociations?.schema).toBe('PEI_FIELD_ASSOCIATIONS_V1');
    expect(diagnostic.pipelineTrace.steps.some(s=>s.step==='measuredFieldAssociations')).toBe(true);
+   expect(diagnostic.pipelineTrace.steps.some(s=>s.step==='peiOcrAlignment')).toBe(true);
    expect(diagnostic.pipelineTrace.steps.some(s=>s.step==='structuralCoverageRecovery')).toBe(true);
    expect(diagnostic.secondReader).toMatchObject({availability:'provided-unverified',execution:'not-needed',reason:'NATIVE_PDF_TEXT'});
    const audit=diagnostic.fieldInference!.firstPass!;

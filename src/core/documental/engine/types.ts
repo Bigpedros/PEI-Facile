@@ -1,7 +1,7 @@
 export type Profile = 'document' | 'pei' | 'receipt';
 export interface Box { x:number; y:number; width:number; height:number }
 export interface Point {x:number;y:number}
-export interface Token {fragments?:Token[];corrected?:boolean;originalText?:string;id:string;text:string;box:Box;confidence:number|null;source:'pdf'|'ocr';lineId:string}
+export interface Token {recovery?:{source:'primary-regional+secondary';sourceTokenIds:string[]};segmentation?:{rawTokenId:string;rawText:string;rawBox:Box;source:'secondary'|'secondary-regional'|'primary-regional+secondary';sourceTokenIds:string[]};fragments?:Token[];corrected?:boolean;originalText?:string;id:string;text:string;box:Box;confidence:number|null;source:'pdf'|'ocr';lineId:string}
 export interface Region {id:string;kind:'cell'|'checkbox';box:Box;text:string;status:'review';checked:boolean|null}
 export type FieldType='text'|'date'|'textarea'|'checkbox'|'select';
 export interface FormField {

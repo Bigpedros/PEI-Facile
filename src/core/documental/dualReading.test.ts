@@ -11,11 +11,11 @@ const a=(text:string,confidence=55):Token=>({id:'a',text,confidence,source:'ocr'
 const b=(text:string):OcrToken=>({id:'b',text,confidence:85,provenance:'ocr',lineId:'b1',box:{x:52,y:50,width:88,height:20}});
 const secondary=(word:OcrToken):RecognizerB=>({id:'ocrs-test',recognize:vi.fn(async()=>({id:'ocrs-test',tokens:[word],text:word.text,score:85,confidence:85,warnings:[]})),recognizeRegions:vi.fn(async()=>[{...word,id:'br'}])});
 describe('Secondo lettore indipendente PEI',()=>{
- it('passa le intestazioni B alla fase 4 senza sostituire i valori primari o rilanciare OCR',async()=>{
+ it('passa le intestazioni B alla fase 4 senza sostituire i valori primari o ripetere la lettura completa',async()=>{
   const c=createCanvas(800,1100),ctx=c.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,800,1100);ctx.strokeStyle='black';ctx.strokeRect(40,100,480,100);ctx.beginPath();ctx.moveTo(280,100);ctx.lineTo(280,200);ctx.moveTo(40,150);ctx.lineTo(520,150);ctx.stroke();
   const primary:Token={...a('Anna Verdi',98),box:{x:50,y:160,width:150,height:18}},heads:OcrToken[]=[{...b('Nome e Cognome'),id:'bh1',box:{x:50,y:110,width:150,height:18}},{...b('Firma'),id:'bh2',box:{x:300,y:110,width:100,height:18}}];
   const reader:RecognizerB={id:'ocrs-test',recognize:vi.fn(async()=>({id:'ocrs-test',tokens:heads,text:'Nome e Cognome Firma',score:85,confidence:85,warnings:[]}))},options={profile:'pei' as const,language:'ita' as const,forceOcr:true,contrast:true,rotation:0 as const,dpi:200,maxPages:1,segmentation:'auto' as const,recognizerB:reader};
-  const recognizer=new LocalRecognizer(options);const recognize=vi.spyOn(recognizer,'recognize').mockResolvedValue({tokens:[primary],text:'Anna Verdi'});
+  const recognizer=new LocalRecognizer(options);const recognize=vi.spyOn(recognizer,'recognize').mockResolvedValue({tokens:[primary],text:'Anna Verdi'});vi.spyOn(recognizer,'recognizeRegions').mockResolvedValue([]);
   try{const result=await analyzeRasterPage({canvas:c as unknown as HTMLCanvasElement,nativeTokens:[],pageNumber:1,warnings:[]},options,recognizer,true);
    expect(result.tokens).toEqual([primary]);expect(result.fieldAssociations?.summary.secondaryHeaders).toBe(2);expect(result.fieldAssociations?.decisions.some(d=>d.anchorSource==='secondary'&&d.relation==='column-header')).toBe(true);expect(reader.recognize).toHaveBeenCalledTimes(1);expect(recognize).toHaveBeenCalledTimes(1);
   }finally{await recognizer.terminate();}
@@ -70,6 +70,7 @@ describe('Secondo lettore indipendente PEI',()=>{
   const c=canvas(),reader=secondary(b('Sezione'));
   const options={profile:'pei' as const,language:'ita' as const,forceOcr:true,contrast:true,rotation:0 as const,dpi:200,maxPages:1,segmentation:'auto' as const,recognizerB:reader};
   const recognizer=new LocalRecognizer(options);vi.spyOn(recognizer,'recognize').mockResolvedValue({tokens:[a('Sez1one')],text:'Sez1one'});
+  vi.spyOn(recognizer,'recognizeRegions').mockResolvedValue([{...a('Sezione',95),id:'ar'}]);
   try{const result=await analyzeRasterPage({canvas:c,nativeTokens:[],pageNumber:1,warnings:[]},options,recognizer,true);
    expect(reader.recognize).toHaveBeenCalledWith(expect.objectContaining({image:c,width:600,height:800}),undefined);
    expect(result.tokens[0].text).toBe('Sezione');expect(result.ocrReading?.status).toBe('used');expect(result.image).toBe(c.toDataURL('image/png'));

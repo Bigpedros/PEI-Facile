@@ -17,13 +17,17 @@ export {parseReceipt} from '../adapters/receipt';
 /** Group words only within the same line and region, without crossing table cells. */
 export function fieldTokens(tokens:Token[],regions:PageResult['regions']):Token[] {
  const groups:Token[][]=[];
- const regionId=(t:Token)=>regions.find(r=>t.box.x>=r.box.x&&t.box.y>=r.box.y&&t.box.x+t.box.width<=r.box.x+r.box.width+2&&t.box.y+t.box.height<=r.box.y+r.box.height+2)?.id;
+ const orderedRegions=[...regions].sort((a,b)=>a.box.width*a.box.height-b.box.width*b.box.height);
+ const tokenRegions=new Map(tokens.map(t=>[t,orderedRegions.find(r=>t.box.x>=r.box.x&&t.box.y>=r.box.y&&t.box.x+t.box.width<=r.box.x+r.box.width+2&&t.box.y+t.box.height<=r.box.y+r.box.height+2)?.id]));
+ const regionId=(t:Token)=>tokenRegions.get(t);
  // OCR words on one line have slightly different top coordinates. Sort by line then x,
  // otherwise a response two pixels higher can be visited before its left-hand label.
  for(const t of [...tokens].sort((a,b)=>a.lineId.localeCompare(b.lineId)||a.box.x-b.box.x)){
   // PDF spans already carry their own geometry: do not merge label and value across spans.
   if(t.source==='pdf'){groups.push([t]);continue;}
-  const group=groups.find(g=>g[0].source===t.source&&g[0].lineId===t.lineId&&regionId(g[0])===regionId(t)&&t.box.x>=g[g.length-1].box.x&&t.box.x-(g[g.length-1].box.x+g[g.length-1].box.width)<Math.max(10,t.box.height*2));
+  const group=groups.find(g=>g[0].source===t.source&&g[0].lineId===t.lineId&&regionId(g[0])===regionId(t)&&
+   Math.abs(g[0].box.y+g[0].box.height/2-t.box.y-t.box.height/2)<Math.max(3,Math.min(g[0].box.height,t.box.height)*.55)&&
+   t.box.x>=g[g.length-1].box.x&&t.box.x-(g[g.length-1].box.x+g[g.length-1].box.width)<Math.max(10,t.box.height*2));
   if(group)group.push(t);else groups.push([t]);
  }
  return groups.map(g=>{const x=Math.min(...g.map(t=>t.box.x)),y=Math.min(...g.map(t=>t.box.y));return {...g[0],fragments:g.length>1?g:undefined,text:g.map(t=>t.text).join(' '),box:{x,y,width:Math.max(...g.map(t=>t.box.x+t.box.width))-x,height:Math.max(...g.map(t=>t.box.y+t.box.height))-y}};});
