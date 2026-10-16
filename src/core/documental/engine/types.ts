@@ -35,6 +35,6 @@ export interface EngineOptions {
  independentReading?:boolean;
  recognizerB?:import('../vendor/motore-ocr-ai/src/core/ocr/recognizerB').RecognizerB;
  customOcrRunner?:(canvas:HTMLCanvasElement)=>Promise<{text:string;confidence?:number;tokens?:Token[]}>;
- onProgress?:(message:string,progress:number)=>void;onPage?:(page:PageResult)=>void;
+ onProgress?:(message:string,progress:number)=>void;onPage?:(page:PageResult)=>void;onPageCount?:(count:number)=>void;
 }
 export interface RasterPage {hasRasterImages?:boolean;nativeFields?:FormField[];canvas:HTMLCanvasElement;nativeTokens:Token[];pageNumber:number;warnings:string[];physicalSizeMm?:{width:number;height:number}}

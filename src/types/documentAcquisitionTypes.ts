@@ -6,6 +6,7 @@
  */
 
 import type { SchoolOrder, PeiModelDefinition } from './pei';
+import type { PageResult } from '../core/documental/engine/types';
 
 /** Formati di documento supportati dal sistema */
 export type SupportedDocumentFormat =
@@ -140,6 +141,8 @@ export interface DocumentAcquisitionOptions {
   independentReading?:boolean;
   renderScale?: number;
   onProgress?: (progress: AcquisitionProgress) => void;
+  /** Completed pages in document order, available without repeating recognition. */
+  onDocumentalPage?: (page: PageResult) => void;
   signal?: AbortSignal;
   customOcrRunner?: (canvas: HTMLCanvasElement) => Promise<{ text: string; confidence?: number }>;
   forcedSchoolOrder?: SchoolOrder;

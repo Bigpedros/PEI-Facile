@@ -16,7 +16,7 @@ export async function* loadPages(file:File,options:EngineOptions):AsyncGenerator
  for await(const page of loadPages(converted,options)){page.warnings.push('Documento Office convertito in PDF. Verificare impaginazione e caratteri rispetto all’originale.');yield page;}return;
  }
  if(['tif','tiff'].includes(extension)){
- const data=await blobBytes(file);const frames=UTIF.decode(data);if(frames.length>options.maxPages)throw new Error('Troppe pagine TIFF.');
+ const data=await blobBytes(file);const frames=UTIF.decode(data);if(frames.length>options.maxPages)throw new Error('Troppe pagine TIFF.');options.onPageCount?.(frames.length);
  for(let i=0;i<frames.length;i++){options.signal?.throwIfAborted();const frame=frames[i];if(Number((frame.t256 as number[])?.[0])*Number((frame.t257 as number[])?.[0])>60_000_000)throw new Error('Pagina TIFF oltre 60 megapixel.');UTIF.decodeImage(data,frame);const rgba=UTIF.toRGBA8(frame);const canvas=makeCanvas(frame.width,frame.height);canvas.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(rgba),frame.width,frame.height),0,0);yield{canvas,nativeTokens:[],pageNumber:i+1,warnings:[]};}return;
  }
  const isPdf=file.type==='application/pdf'||/\.pdf$/i.test(file.name);
@@ -26,6 +26,7 @@ export async function* loadPages(file:File,options:EngineOptions):AsyncGenerator
  try{
  const pdf=await task.promise;
  if(pdf.numPages>options.maxPages)throw new Error(`Il PDF contiene ${pdf.numPages} pagine; limite ${options.maxPages}. Dividilo in documenti più piccoli.`);
+ options.onPageCount?.(pdf.numPages);
  for(let number=1;number<=pdf.numPages;number++){
  options.signal?.throwIfAborted();
  const page=await pdf.getPage(number);const initial=page.getViewport({scale:1});
@@ -57,6 +58,7 @@ export async function* loadPages(file:File,options:EngineOptions):AsyncGenerator
  let bitmap:ImageBitmap|undefined;
  try{
  const img=url?new Image():bitmap=await createImageBitmap(file);if(url){(img as HTMLImageElement).src=url;await (img as HTMLImageElement).decode();}
+ options.onPageCount?.(1);
  const imageWidth=img.width,imageHeight=img.height;
  if(imageWidth*imageHeight>60_000_000)throw new Error('Immagine troppo grande (oltre 60 megapixel). Riducila prima di caricarla.');
  const scale=Math.min(1,3508/Math.max(imageWidth,imageHeight));

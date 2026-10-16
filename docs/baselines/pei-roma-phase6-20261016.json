@@ -1,0 +1,296 @@
+{
+  "schema": "PEI_PHASE6_ACCEPTANCE_V1",
+  "date": "2026-10-16",
+  "baseCommit": "bde55b74917a28334444a8506de180707481a871",
+  "environment": "Node; native Canvas; real Tesseract and shipped OCRS/RTen WASM; browser worker transport not exercised",
+  "acquisition": {
+    "status": "PASS",
+    "scope": "Node acquisition; browser lifecycle requires separate verification",
+    "pages": [
+      {
+        "page": 1,
+        "fields": 27,
+        "tokens": 223,
+        "readerB": "completed",
+        "elapsedMs": 39365,
+        "stageTimingsMs": {
+          "normalization": 98,
+          "primaryOcr": 3179,
+          "secondaryOcr": 34214,
+          "geometry": 1540,
+          "fieldInference": 47,
+          "structuralRecovery": 13,
+          "fieldAssociation": 17
+        },
+        "unresolvedStructures": 0
+      },
+      {
+        "page": 2,
+        "fields": 21,
+        "tokens": 297,
+        "readerB": "completed",
+        "elapsedMs": 45378,
+        "stageTimingsMs": {
+          "normalization": 135,
+          "primaryOcr": 3723,
+          "secondaryOcr": 39488,
+          "geometry": 1730,
+          "fieldInference": 31,
+          "structuralRecovery": 10,
+          "fieldAssociation": 10
+        },
+        "unresolvedStructures": 1
+      },
+      {
+        "page": 3,
+        "fields": 8,
+        "tokens": 487,
+        "readerB": "completed",
+        "elapsedMs": 61171,
+        "stageTimingsMs": {
+          "normalization": 120,
+          "primaryOcr": 6562,
+          "secondaryOcr": 52581,
+          "geometry": 1514,
+          "fieldInference": 28,
+          "structuralRecovery": 13,
+          "fieldAssociation": 17
+        },
+        "unresolvedStructures": 0
+      },
+      {
+        "page": 4,
+        "fields": 14,
+        "tokens": 435,
+        "readerB": "completed",
+        "elapsedMs": 71233,
+        "stageTimingsMs": {
+          "normalization": 130,
+          "primaryOcr": 4892,
+          "secondaryOcr": 64190,
+          "geometry": 1708,
+          "fieldInference": 49,
+          "structuralRecovery": 17,
+          "fieldAssociation": 17
+        },
+        "unresolvedStructures": 0
+      },
+      {
+        "page": 5,
+        "fields": 7,
+        "tokens": 302,
+        "readerB": "completed",
+        "elapsedMs": 49769,
+        "stageTimingsMs": {
+          "normalization": 112,
+          "primaryOcr": 3663,
+          "secondaryOcr": 44147,
+          "geometry": 1555,
+          "fieldInference": 42,
+          "structuralRecovery": 15,
+          "fieldAssociation": 13
+        },
+        "unresolvedStructures": 0
+      },
+      {
+        "page": 6,
+        "fields": 1,
+        "tokens": 56,
+        "readerB": "completed",
+        "elapsedMs": 16207,
+        "stageTimingsMs": {
+          "normalization": 107,
+          "primaryOcr": 957,
+          "secondaryOcr": 13906,
+          "geometry": 1084,
+          "fieldInference": 5,
+          "structuralRecovery": 2,
+          "fieldAssociation": 2
+        },
+        "unresolvedStructures": 0
+      },
+      {
+        "page": 7,
+        "fields": 54,
+        "tokens": 291,
+        "readerB": "completed",
+        "elapsedMs": 43599,
+        "stageTimingsMs": {
+          "normalization": 83,
+          "primaryOcr": 2936,
+          "secondaryOcr": 38660,
+          "geometry": 1476,
+          "fieldInference": 79,
+          "structuralRecovery": 23,
+          "fieldAssociation": 26
+        },
+        "unresolvedStructures": 6
+      },
+      {
+        "page": 8,
+        "fields": 5,
+        "tokens": 171,
+        "readerB": "completed",
+        "elapsedMs": 29123,
+        "stageTimingsMs": {
+          "normalization": 108,
+          "primaryOcr": 2438,
+          "secondaryOcr": 25045,
+          "geometry": 1254,
+          "fieldInference": 18,
+          "structuralRecovery": 5,
+          "fieldAssociation": 5
+        },
+        "unresolvedStructures": 1
+      },
+      {
+        "page": 9,
+        "fields": 3,
+        "tokens": 276,
+        "readerB": "completed",
+        "elapsedMs": 44037,
+        "stageTimingsMs": {
+          "normalization": 91,
+          "primaryOcr": 3279,
+          "secondaryOcr": 38896,
+          "geometry": 1448,
+          "fieldInference": 27,
+          "structuralRecovery": 10,
+          "fieldAssociation": 8
+        },
+        "unresolvedStructures": 0
+      },
+      {
+        "page": 10,
+        "fields": 16,
+        "tokens": 293,
+        "readerB": "completed",
+        "elapsedMs": 40937,
+        "stageTimingsMs": {
+          "normalization": 97,
+          "primaryOcr": 3449,
+          "secondaryOcr": 35567,
+          "geometry": 1498,
+          "fieldInference": 45,
+          "structuralRecovery": 11,
+          "fieldAssociation": 12
+        },
+        "unresolvedStructures": 3
+      },
+      {
+        "page": 11,
+        "fields": 1,
+        "tokens": 304,
+        "readerB": "completed",
+        "elapsedMs": 47969,
+        "stageTimingsMs": {
+          "normalization": 94,
+          "primaryOcr": 3719,
+          "secondaryOcr": 42232,
+          "geometry": 1617,
+          "fieldInference": 24,
+          "structuralRecovery": 8,
+          "fieldAssociation": 10
+        },
+        "unresolvedStructures": 1
+      },
+      {
+        "page": 12,
+        "fields": 16,
+        "tokens": 300,
+        "readerB": "completed",
+        "elapsedMs": 44777,
+        "stageTimingsMs": {
+          "normalization": 95,
+          "primaryOcr": 3364,
+          "secondaryOcr": 39341,
+          "geometry": 1589,
+          "fieldInference": 56,
+          "structuralRecovery": 17,
+          "fieldAssociation": 24
+        },
+        "unresolvedStructures": 6
+      }
+    ],
+    "totalFields": 173,
+    "processingTimeMs": 544816,
+    "sourcePreserved": true,
+    "canonicalA4Pages": 12
+  },
+  "canonicalRaster": {
+    "status": "PASS",
+    "pages": 12,
+    "scope": "Canonical raster preservation only",
+    "measurements": [
+      {
+        "page": 1,
+        "inkFraction": 0.13998682608435298,
+        "meanAbsoluteError": 2.5141619593205453
+      },
+      {
+        "page": 2,
+        "inkFraction": 0.1615940437932893,
+        "meanAbsoluteError": 4.092135571568295
+      },
+      {
+        "page": 3,
+        "inkFraction": 0.19029122337771212,
+        "meanAbsoluteError": 5.012315615082137
+      },
+      {
+        "page": 4,
+        "inkFraction": 0.19469051278468633,
+        "meanAbsoluteError": 5.2624184115451405
+      },
+      {
+        "page": 5,
+        "inkFraction": 0.1610910397413122,
+        "meanAbsoluteError": 3.7399242832524933
+      },
+      {
+        "page": 6,
+        "inkFraction": 0.028621329767061218,
+        "meanAbsoluteError": 0.7518207282913165
+      },
+      {
+        "page": 7,
+        "inkFraction": 0.14028224116249827,
+        "meanAbsoluteError": 3.777156563337924
+      },
+      {
+        "page": 8,
+        "inkFraction": 0.08602367312720813,
+        "meanAbsoluteError": 2.342790607929633
+      },
+      {
+        "page": 9,
+        "inkFraction": 0.13671530369867663,
+        "meanAbsoluteError": 3.406675449277098
+      },
+      {
+        "page": 10,
+        "inkFraction": 0.12687279187209324,
+        "meanAbsoluteError": 3.193468931515599
+      },
+      {
+        "page": 11,
+        "inkFraction": 0.13750773468532307,
+        "meanAbsoluteError": 3.4451605820475457
+      },
+      {
+        "page": 12,
+        "inkFraction": 0.12985289127527497,
+        "meanAbsoluteError": 3.2592087666420486
+      }
+    ]
+  },
+  "unresolvedReasons": {
+    "PARTIAL_FIELD_CONFLICT": 2,
+    "UNPOSITIONED_OR_PRINTED_INK": 16
+  },
+  "automatedRegressionTests": 127,
+  "browserLifecycle": "BLOCKED_MISSING_CHROMIUM_DOWNLOAD_HTTP_403",
+  "recognitionAccuracy": "NOT_CERTIFIED",
+  "humanVisualFieldReview": "REQUIRED",
+  "phase6Closure": "PENDING_BROWSER_LIFECYCLE"
+}

@@ -63,15 +63,31 @@ export async function runDocumental(input: File | File[] | ArrayBuffer | Uint8Ar
   const files = Array.isArray(input) ? input : [input instanceof File ? input : new File([input as BlobPart], name)];
   const pages: PageResult[] = [];
   let first: DocumentResult | undefined;
-  for (const file of files) {
+  let percentage=0;
+  for (const [fileIndex,file] of files.entries()) {
+    const offset=pages.length;
+    let currentPage=1,totalPages=0;
+    const report=(message:string,progress:number)=>{
+      const match=/^Pagina (\d+)/.exec(message);
+      if(match)currentPage=Number(match[1]);
+      const fraction=Number.isFinite(progress)?Math.max(0,Math.min(1,progress)):0;
+      if(totalPages)percentage=Math.max(percentage,Math.min(85,Math.round((offset+currentPage-1+fraction)/totalPages*85)));
+      options.onProgress?.({currentPage:offset+currentPage,totalPages,percentage,
+        stage:message.includes('lettura')||message.includes('OCR')?'OCR':'READING',
+        stageLabel:message.replace(/^Pagina \d+/,`Pagina ${offset+currentPage}`)});
+    };
     const result = await analyzeDocument(file, {profile:'pei',language:'ita',forceOcr:false,contrast:true,
       rotation:0,autoDeskew:false,dpi:200,segmentation:'auto',maxPages:100,signal:options.signal,
       customOcrRunner:options.customOcrRunner,
       independentReading:options.independentReading,
-      onProgress:(message,progress)=>options.onProgress?.({currentPage:pages.length+1,totalPages:0,
-        percentage:Math.min(85,Math.round(progress*85)),stage:message.includes('lettura')||message.includes('OCR')?'OCR':'READING',stageLabel:message})});
+      onPageCount:count=>{if(fileIndex===files.length-1)totalPages=offset+count;},
+      onPage:page=>{
+        const completed={...page,pageNumber:page.pageNumber+offset};
+        options.onDocumentalPage?.(completed);
+        report(`Pagina ${page.pageNumber} · analisi completata`,1);
+      },
+      onProgress:report});
     first ??= result;
-    const offset=pages.length;
     pages.push(...result.pages.map(p=>({...p,pageNumber:p.pageNumber+offset})));
   }
   return {...first!,filename:name,pages};

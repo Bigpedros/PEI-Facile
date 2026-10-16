@@ -17,7 +17,9 @@
     "test:json:integration": "node scripts/verify-json-020.mjs",
     "test:browser:real": "node scripts/verify-real-pdfs.mjs",
     "test:persistence": "node scripts/verify-persistence-compatibility.mjs",
-    "test:renderer": "node scripts/verify-node-render.mjs"
+    "test:renderer": "node scripts/verify-node-render.mjs",
+    "test:phase6:acquisition": "vitest run src/core/documental/phase6RealAcquisition.test.ts",
+    "test:phase6:browser": "node scripts/verify-phase6.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

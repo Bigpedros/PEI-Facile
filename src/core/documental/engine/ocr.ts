@@ -9,13 +9,15 @@ import type {RetryPlanRegion} from './ocrAlignment';
 export class LocalRecognizer {
  private worker:Worker|undefined;
  private terminated=false;
+ private currentPage=1;
  private secondary:RecognizerB|undefined;
  constructor(private options:EngineOptions){}
  private async initialize(page:number):Promise<void> {
  this.options.signal?.throwIfAborted();
+ this.currentPage=page;
  if(!this.worker){
  const base=new URL(import.meta.env.BASE_URL,location.href).href;
- const creation=createWorker(this.options.language,OEM.LSTM_ONLY,{workerPath:base+'vendor/worker.min.js',corePath:base+'vendor/core',langPath:base+'vendor/lang',logger:m=>{if(!this.terminated&&!this.options.signal?.aborted)this.options.onProgress?.(`Pagina ${page} · ${translate(m.status)}`,m.progress);}});
+ const creation=createWorker(this.options.language,OEM.LSTM_ONLY,{workerPath:base+'vendor/worker.min.js',corePath:base+'vendor/core',langPath:base+'vendor/lang',logger:m=>{if(!this.terminated&&!this.options.signal?.aborted)this.options.onProgress?.(`Pagina ${this.currentPage} · ${translate(m.status)}`,m.progress);}});
  void creation.then(worker=>{if(this.terminated||this.options.signal?.aborted)void worker.terminate();},()=>{});
  const pending=await abortable(creation,this.options.signal);
  if(this.terminated||this.options.signal?.aborted){await pending.terminate();throw new DOMException('Interrotto','AbortError');}
