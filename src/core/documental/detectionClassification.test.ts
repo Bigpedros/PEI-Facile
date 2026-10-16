@@ -19,4 +19,11 @@ describe('Diagnostica del rilevamento e ricostruzione',()=>{
   }
   expect(classifyDetectionCandidates([candidate],[{...field('other',100),pageNumber:2,calibrationStatus:'CONFIRMED'}],1).proposals).toHaveLength(1);
  });
+ it('anche una proposta contestuale non copre piccoli campi protetti',()=>{
+  const candidate={...field('associated',10),yPt:50,widthPt:500,heightPt:300,detectionSource:'PEI_CONTEXT_ASSOCIATION'};
+  for(const patch of [{calibrationStatus:'CONFIRMED'},{calibrationStatus:'REJECTED'},{detectionSource:'MANUAL_ENTRY'},{derivationMethod:'ACROFORM'}]){
+   const existing={...field('protected',100),widthPt:10,heightPt:10,...patch} as FieldGeometry;
+   expect(classifyDetectionCandidates([candidate],[existing],1).proposals).toHaveLength(0);
+  }
+ });
 });

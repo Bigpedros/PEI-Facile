@@ -1,0 +1,82 @@
+{
+  "phase": 4,
+  "date": "2026-10-15",
+  "baselineCommit": "6b525d57d9622d69d846ba7d5e995f7a99a40cb9",
+  "scope": "Roma originale: sole pagine critiche 2, 7, 9, 12; replay nel browser sul medesimo raster e sulle evidenze reali Tesseract + OCRS/RTen acquisite alla baseline. Non una misura di accuratezza né una verifica completa delle 12 pagine.",
+  "pages": [
+    {
+      "page": 2,
+      "before": 20,
+      "after": 20,
+      "proposed": 0,
+      "enriched": 2,
+      "covered": 5,
+      "ambiguous": 0,
+      "blocked": 0,
+      "static": 7,
+      "secondaryHeaders": 0,
+      "filledAssociated": 0,
+      "uncoveredBefore": 2,
+      "uncoveredAfter": 1
+    },
+    {
+      "page": 7,
+      "before": 46,
+      "after": 55,
+      "proposed": 9,
+      "enriched": 39,
+      "covered": 0,
+      "ambiguous": 2,
+      "blocked": 0,
+      "static": 8,
+      "secondaryHeaders": 6,
+      "filledAssociated": 9,
+      "uncoveredBefore": 10,
+      "uncoveredAfter": 5
+    },
+    {
+      "page": 9,
+      "before": 3,
+      "after": 3,
+      "proposed": 0,
+      "enriched": 2,
+      "covered": 0,
+      "ambiguous": 1,
+      "blocked": 0,
+      "static": 4,
+      "secondaryHeaders": 0,
+      "filledAssociated": 0,
+      "uncoveredBefore": 0,
+      "uncoveredAfter": 0
+    },
+    {
+      "page": 12,
+      "before": 11,
+      "after": 15,
+      "proposed": 4,
+      "enriched": 10,
+      "covered": 1,
+      "ambiguous": 7,
+      "blocked": 0,
+      "static": 6,
+      "secondaryHeaders": 3,
+      "filledAssociated": 4,
+      "uncoveredBefore": 7,
+      "uncoveredAfter": 6
+    }
+  ],
+  "totals": {
+    "before": 80,
+    "after": 93,
+    "proposed": 13,
+    "enriched": 53
+  },
+  "invariants": [
+    "raster, token e regioni immutati",
+    "campi esistenti significativi conservati",
+    "geometria e contenuto delle proposte arricchite conservati",
+    "seconda applicazione idempotente",
+    "campi entro pagina",
+    "nessun errore browser"
+  ]
+}

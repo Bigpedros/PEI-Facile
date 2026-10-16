@@ -73,6 +73,8 @@ export interface DetectPageFieldsOptions {
 }
 
 export interface PageDetectionDiagnostics {
+  fieldAssociations?:import('./documental/engine/fieldAssociations').FieldAssociationDiagnostics;
+  associationPassAddedCount?:number;
   structuralCoverage?:import('./documental/engine/structuralCoverage').StructuralCoverageDiagnostics;
   secondReader?:import('./pei-specialization/PeiFieldDetectionProfile').PeiFieldDetectionProfileDiagnostics['secondReader'];
   fieldInferenceDiagnostics?:import('./documental/engine/fieldDiagnostics').FieldInferenceDiagnostics;
@@ -170,7 +172,7 @@ export function isProtectedDetectionField(field: FieldGeometry): boolean {
 
 /** A generic structural proposal cannot cover even a small protected field. */
 function structuralProtectedConflict(candidate:FieldGeometry,existing:FieldGeometry,pageNumber:number):boolean {
- return candidate.detectionSource==='PEI_STRUCTURAL_RECOVERY'&&existing.pageNumber===pageNumber&&isProtectedDetectionField(existing)&&
+ return ['PEI_STRUCTURAL_RECOVERY','PEI_CONTEXT_ASSOCIATION'].includes(candidate.detectionSource||'')&&existing.pageNumber===pageNumber&&isProtectedDetectionField(existing)&&
   Math.min(candidate.xPt+candidate.widthPt,existing.xPt+existing.widthPt)>Math.max(candidate.xPt,existing.xPt)&&
   Math.min(candidate.yPt+candidate.heightPt,existing.yPt+existing.heightPt)>Math.max(candidate.yPt,existing.yPt);
 }
@@ -954,7 +956,9 @@ export async function detectFieldsOnPdfPage(
     finalProposalsCount:filtered.length,
     underDetectionSuspected:profile.diagnostics.underDetectionSuspected,
     uncoveredPlausibleRegionsCount:profile.diagnostics.uncoveredPlausibleRegionsCount,
-    recoveryPassAddedCount:profile.diagnostics.structuralRecoveryAdded+profile.diagnostics.secondPassAdded,
+    recoveryPassAddedCount:profile.diagnostics.structuralRecoveryAdded+profile.diagnostics.secondPassAdded+(result.page.fieldAssociations?.summary.proposed??0),
+    associationPassAddedCount:result.page.fieldAssociations?.summary.proposed??0,
+    fieldAssociations:result.page.fieldAssociations,
     expectedStructuralRegionsCount:result.page.structuralCoverage?.summary.plausible??null,
     structuralCoverage:result.page.structuralCoverage,
     secondReader:profile.diagnostics.secondReader,
@@ -969,6 +973,7 @@ export async function detectFieldsOnPdfPage(
  * Captures real browser data from PDF.js, text items, vector graphics, raster lines, and pipeline transformations.
  */
 export interface PageRuntimeDiagnosticTrace {
+  fieldAssociations?:import('./documental/engine/fieldAssociations').FieldAssociationDiagnostics;
   stageTimingsMs?:import('./documental/engine/types').PageResult['stageTimingsMs'];
   structuralCoverage?:import('./documental/engine/structuralCoverage').StructuralCoverageDiagnostics;
   ocrReading?:import('./documental/engine/dualReading').DualReadingDiagnostics;
@@ -1137,7 +1142,8 @@ export async function collectPageRuntimeDiagnostics(
     const index=visibleFields.findIndex(f=>f.id===a.fieldId);
     return {internalFieldId:a.fieldId,candidateFieldId:index>=0?`doc-p${pageNumber}-${index+1}`:null,retainedInPage:index>=0};
   });
-  return {timestamp:new Date().toISOString(),diagnosticSchema:'PEI_CALIBRATION_AUDIT_V1',detectionRevision:'calibratore-20261015-fase3-copertura-strutturale',detectionDpi:200,
+  return {timestamp:new Date().toISOString(),diagnosticSchema:'PEI_CALIBRATION_AUDIT_V1',detectionRevision:'calibratore-20261015-fase4-associazioni',detectionDpi:200,
+    fieldAssociations:page.fieldAssociations,
     structuralCoverage:page.structuralCoverage,stageTimingsMs:page.stageTimingsMs,
     ocrReading:page.ocrReading,
     secondReader:profile.diagnostics.secondReader,
@@ -1153,10 +1159,12 @@ export async function collectPageRuntimeDiagnostics(
       {step:'ocrExtraction',description:'Prima lettura del core documentale',counts:{rawOcrWordsCount:page.ocrReading?.rawTokens.length??page.tokens.filter(t=>t.source==='ocr').length,validOcrTextItemsCount:page.tokens.filter(t=>t.source==='ocr').length,used:result.source==='ocr'}},
       {step:'independentOcrComparison',description:'Tesseract e OCRS/RTen nello stesso spazio raster, confronto deterministico',counts:{executed:!!page.ocrReading,rawPrimaryWords:page.ocrReading?.rawTokens.length??null,secondaryWords:page.ocrReading?.secondaryTokens.length??null,agreements:page.ocrReading?.agreements??null,disagreements:page.ocrReading?.disagreements??null,changed:page.ocrReading?.changed??null},details:{secondReader:profile.diagnostics.secondReader,warnings:page.ocrReading?.warnings??[]}},
       {step:'structuralCoverageRecovery',description:'Copertura misurata di celle, caselle e righe; recupero conservativo senza associazione semantica automatica',counts:{measured:page.structuralCoverage?.summary.measured??0,plausible:page.structuralCoverage?.summary.plausible??0,uncoveredBefore:page.structuralCoverage?.summary.uncoveredBefore??0,recovered:page.structuralCoverage?.summary.recovered??0,uncoveredAfter:page.structuralCoverage?.summary.uncoveredAfter??0},details:{schema:page.structuralCoverage?.schema,unit:'px'}},
+      {step:'measuredFieldAssociations',description:'Intestazioni e consegne collegate dalla geometria misurata; contenuti conservati e ambiguità esplicite',counts:{proposed:page.fieldAssociations?.summary.proposed??0,enriched:page.fieldAssociations?.summary.enriched??0,ambiguous:page.fieldAssociations?.summary.ambiguous??0,blocked:page.fieldAssociations?.summary.blocked??0},details:{schema:page.fieldAssociations?.schema,unit:'px'}},
       {step:'peiSpecializationSecondPass',description:'Hook specialistico opzionale su evidenze strutturali e testuali residue; B ordinario e nel core',counts:{triggered:profile.diagnostics.secondPassTriggered,secondPassFields:profile.diagnostics.secondPassFields,secondPassAdded:profile.diagnostics.secondPassAdded,uncoveredPlausibleRegionsCount:profile.diagnostics.uncoveredPlausibleRegionsCount,uncoveredCellCount:profile.diagnostics.uncoveredCellCount,uncoveredCheckboxCount:profile.diagnostics.uncoveredCheckboxCount,uncoveredLineCount:profile.diagnostics.uncoveredLineCount},details:{secondReader:profile.diagnostics.secondReader,uncoveredEvidenceKind:profile.diagnostics.uncoveredEvidenceKind}},
       {step:'detectRegions',description:'Regioni misurate sullo stesso raster dei campi',counts:{regions:boxes.length}},
       {step:'inferFields',description:'Merge non distruttivo: il secondo passaggio può solo aggiungere proposte PEI',counts:{rawCandidates:rawCandidates.length,protectedDuplicates:classified.protectedDuplicates.length,matchedAutomatic:classified.matchedAutomatic.length,newProposalsCount:classified.newProposals.length,finalProposalsCount:proposed.length}}],
       discarded:[
+        ...(page.fieldAssociations?.decisions.filter(d=>d.outcome==='ambiguous'||d.outcome==='blocked').map(d=>({candidateId:d.id,discardedAt:'fieldAssociations',discardedReason:d.reason,relevantValues:{pageNumber,regionId:d.regionId,sourceRegionIds:d.sourceRegionIds,sourceTokenIds:d.sourceTokenIds}}))??[]),
         ...(page.structuralCoverage?.evidence.filter(e=>e.plausible&&!e.coveredAfter).map(e=>({candidateId:e.id,discardedAt:'structuralCoverage',discardedReason:e.reason,relevantValues:{pageNumber,kind:e.kind,box:e.responseBox,unit:'px',coverage:e.coverageAfter,context:e.context}}))??[]),
         ...(page.fieldInferenceDiagnostics?.regions.filter(r=>r.outcome==='excluded').map(r=>({candidateId:r.regionId,discardedAt:'inferFields.region',discardedReason:r.reason,relevantValues:{pageNumber,category:r.category,box:r.box,unit:'px',positionedWords:r.positionedWords,overlappingFieldIds:r.overlappingFieldIds,...r.details}}))??[]),
         ...(page.fieldInferenceDiagnostics?.attempts.filter(a=>a.outcome==='excluded').map(a=>({candidateId:a.fieldId,discardedAt:'inferFields.candidate',discardedReason:a.reason,relevantValues:{pageNumber,regionId:a.regionId,box:a.box,unit:'px',duplicateOf:a.duplicateOf}}))??[]),

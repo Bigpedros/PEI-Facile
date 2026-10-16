@@ -6,6 +6,7 @@ import {detectRegions} from './regions';
 import {FieldInferenceAudit} from './fieldDiagnostics';
 import {recoverStructuralFields} from './structuralCoverage';
 import {rasterStrokes} from './strokes';
+import {associateMeasuredFields,refreshAssociatedCoverage} from './fieldAssociations';
 import {tokensToText,mapBox,rotateBox,intersectionRatio,assignLines} from './geometry';
 import {parseReceipt} from '../adapters/receipt';
 import type {DocumentResult,EngineOptions,PageResult,RasterPage,Token} from './types';
@@ -83,8 +84,12 @@ export async function analyzeRasterPage(raw:RasterPage,options:EngineOptions,rec
  const recoveryStart=performance.now();
  const recovery=options.profile==='pei'?recoverStructuralFields(prepared.canvas,groupedTokens,regions,baseFields,inferenceAudit?.finish(inferred),inferenceAudit,strokes):undefined;
  stageTimingsMs.structuralRecovery=Math.round(performance.now()-recoveryStart);
- const fields=recovery?.fields??baseFields,fieldInferenceDiagnostics=inferenceAudit?.finish(fields);
- return {pageNumber:raw.pageNumber,width:prepared.canvas.width,height:prepared.canvas.height,unit:'px',image:prepared.canvas.toDataURL('image/png'),text,tokens,regions,fields,source:native?'pdf':'ocr',transform:prepared.transform,physicalSizeMm:prepared.physicalSizeMm,warnings,fieldInferenceDiagnostics,ocrReading,secondReader,structuralCoverage:recovery?.diagnostics,stageTimingsMs,elapsedMs:Math.round(performance.now()-start)};
+ const associationStart=performance.now();
+ const associated=options.profile==='pei'?associateMeasuredFields(prepared.canvas,groupedTokens,regions,recovery?.fields??baseFields,inferenceAudit,strokes,ocrReading?.secondaryTokens):undefined;
+ const fields=associated?.fields??recovery?.fields??baseFields,fieldInferenceDiagnostics=inferenceAudit?.finish(fields);
+ const structuralCoverage=refreshAssociatedCoverage(recovery?.diagnostics,fields,associated?.diagnostics);
+ const timings={...stageTimingsMs,fieldAssociation:Math.round(performance.now()-associationStart)};
+ return {pageNumber:raw.pageNumber,width:prepared.canvas.width,height:prepared.canvas.height,unit:'px',image:prepared.canvas.toDataURL('image/png'),text,tokens,regions,fields,source:native?'pdf':'ocr',transform:prepared.transform,physicalSizeMm:prepared.physicalSizeMm,warnings,fieldInferenceDiagnostics,ocrReading,secondReader,structuralCoverage,fieldAssociations:associated?.diagnostics,stageTimingsMs:timings,elapsedMs:Math.round(performance.now()-start)};
 }
 
 export async function analyzeDocument(file:File,options:EngineOptions):Promise<DocumentResult> {

@@ -19,7 +19,8 @@ export interface PageResult {
  ocrReading?:import('./dualReading').DualReadingDiagnostics;
  secondReader?:import('./dualReading').IndependentReaderState;
  structuralCoverage?:import('./structuralCoverage').StructuralCoverageDiagnostics;
- stageTimingsMs?:{normalization:number;primaryOcr:number;secondaryOcr:number;geometry:number;fieldInference:number;structuralRecovery:number};
+ fieldAssociations?:import('./fieldAssociations').FieldAssociationDiagnostics;
+ stageTimingsMs?:{normalization:number;primaryOcr:number;secondaryOcr:number;geometry:number;fieldInference:number;structuralRecovery:number;fieldAssociation?:number};
 }
 export interface ReceiptItem {description:string;amount:number;line:string}
 export interface ReceiptResult {merchant:string|null;date:string|null;total:number|null;items:ReceiptItem[];itemsSum:number;difference:number|null;warnings:string[];status:'review'}

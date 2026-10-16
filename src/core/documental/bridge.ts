@@ -11,7 +11,8 @@ export function pageCandidates(page: PageResult): CandidateFieldGeometry[] {
   const sx = (page.physicalSizeMm?.width ?? 210) / 25.4 * 72 / page.width;
   const sy = (page.physicalSizeMm?.height ?? 297) / 25.4 * 72 / page.height;
   return page.fields.filter(f => f.status !== 'ignored').map((f, i) => {
-    const suggestion = suggestSemanticKey(f.label);
+    const contextual=f.reason.startsWith('Associazione strutturale PEI:');
+    const suggestion = contextual?{confidence:0,semanticKey:null}:suggestSemanticKey(f.label);
     return {
       fieldId: `doc-p${page.pageNumber}-${i + 1}`, label: f.label,
       pageNumber: page.pageNumber, xPt: f.box.x*sx, yPt: f.box.y*sy,
@@ -21,7 +22,7 @@ export function pageCandidates(page: PageResult): CandidateFieldGeometry[] {
       fieldType: f.type==='date'?'DATE':f.type==='textarea'?'TEXT_LONG':f.type==='checkbox'?'MULTI_CHOICE':f.type==='select'?'SINGLE_CHOICE':'TEXT_SHORT', anchorText: f.label, confidence: f.confidence,
       suggestedLabel:f.label, status: 'REVIEW_REQUIRED', calibrationStatus: 'PROPOSED',
       derivationMethod: f.reason.startsWith('Widget AcroForm') ? 'ACROFORM' : f.origin === 'checkbox' ? 'CHECKBOX_BOX' : f.origin === 'cell' ? 'TABLE_CELL' : f.origin === 'line' ? 'VECTOR_LINE' : 'TEXT_ANCHOR',
-      detectionSource: f.reason.startsWith('Widget AcroForm')?'ACROFORM':f.reason.startsWith('Recupero strutturale PEI:')?'PEI_STRUCTURAL_RECOVERY':'DOCUMENTAL_020', evidence: f.reason,
+      detectionSource: f.reason.startsWith('Widget AcroForm')?'ACROFORM':contextual?'PEI_CONTEXT_ASSOCIATION':f.reason.startsWith('Recupero strutturale PEI:')?'PEI_STRUCTURAL_RECOVERY':'DOCUMENTAL_020', evidence: f.reason,
       // Suggestions are not confirmed PEI associations.
       semanticKey: null, suggestedSemanticKey: suggestion.confidence >= .75 ? suggestion.semanticKey : null,
       inputType: f.type === 'checkbox' || f.type === 'select' ? f.type : undefined,
