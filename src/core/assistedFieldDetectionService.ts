@@ -1,3 +1,4 @@
+import { captureRecognitionSnapshot, type RecognitionSnapshot } from './recognitionSnapshot';
 import { detectCanonicalPageFields } from './documental/detection';
 /**
  * @license
@@ -45,6 +46,7 @@ import { PeiOcrCteAdapter } from '../integrations/ocrCte/PeiOcrCteAdapter';
 import { runPeiFieldDetectionProfile } from './pei-specialization/PeiFieldDetectionProfile';
 
 export interface DetectPageFieldsOptions {
+  onRecognitionSnapshot?: (snapshot: RecognitionSnapshot) => void;
   signal?:AbortSignal;
   independentReading?:boolean;
   canvasElement?: HTMLCanvasElement;
@@ -946,6 +948,7 @@ export async function detectFieldsOnPdfPage(
     signal:opts.signal,
     independentReading:opts.independentReading,
   });
+  opts.onRecognitionSnapshot?.(captureRecognitionSnapshot(profile.firstPass.page, profile.fields, 'explicit-detection', profile));
   const result = profile.firstPass;
   const proposed = profile.fields;
   const filtered = proposed.filter(c => !existingFields.some(e => isSubstantialDuplicate(c,e,pageNumber)||structuralProtectedConflict(c,e,pageNumber)));
@@ -1213,7 +1216,13 @@ export async function detectFieldsOnEntireDocument(
       const pageProxy = await pdfDoc.getPage(pageNum);
       const protectedFields = targetPage.fields.filter(isProtectedDetectionField);
 
-      const detected = await detectFieldsOnPdfPage(pageProxy, pageNum, protectedFields,{...detectionOptions,signal:effectiveSignal});
+      const detected = await detectFieldsOnPdfPage(pageProxy, pageNum, protectedFields,{
+        ...detectionOptions,signal:effectiveSignal,
+        onRecognitionSnapshot: snapshot => {
+          targetPage!.recognitionSnapshot = snapshot;
+          detectionOptions.onRecognitionSnapshot?.(snapshot);
+        },
+      });
 
       targetPage.fields = [...protectedFields, ...detected];
       totalProposed += detected.length;

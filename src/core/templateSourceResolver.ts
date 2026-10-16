@@ -510,6 +510,7 @@ export async function resolveTemplateSource(
     pages: templateSchema.pages.map((p) => ({
       pageNumber: p.pageNumber,
       widthPt: p.widthPt,
+      recognitionSnapshot: p.recognitionSnapshot,
       heightPt: p.heightPt,
       fields: templateSchema.fields
         .filter((f) => f.pageNumber === p.pageNumber)

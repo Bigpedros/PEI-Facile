@@ -1,3 +1,4 @@
+import { captureRecognitionSnapshot } from '../recognitionSnapshot';
 import { createTemplateSchemaFromCandidates } from '../templateSchemaService';
 /** Single acquisition/detection bridge. Final raster pixels -> top-left PDF points. */
 import { PDFDocument } from 'pdf-lib';
@@ -94,6 +95,6 @@ export async function runDocumental(input: File | File[] | ArrayBuffer | Uint8Ar
 }
 
 export function documentSchema(result:DocumentResult,hash:string,order:any){
- const pages=result.pages.map(p=>({pageNumber:p.pageNumber,widthPt:210/25.4*72,heightPt:297/25.4*72,fields:pageCandidates(p)}));
+ const pages=result.pages.map(p=>({pageNumber:p.pageNumber,widthPt:210/25.4*72,heightPt:297/25.4*72,fields:pageCandidates(p),recognitionSnapshot:captureRecognitionSnapshot(p,pageCandidates(p),'acquisition')}));
  return createTemplateSchemaFromCandidates(`doc_${result.id}`,result.filename,hash,pages,pages.flatMap(p=>p.fields),'REVIEW_REQUIRED',order);
 }
